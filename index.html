@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Orapa Mine - Maître de jeu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top-bar">
+    <h1>Orapa Mine - Maître de jeu</h1>
+    <div class="controls">
+      <button id="startBtn">Démarrer partie</button>
+      <button id="resetBtn">Recommencer</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="board-wrapper">
+      <div class="board-header">
+        <div class="corner"></div>
+        <div class="col-labels" id="colLabels"></div>
+      </div>
+      <div class="board-body">
+        <div class="row-labels" id="rowLabels"></div>
+        <div class="grid" id="grid"></div>
+      </div>
+    </section>
+
+    <section class="side-panel">
+      <h2>Pièces</h2>
+      <div class="pieces-pool" id="piecesPool"></div>
+
+      <h2>Historique</h2>
+      <div class="history" id="history"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
