@@ -1,0 +1,12 @@
+{
+  "name": "Orapa Mine — Maître du jeu",
+  "short_name": "Orapa Mine",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#120e0a",
+  "theme_color": "#120e0a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
