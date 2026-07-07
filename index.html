@@ -71,22 +71,26 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .label-row.bottom{grid-row:3;}
 .label-row.left{grid-column:1;}
 .label-row.right{grid-column:3;}
-.label{display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:600;font-size:.65rem;color:var(--gold);width:var(--cs);height:var(--cs);flex:0 0 var(--cs);border-radius:4px;transition:background .3s,color .3s,box-shadow .3s;}
+.label{display:flex;align-items:center;justify-content:center;gap:2px;font-family:'Cinzel',serif;font-weight:600;font-size:.65rem;color:var(--gold);width:calc(var(--cs) - 4px);height:calc(var(--cs) - 4px);margin:2px;flex:0 0 calc(var(--cs) - 4px);border-radius:6px;transition:background .25s,color .25s,box-shadow .25s;}
 .label.clickable{cursor:pointer;}
 .label.clickable:active{background:rgba(230,194,122,.25);}
-.label.used{font-weight:700;}
-.board{grid-row:2;grid-column:2;position:relative;background:var(--onyx);border-radius:3px;box-shadow:inset 0 0 20px rgba(0,0,0,.6);}
+.label.used{font-weight:700;box-shadow:0 0 0 1px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.15);}
+.label .bounce-arrow{font-size:.6rem;line-height:1;}
+.board{grid-row:2;grid-column:2;position:relative;background:#747d8c;border-radius:3px;box-shadow:inset 0 0 20px rgba(0,0,0,.35);}
 .board-bg-grid{position:absolute;inset:0;}
 .cellhit{position:absolute;}
-.cellhit.hover-target{background:rgba(230,194,122,.18);}
+.cellhit.hover-target{background:rgba(255,255,255,.28);}
 .cellhit.queried{animation:flashCell .8s ease;}
-@keyframes flashCell{0%{background:rgba(230,194,122,.5)}100%{background:transparent}}
+.cellhit.used-empty,.cellhit.used-occupied{cursor:default;}
+@keyframes flashCell{0%{background:rgba(255,255,255,.55)}100%{background:transparent}}
 .overlaysvg{position:absolute;inset:0;}
-.piece-poly{filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));}
+.piece-poly{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));}
 .piece-poly.locked{pointer-events:none;}
 .piece-poly.dragging{opacity:.35;}
 .flip-pulse{animation:flipFlash .35s ease;}
 @keyframes flipFlash{0%{filter:brightness(2.4)}100%{filter:brightness(1)}}
+.invalid-pulse{animation:invalidFlash .4s ease;}
+@keyframes invalidFlash{0%{filter:brightness(1.6) saturate(3) hue-rotate(-20deg)}100%{filter:none}}
 .history-panel{background:var(--panel);border:1px solid var(--vein);border-radius:var(--radius);max-height:280px;overflow-y:auto;padding:6px;}
 .history-empty{color:var(--text-faint);font-size:.82rem;font-style:italic;padding:14px;text-align:center;}
 .history-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;font-size:.85rem;border-bottom:1px solid rgba(91,70,48,.3);}
@@ -155,7 +159,6 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 
   <div class="toolbar-row">
     <div class="section-title">Historique de la partie</div>
-    <button id="btnCopyHistory" class="ghost" style="font-size:.7rem;padding:6px 10px;">Copier</button>
   </div>
   <div id="history" class="history-panel">
     <div class="history-empty">Démarre la partie puis clique sur une lettre, un chiffre ou une case pour interroger la mine.</div>
@@ -167,11 +170,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 <div class="modal-backdrop" id="helpModal">
   <div class="modal">
     <button class="close-x" id="closeHelp">×</button>
-    <h2>Aide-mémoire</h2>
-    <p><b>Placement :</b> glisse une gemme depuis la palette vers la grille, elle s'aimante à la position la plus proche. Un tap la fait pivoter de 90°. Un appui long la retourne en miroir (utile pour le trapèze rouge).</p>
-    <p><b>Bords de la grille :</b> haut = chiffres 1-10, bas = lettres I-R, gauche = lettres A-H, droite = chiffres 11-18. Une fois la partie démarrée, clique un bord pour lancer un rayon, ou une case intérieure pour vérifier si une gemme s'y trouve.</p>
-    <p><b>Réflexion :</b> une arête droite d'une pièce renvoie le rayon en sens inverse ; une arête oblique (45°) le dévie à angle droit. Le triangle transparent dévie sans jamais colorer le rayon. Le rectangle noir arrête le rayon dès qu'il l'atteint.</p>
-    <h2 style="margin-top:16px;">Couleurs créées par combinaison</h2>
+    <h2>Couleurs créées par combinaison</h2>
     <div id="mixBoard" class="mix-board"></div>
   </div>
 </div>

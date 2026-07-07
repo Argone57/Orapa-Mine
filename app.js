@@ -1,13 +1,13 @@
 // =====================================================================
-// ORAPA MINE — Console du maître du jeu (v2 : grille 10x8, vraies formes)
+// ORAPA MINE — Console du maître du jeu (v3)
 // =====================================================================
-// Chaque gemme est un polygone réel (triangle, trapèze, losange, rectangle),
-// pas juste une case. Le rayon est simulé en géométrie continue : il avance
-// en ligne droite et rebondit sur la première arête de pièce rencontrée.
+// Le rayon est simulé en géométrie continue : il avance en ligne droite et
+// rebondit sur la première arête de pièce rencontrée.
 //  - Arête droite (horizontale/verticale)  -> renvoie en sens inverse.
 //  - Arête oblique (45°)                   -> dévie à angle droit.
-//  - Rectangle noir (corps noir)           -> arrête le rayon dès contact.
-//  - Triangle transparent                  -> dévie sans jamais colorer.
+//  - Corps noir       -> arrête le rayon dès contact (aucune sortie).
+//  - Diamant          -> dévie normalement mais ne colore jamais le rayon.
+// Les pièces ne peuvent se toucher que par un coin (jamais par un côté).
 // =====================================================================
 
 const COLS = 10, ROWS = 8;
@@ -17,26 +17,27 @@ const LEFT_LABELS   = Array.from({length:ROWS}, (_,i)=> String.fromCharCode(65+i
 const RIGHT_LABELS  = Array.from({length:ROWS}, (_,i)=> String(11+i));              // 11..18
 
 // Formes de base, sommets en coordonnées LOCALES relatives au centre (unité = 1 case).
-function trianglePts(size){ const h=size/2; return [[-h,-h],[h,-h],[h,h]]; }
+function rightTrianglePts(size){ const h=size/2; return [[-h,-h],[h,-h],[h,h]]; }
+function isocelesPts(base, height){ const hb=base/2, hh=height/2; return [[-hb,-hh],[hb,-hh],[0,hh]]; }
 const SHAPES = {
-  onyx:    { pts: [[-1,-0.5],[1,-0.5],[1,0.5],[-1,0.5]] },                 // rectangle 2x1
-  red:     { pts: [[-1.5,0.5],[-0.5,-0.5],[1.5,-0.5],[0.5,0.5]] },         // trapèze/parallélogramme
-  yellow:  { pts: trianglePts(2) },
-  blue:    { pts: trianglePts(3) },
-  white:   { pts: trianglePts(3) },
-  rhombus: { pts: [[0,-1],[1,0],[0,1],[-1,0]] },                          // losange 2x2
-  gray:    { pts: trianglePts(1) }
+  onyx:    { pts: [[-1,-0.5],[1,-0.5],[1,0.5],[-1,0.5]] },           // rectangle 2x1
+  red:     { pts: [[-1.5,0.5],[-0.5,-0.5],[1.5,-0.5],[0.5,0.5]] },   // trapèze/parallélogramme
+  yellow:  { pts: rightTrianglePts(2) },                             // triangle rectangle, cathètes=2
+  blue:    { pts: isocelesPts(4,2) },                                // base 4, hauteur 2
+  white:   { pts: isocelesPts(4,2) },                                // base 4, hauteur 2
+  rhombus: { pts: [[0,-1],[1,0],[0,1],[-1,0]] },                     // losange 2x2
+  gray:    { pts: isocelesPts(2,1) }                                 // base 2, hauteur 1
 };
 
 const CONFIG = {
   PIECES: {
-    red:     { label:'Trapèze rouge',    hex:'#d1293d', colorKey:'red' },
-    yellow:  { label:'Triangle jaune',   hex:'#e0a72e', colorKey:'yellow' },
-    blue:    { label:'Triangle bleu',    hex:'#2f6fd1', colorKey:'blue' },
-    white:   { label:'Triangle blanc',   hex:'#f5f1e8', colorKey:'white' },
-    rhombus: { label:'Losange blanc',    hex:'#f5f1e8', colorKey:'white' },
-    gray:    { label:'Triangle transparent', hex:'#cfd8dc', colorKey:null, isDiamond:true },
-    onyx:    { label:'Rectangle noir',   hex:'#100c08', colorKey:null, isOnyx:true }
+    red:     { label:'Trapèze rouge',  hex:'#d1293d', colorKey:'red' },
+    yellow:  { label:'Triangle jaune', hex:'#e0a72e', colorKey:'yellow' },
+    blue:    { label:'Triangle bleu',  hex:'#2f6fd1', colorKey:'blue' },
+    white:   { label:'Triangle blanc', hex:'#f5f1e8', colorKey:'white' },
+    rhombus: { label:'Losange blanc',  hex:'#f5f1e8', colorKey:'white' },
+    gray:    { label:'Diamant',        hex:'#cfd8dc', colorKey:null, isDiamond:true },
+    onyx:    { label:'Corps noir',     hex:'#0d0b08', colorKey:null, isOnyx:true }
   },
   MIX: {
     'red':                    { name:'Rouge',        hex:'#d1293d' },
@@ -55,8 +56,8 @@ const CONFIG = {
     'blue+red+yellow':        { name:'Noir',         hex:'#171310' },
     'blue+red+white+yellow':  { name:'Gris',         hex:'#8f8f8f' }
   },
-  NONE:     { name:'Transparent', hex:'#6b6355' },
-  ABSORBED: { name:'Absorbé — Rectangle noir', hex:'#100c08' }
+  NONE:     { name:'Transparent', hex:'#8a93a3' },
+  ABSORBED: { name:'Absorbé',     hex:'#0d0b08' }
 };
 
 // ---------------------------------------------------------------------
@@ -66,11 +67,14 @@ let state = {
   started:false,
   includeGray:true,
   includeOnyx:true,
-  pieces:[],      // {id,type,center:{x,y}|null,rotation,flipped}
+  pieces:[],
   history:[],
   labelColor:{ top:{}, bottom:{}, left:{}, right:{} },
+  labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
+  cellUsed:{},
   traces:[],
-  emptyMarks:[]   // [{x,y}] centres de cases vides interrogées
+  emptyMarks:[],
+  occupiedMarks:[]
 };
 let pieceIdSeq = 1;
 
@@ -83,14 +87,17 @@ function allTypes(){
 function freshPieceSet(){ return allTypes().map(t=> newPiece(t)); }
 function newPiece(type){ return { id:'p'+(pieceIdSeq++), type, center:null, rotation:0, flipped:false }; }
 
-function saveState(){ try{ localStorage.setItem('orapaMineStateV2', JSON.stringify(state)); }catch(e){} }
+function saveState(){ try{ localStorage.setItem('orapaMineStateV3', JSON.stringify(state)); }catch(e){} }
 function loadState(){
   try{
-    const raw = localStorage.getItem('orapaMineStateV2');
+    const raw = localStorage.getItem('orapaMineStateV3');
     if(!raw) return false;
     const s = JSON.parse(raw);
     if(!s || !Array.isArray(s.pieces)) return false;
     state = s;
+    state.labelBounce = state.labelBounce || {top:{},bottom:{},left:{},right:{}};
+    state.cellUsed = state.cellUsed || {};
+    state.occupiedMarks = state.occupiedMarks || [];
     pieceIdSeq = 1 + state.pieces.reduce((m,p)=>Math.max(m, parseInt((p.id||'p0').slice(1))||0), 0);
     return true;
   }catch(e){ return false; }
@@ -98,14 +105,15 @@ function loadState(){
 function resetAll(){
   const g = state.includeGray, o = state.includeOnyx;
   state = { started:false, includeGray:g, includeOnyx:o, pieces:[], history:[],
-            labelColor:{top:{},bottom:{},left:{},right:{}}, traces:[], emptyMarks:[] };
+            labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
+            cellUsed:{}, traces:[], emptyMarks:[], occupiedMarks:[] };
   state.pieces = freshPieceSet();
   saveState();
   renderAll();
 }
 
 // ---------------------------------------------------------------------
-// GEOMETRY
+// GEOMETRY — transform & rendering helpers
 // ---------------------------------------------------------------------
 function transformVertex(v, flipped, rotation, center){
   let x=v[0], y=v[1];
@@ -136,7 +144,7 @@ function boundingHalfExtents(piece){
   return { hw:(Math.max(...xs)-Math.min(...xs))/2, hh:(Math.max(...ys)-Math.min(...ys))/2 };
 }
 function snapCoord(raw, halfExtent){
-  const frac = ((halfExtent % 1) + 1) % 1; // 0 ou 0.5
+  const frac = ((halfExtent % 1) + 1) % 1;
   return Math.round(raw - frac) + frac;
 }
 function pointInPolygon(pt, poly){
@@ -153,6 +161,68 @@ function pieceAtCell(row,col){
   return state.pieces.find(p=> p.center && pointInPolygon(pt, pieceVertices(p)));
 }
 
+// ---------------------------------------------------------------------
+// GEOMETRY — collision : les pièces ne peuvent se toucher que par un coin
+// ---------------------------------------------------------------------
+function ensureCCW(poly){
+  let area=0;
+  for(let i=0;i<poly.length;i++){ const p=poly[i], q=poly[(i+1)%poly.length]; area += p.x*q.y - q.x*p.y; }
+  return area < 0 ? poly.slice().reverse() : poly;
+}
+function cross2(A,B,P){ return (B.x-A.x)*(P.y-A.y)-(B.y-A.y)*(P.x-A.x); }
+function segIntersect(A,B,P,Q){
+  const a1=B.y-A.y,b1=A.x-B.x,c1=a1*A.x+b1*A.y;
+  const a2=Q.y-P.y,b2=P.x-Q.x,c2=a2*P.x+b2*P.y;
+  const det=a1*b2-a2*b1;
+  if(Math.abs(det)<1e-12) return P;
+  return { x:(b2*c1-b1*c2)/det, y:(a1*c2-a2*c1)/det };
+}
+function clipPolygon(subject, clip){
+  let output = subject;
+  for(let i=0;i<clip.length;i++){
+    const A=clip[i], B=clip[(i+1)%clip.length];
+    const input = output; output=[];
+    if(input.length===0) break;
+    for(let j=0;j<input.length;j++){
+      const P=input[j], Q=input[(j+1)%input.length];
+      const sideP = cross2(A,B,P), sideQ = cross2(A,B,Q);
+      if(sideP >= -1e-9) output.push(P);
+      if((sideP>1e-9 && sideQ<-1e-9) || (sideP<-1e-9 && sideQ>1e-9)) output.push(segIntersect(A,B,P,Q));
+    }
+  }
+  return output;
+}
+function polyArea(poly){
+  let a=0; for(let i=0;i<poly.length;i++){ const p=poly[i],q=poly[(i+1)%poly.length]; a+=p.x*q.y-q.x*p.y; } return Math.abs(a)/2;
+}
+function maxExtent(poly){
+  let m=0;
+  for(let i=0;i<poly.length;i++) for(let j=i+1;j<poly.length;j++) m=Math.max(m, Math.hypot(poly[i].x-poly[j].x, poly[i].y-poly[j].y));
+  return m;
+}
+function touchesBySide(polyA, polyB){
+  const A = ensureCCW(polyA), B = ensureCCW(polyB);
+  const inter = clipPolygon(A, B);
+  if(inter.length===0) return false;
+  if(polyArea(inter) > 1e-4) return true;   // chevauchement réel
+  if(maxExtent(inter) > 1e-3) return true;  // contact le long d'une arête
+  return false;                              // simple contact ponctuel (coin) -> autorisé
+}
+function placementValid(candidate, excludeId){
+  const {hw,hh} = boundingHalfExtents(candidate);
+  if(candidate.center.x-hw < -1e-6 || candidate.center.x+hw > COLS+1e-6) return false;
+  if(candidate.center.y-hh < -1e-6 || candidate.center.y+hh > ROWS+1e-6) return false;
+  const polyA = pieceVertices(candidate);
+  for(const other of state.pieces){
+    if(!other.center || other.id===excludeId) continue;
+    if(touchesBySide(polyA, pieceVertices(other))) return false;
+  }
+  return true;
+}
+
+// ---------------------------------------------------------------------
+// GEOMETRY — tracé du rayon
+// ---------------------------------------------------------------------
 const EPS = 1e-6;
 function intersectRaySegment(pos, dir, A, B){
   if(dir.dx !== 0){
@@ -176,16 +246,16 @@ function intersectRaySegment(pos, dir, A, B){
 function edgeKind(A,B){
   if(Math.abs(A.x-B.x) < EPS || Math.abs(A.y-B.y) < EPS) return 'wall';
   const slope = (B.y-A.y)/(B.x-A.x);
-  return slope > 0 ? 'back' : 'fwd'; // 'back' ~ "\", 'fwd' ~ "/"
+  return slope > 0 ? 'back' : 'fwd';
 }
 function reflect(dir, kind){
   const {dx,dy} = dir;
-  if(kind==='back'){ // "\"
+  if(kind==='back'){
     if(dx=== 1) return {dx:0,dy:1};
     if(dx===-1) return {dx:0,dy:-1};
     if(dy===-1) return {dx:-1,dy:0};
     if(dy=== 1) return {dx:1,dy:0};
-  } else { // "/"
+  } else {
     if(dx=== 1) return {dx:0,dy:-1};
     if(dx===-1) return {dx:0,dy:1};
     if(dy===-1) return {dx:1,dy:0};
@@ -197,12 +267,10 @@ function intersectBoundary(pos,dir){
   if(dir.dx!==0){ const x = dir.dx>0?COLS:0; return { t:(x-pos.x)/dir.dx, point:{x,y:pos.y} }; }
   const y = dir.dy>0?ROWS:0; return { t:(y-pos.y)/dir.dy, point:{x:pos.x,y} };
 }
-
 function colorKeyOf(set){ return [...set].sort().join('+'); }
 function resolveColor(set){
   if(set.size===0) return CONFIG.NONE;
-  const key = colorKeyOf(set);
-  return CONFIG.MIX[key] || CONFIG.NONE;
+  return CONFIG.MIX[colorKeyOf(set)] || CONFIG.NONE;
 }
 
 function simulateBeam(side,index){
@@ -224,9 +292,7 @@ function simulateBeam(side,index){
     for(const piece of placed){
       for(const [A,B] of pieceEdges(piece)){
         const hit = intersectRaySegment(pos,dir,A,B);
-        if(hit && hit.t < best.t - EPS){
-          best = { t:hit.t, point:hit.point, kind:'edge', piece, edgeType:edgeKind(A,B) };
-        }
+        if(hit && hit.t < best.t - EPS) best = { t:hit.t, point:hit.point, kind:'edge', piece, edgeType:edgeKind(A,B) };
       }
     }
     if(best.kind==='boundary'){
@@ -246,14 +312,23 @@ function simulateBeam(side,index){
     pos = { x: best.point.x + dir.dx*1e-4, y: best.point.y + dir.dy*1e-4 };
   }
   const color = absorbed==='loop' ? {name:'Boucle infinie détectée',hex:'#c1503f'} : (absorbed ? CONFIG.ABSORBED : resolveColor(colorsHit));
-  return { exitSide, exitIndex, absorbed, color, points };
+  return { entrySide:side, entryIndex:index, exitSide, exitIndex, absorbed, color, points };
 }
-
 function labelText(side,index){
   if(side==='top') return TOP_LABELS[index];
   if(side==='bottom') return BOTTOM_LABELS[index];
   if(side==='left') return LEFT_LABELS[index];
   return RIGHT_LABELS[index];
+}
+
+// ---------------------------------------------------------------------
+// COLOR CONTRAST HELPER
+// ---------------------------------------------------------------------
+function hexToRgb(hex){ hex=hex.replace('#',''); return [parseInt(hex.substr(0,2),16),parseInt(hex.substr(2,2),16),parseInt(hex.substr(4,2),16)]; }
+function contrastText(hex){
+  const [r,g,b] = hexToRgb(hex);
+  const lum = (0.299*r+0.587*g+0.114*b)/255;
+  return lum > 0.58 ? '#14100c' : '#f5f1e8';
 }
 
 // ---------------------------------------------------------------------
@@ -282,11 +357,22 @@ function renderLabels(){
 }
 function makeLabel(side,index){
   const div=document.createElement('div');
-  div.className='label'+(state.started?' clickable':'');
+  const used = state.labelColor[side][index] !== undefined;
+  div.className='label'+(state.started && !used ? ' clickable':'');
   div.textContent = labelText(side,index);
-  const stored = state.labelColor[side][index];
-  if(stored){ div.classList.add('used'); div.style.color=stored; div.style.textShadow='0 0 8px '+stored+'99'; }
-  if(state.started) div.addEventListener('click', ()=> onLabelClick(side,index));
+  if(used){
+    const hex = state.labelColor[side][index];
+    div.classList.add('used');
+    div.style.background = hex;
+    div.style.color = contrastText(hex);
+    if(state.labelBounce[side][index]){
+      const arrow = document.createElement('span');
+      arrow.className='bounce-arrow';
+      arrow.textContent='↔';
+      div.appendChild(arrow);
+    }
+  }
+  if(state.started && !used) div.addEventListener('click', ()=> onLabelClick(side,index));
   return div;
 }
 
@@ -302,9 +388,10 @@ function renderBgGrid(){
       cell.className='cellhit';
       cell.style.left=(c*cs)+'px'; cell.style.top=(r*cs)+'px';
       cell.style.width=cs+'px'; cell.style.height=cs+'px';
-      cell.style.border='1px solid rgba(91,70,48,.35)';
+      cell.style.border='1px solid rgba(0,0,0,.18)';
       cell.dataset.row=r; cell.dataset.col=c;
-      if(state.started) cell.addEventListener('click', ()=> onCellClick(r,c,cell));
+      const used = state.cellUsed[r+','+c];
+      if(state.started && !used) cell.addEventListener('click', ()=> onCellClick(r,c,cell));
       frag.appendChild(cell);
     }
   }
@@ -313,21 +400,19 @@ function renderBgGrid(){
 
 function polyPointsAttr(verts){ return verts.map(v=> v.x+','+v.y).join(' '); }
 
-function svgPolyForPiece(piece, opts){
-  opts = opts || {};
+function svgPolyForPiece(piece){
   const def = CONFIG.PIECES[piece.type];
-  const verts = opts.overrideVerts || pieceVertices(piece);
+  const verts = pieceVertices(piece);
   const poly = document.createElementNS(SVGNS,'polygon');
   poly.setAttribute('points', polyPointsAttr(verts));
-  poly.setAttribute('fill', def.isDiamond ? 'rgba(207,216,220,0.45)' : def.hex);
-  poly.setAttribute('stroke', def.isOnyx ? '#3a2f22' : 'rgba(0,0,0,.4)');
-  poly.setAttribute('stroke-width', 0.045);
+  poly.setAttribute('fill', def.isDiamond ? 'rgba(207,216,220,0.55)' : def.hex);
+  poly.setAttribute('stroke', def.isOnyx ? '#cfd8dc' : 'rgba(0,0,0,.4)');
+  poly.setAttribute('stroke-width', def.isOnyx ? 0.03 : 0.045);
   poly.setAttribute('vector-effect','non-scaling-stroke');
   poly.setAttribute('class','piece-poly'+(state.started?' locked':''));
   poly.dataset.id = piece.id;
   return poly;
 }
-
 function renderPieces(){
   pieceSvg.innerHTML='';
   state.pieces.filter(p=>p.center).forEach(piece=>{
@@ -359,8 +444,8 @@ function renderPalette(){
     const def = CONFIG.PIECES[piece.type];
     const poly = document.createElementNS(SVGNS,'polygon');
     poly.setAttribute('points', polyPointsAttr(pts));
-    poly.setAttribute('fill', def.isDiamond ? 'rgba(207,216,220,0.45)' : def.hex);
-    poly.setAttribute('stroke', def.isOnyx ? '#3a2f22' : 'rgba(0,0,0,.4)');
+    poly.setAttribute('fill', def.isDiamond ? 'rgba(207,216,220,0.55)' : def.hex);
+    poly.setAttribute('stroke', def.isOnyx ? '#cfd8dc' : 'rgba(0,0,0,.4)');
     poly.setAttribute('stroke-width', 0.05);
     poly.setAttribute('vector-effect','non-scaling-stroke');
     svg.appendChild(poly);
@@ -371,16 +456,22 @@ function renderPalette(){
 }
 
 function renderTraces(){
-  traceSvg.innerHTML = state.traces.map(t=>{
+  let html = state.traces.map(t=>{
     const d = t.points.map((p,i)=> (i===0?'M':'L')+p.x+','+p.y).join(' ');
-    return `<path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.09" stroke-linejoin="round" stroke-linecap="round" opacity="0.85" vector-effect="non-scaling-stroke"/>`;
-  }).join('') + state.emptyMarks.map(m=>{
-    const s=0.12;
-    return `<g stroke="rgba(239,230,214,0.4)" stroke-width="0.035" vector-effect="non-scaling-stroke">
+    return `<path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.22" stroke-linejoin="round" stroke-linecap="round" opacity="0.38" vector-effect="non-scaling-stroke"/>
+            <path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.075" stroke-linejoin="round" stroke-linecap="round" opacity="1" vector-effect="non-scaling-stroke"/>`;
+  }).join('');
+  html += state.emptyMarks.map(m=>{
+    const s=0.14;
+    return `<g stroke="rgba(20,16,12,0.55)" stroke-width="0.045" vector-effect="non-scaling-stroke">
       <line x1="${m.x-s}" y1="${m.y-s}" x2="${m.x+s}" y2="${m.y+s}"/>
       <line x1="${m.x-s}" y1="${m.y+s}" x2="${m.x+s}" y2="${m.y-s}"/>
     </g>`;
   }).join('');
+  html += state.occupiedMarks.map(m=>{
+    return `<circle cx="${m.x}" cy="${m.y}" r="0.05" fill="rgba(20,16,12,0.5)"/>`;
+  }).join('');
+  traceSvg.innerHTML = html;
 }
 
 function renderHistory(){
@@ -420,7 +511,7 @@ function shapeIconSVG(type, size){
   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
   const pad=0.2;
   const def = CONFIG.PIECES[type];
-  const fill = def.isDiamond ? 'rgba(207,216,220,0.6)' : def.hex;
+  const fill = def.isDiamond ? 'rgba(207,216,220,0.7)' : def.hex;
   return `<svg class="mix-icon" width="${size}" height="${size}" viewBox="${minX-pad} ${minY-pad} ${(maxX-minX)+2*pad} ${(maxY-minY)+2*pad}">
     <polygon points="${polyPointsAttr(pts)}" fill="${fill}" stroke="rgba(0,0,0,.4)" stroke-width="0.05"/>
   </svg>`;
@@ -463,11 +554,16 @@ function buildMixBoard(){
 // ---------------------------------------------------------------------
 // INTERACTIONS — rotate / flip / drag
 // ---------------------------------------------------------------------
-function attachPieceInteraction(el, piece, fromPalette){
-  el.addEventListener('pointerdown', ev=> onPieceDown(ev, piece, el, fromPalette));
+function attachPieceInteraction(el, piece){
+  el.addEventListener('pointerdown', ev=> onPieceDown(ev, piece, el));
+}
+function flashInvalid(el){
+  el.classList.add('invalid-pulse');
+  setTimeout(()=> el.classList.remove('invalid-pulse'), 400);
+  if(navigator.vibrate) navigator.vibrate([10,30,10]);
 }
 
-function onPieceDown(ev, piece, el, fromPalette){
+function onPieceDown(ev, piece, el){
   if(state.started) return;
   ev.preventDefault();
   const startX=ev.clientX, startY=ev.clientY;
@@ -479,12 +575,18 @@ function onPieceDown(ev, piece, el, fromPalette){
   const longPressTimer = setTimeout(()=>{
     if(!moved){
       longPressed = true;
+      const prevFlipped = piece.flipped;
       piece.flipped = !piece.flipped;
-      saveState();
-      el.classList.add('flip-pulse');
-      setTimeout(()=>el.classList.remove('flip-pulse'),350);
+      if(piece.center && !placementValid(piece, piece.id)){
+        piece.flipped = prevFlipped;
+        flashInvalid(el);
+      } else {
+        saveState();
+        el.classList.add('flip-pulse');
+        setTimeout(()=>el.classList.remove('flip-pulse'),350);
+        if(navigator.vibrate) navigator.vibrate(15);
+      }
       renderPalette(); renderPieces();
-      if(navigator.vibrate) navigator.vibrate(15);
     }
   }, 480);
 
@@ -502,7 +604,7 @@ function onPieceDown(ev, piece, el, fromPalette){
     const pad=0.3;
     const def = CONFIG.PIECES[piece.type];
     ghost.innerHTML = `<svg viewBox="${minX-pad} ${minY-pad} ${(maxX-minX)+2*pad} ${(maxY-minY)+2*pad}" width="100%" height="100%">
-      <polygon points="${polyPointsAttr(pts)}" fill="${def.isDiamond?'rgba(207,216,220,0.5)':def.hex}" stroke="rgba(0,0,0,.4)" stroke-width="0.06"/>
+      <polygon points="${polyPointsAttr(pts)}" fill="${def.isDiamond?'rgba(207,216,220,0.55)':def.hex}" stroke="rgba(0,0,0,.4)" stroke-width="0.06"/>
     </svg>`;
     document.body.appendChild(ghost);
     positionGhost(ev.clientX, ev.clientY);
@@ -512,7 +614,6 @@ function onPieceDown(ev, piece, el, fromPalette){
     ghost.style.left = (x - s/2)+'px';
     ghost.style.top = (y - s/2)+'px';
   }
-
   function onMove(e){
     const dx=e.clientX-startX, dy=e.clientY-startY;
     if(!moved && Math.hypot(dx,dy) > 9){ moved=true; clearTimeout(longPressTimer); startDrag(); }
@@ -532,15 +633,28 @@ function onPieceDown(ev, piece, el, fromPalette){
       cx = Math.min(COLS-hw, Math.max(hw, cx));
       cy = Math.min(ROWS-hh, Math.max(hh, cy));
       const withinBoard = e.clientX>=rect.left && e.clientX<=rect.right && e.clientY>=rect.top && e.clientY<=rect.bottom;
-      piece.center = withinBoard ? {x:cx,y:cy} : null;
+      const prevCenter = piece.center;
+      if(withinBoard){
+        const candidate = { ...piece, center:{x:cx,y:cy} };
+        if(placementValid(candidate, piece.id)) piece.center = {x:cx,y:cy};
+        else { piece.center = prevCenter; flashInvalid(el); }
+      } else {
+        piece.center = null;
+      }
       ghost.remove();
       el.classList.remove('dragging');
       saveState();
       renderPalette();
       renderPieces();
     } else if(!longPressed){
+      const prevRotation = piece.rotation;
       piece.rotation = (piece.rotation + 90) % 360;
-      saveState();
+      if(piece.center && !placementValid(piece, piece.id)){
+        piece.rotation = prevRotation;
+        flashInvalid(el);
+      } else {
+        saveState();
+      }
       renderPalette();
       renderPieces();
     }
@@ -555,15 +669,22 @@ function onPieceDown(ev, piece, el, fromPalette){
 function timeNow(){ const d=new Date(); return d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 
 function onLabelClick(side,index){
+  if(state.labelColor[side][index] !== undefined) return;
   const result = simulateBeam(side,index);
   state.labelColor[side][index] = result.color.hex;
   let text;
   if(result.absorbed){
-    text = `<b>${labelText(side,index)}</b> → ${result.color.name}`;
+    text = `<b>${labelText(side,index)}</b> — Absorbé`;
   } else {
+    const bounced = result.exitSide===side && result.exitIndex===index;
     const exitLabel = labelText(result.exitSide, result.exitIndex);
-    state.labelColor[result.exitSide][result.exitIndex] = result.color.hex;
-    text = `<b>${labelText(side,index)}</b> — <b>${exitLabel}</b> — ${result.color.name}`;
+    if(state.labelColor[result.exitSide][result.exitIndex] === undefined){
+      state.labelColor[result.exitSide][result.exitIndex] = result.color.hex;
+    }
+    if(bounced) state.labelBounce[side][index] = true;
+    text = bounced
+      ? `<b>${labelText(side,index)}</b> ↔ — ${result.color.name}`
+      : `<b>${labelText(side,index)}</b> — <b>${exitLabel}</b> — ${result.color.name}`;
   }
   state.history.push({ text, hex: result.color.hex, time: timeNow() });
   state.traces.push({ points: result.points, hex: result.color.hex });
@@ -572,15 +693,18 @@ function onLabelClick(side,index){
 }
 
 function onCellClick(r,c,cellEl){
+  const key = r+','+c;
+  if(state.cellUsed[key]) return;
+  state.cellUsed[key] = true;
   const piece = pieceAtCell(r,c);
   const coord = LEFT_LABELS[r] + (c+1);
   let text, hex;
   if(piece){
-    const def = CONFIG.PIECES[piece.type];
-    text = `<b>${coord}</b> — Gemme présente (${def.label})`;
-    hex = def.hex;
+    text = `<b>${coord}</b> — Occupée`;
+    hex = '#8a93a3';
+    state.occupiedMarks.push({x:c+0.5, y:r+0.5});
   } else {
-    text = `<b>${coord}</b> — Case vide`;
+    text = `<b>${coord}</b> — Vide`;
     hex = '#6b6355';
     state.emptyMarks.push({x:c+0.5, y:r+0.5});
   }
@@ -611,14 +735,6 @@ function syncOptionalPiece(type, include, flagName){
 $('#helpFab').addEventListener('click', ()=> $('#helpModal').classList.add('open'));
 $('#closeHelp').addEventListener('click', ()=> $('#helpModal').classList.remove('open'));
 $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('#helpModal').classList.remove('open'); });
-$('#btnCopyHistory').addEventListener('click', ()=>{
-  const lines = state.history.map(h=> h.text.replace(/<\/?b>/g,''));
-  const txt = lines.join('\n') || 'Aucun historique.';
-  if(navigator.clipboard) navigator.clipboard.writeText(txt).then(()=>{
-    const btn=$('#btnCopyHistory'); const old=btn.textContent;
-    btn.textContent='Copié !'; setTimeout(()=>btn.textContent=old,1200);
-  });
-});
 window.addEventListener('resize', ()=>{ renderBgGrid(); renderPieces(); renderTraces(); });
 
 // ---------------------------------------------------------------------

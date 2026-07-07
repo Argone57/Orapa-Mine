@@ -21,20 +21,25 @@ Chaque bord est un point d'entrée indépendant pour un rayon (une même ligne a
 
 ## Les pièces
 
-Triangle blanc, Losange blanc, Triangle bleu, Triangle jaune, Triangle transparent, Rectangle noir, Trapèze rouge — de vraies formes (pas de simples carrés), chacune en un seul exemplaire.
+Triangle blanc, Losange blanc, Triangle bleu, Triangle jaune, Diamant, Corps noir, Trapèze rouge — de vraies formes, chacune en un seul exemplaire.
+- Triangle jaune : triangle rectangle, cathètes de 2 cases.
+- Triangle blanc / Triangle bleu : triangle isocèle, base de 4 cases, hauteur 2 cases.
+- Diamant : même famille, base de 2 cases, hauteur 1 case (ne colore jamais le rayon).
+- Losange blanc : losange 2×2. Corps noir : rectangle 2×1 (arrête le rayon). Trapèze rouge : parallélogramme.
 
 - Glisse une pièce sur la grille : elle s'aimante à la position valide la plus proche.
 - Tape une pièce posée : elle pivote de **90°**.
-- Reste appuyé un peu plus longtemps : elle se **retourne en miroir** (utile pour le trapèze rouge, seule pièce asymétrique — le triangle et le losange n'ont visuellement rien à gagner du miroir, ce qui est normal, leur forme est symétrique).
-- Les cases à cocher permettent d'inclure ou non le **Triangle transparent** et le **Rectangle noir**.
+- Reste appuyé un peu plus longtemps : elle se **retourne en miroir** (utile surtout pour le trapèze rouge, seule pièce asymétrique).
+- **Les pièces ne peuvent se toucher que par un coin** : tout déplacement, rotation ou miroir qui mettrait deux pièces en contact par un côté (ou les ferait se chevaucher) est automatiquement refusé et la pièce revient à sa position précédente (petit flash rouge).
+- Les cases à cocher permettent d'inclure ou non le **Diamant** et le **Corps noir**.
 - « Démarrer la partie » verrouille tout. « Recommencer » efface placement + historique (confirmation demandée).
 
 ## Pendant la partie
 
-- Clique une lettre/chiffre en bordure : un rayon est lancé, sa trajectoire réelle (rebonds sur les arêtes des pièces) est calculée, et le résultat s'ajoute à l'historique au format `Entrée — Sortie — Couleur`. Les deux lettres/chiffres concernés se colorent.
-- Clique une case intérieure (ex. B3) : la console indique si une gemme s'y trouve (nom de la pièce) ou si la case est vide — dans ce cas une petite croix reste visible sur la grille.
-- Le trajet de chaque rayon reste tracé sur le plateau.
-- « Copier » exporte l'historique en texte brut.
+- Clique une lettre/chiffre en bordure : un rayon est lancé, sa trajectoire réelle (rebonds sur les arêtes des pièces) est calculée, et le résultat s'ajoute à l'historique au format `Entrée — Sortie — Couleur`. Les deux lettres/chiffres concernés se colorent en pastille pleine (texte clair ou foncé selon la couleur pour rester lisible). Si le rayon ressort par son point d'entrée, un symbole ↔ apparaît. **Une lettre/chiffre déjà utilisé — comme entrée ou comme sortie — ne peut plus être recliqué.**
+- Si le rayon atteint le Corps noir, l'historique n'indique que `Entrée — Absorbé`.
+- Clique une case intérieure (ex. B3) : l'historique indique seulement `Vide` (avec une croix qui reste affichée) ou `Occupée` (sans révéler la pièce). **Une case déjà interrogée ne peut plus être recliquée.**
+- Le trajet de chaque rayon reste tracé sur le plateau, en surbrillance pour bien le voir.
 
 Tout est sauvegardé automatiquement dans le navigateur (localStorage) : un rafraîchissement ne fait rien perdre.
 
@@ -43,8 +48,8 @@ Tout est sauvegardé automatiquement dans le navigateur (localStorage) : un rafr
 Le rayon est simulé en géométrie réelle (pas case par case) : il avance en ligne droite et rebondit sur la première arête de pièce rencontrée.
 - **Arête droite** (horizontale/verticale, ex. les côtés d'angle droit d'un triangle) → renvoie le rayon en sens inverse.
 - **Arête oblique** (45°, ex. l'hypoténuse) → dévie le rayon à angle droit.
-- **Triangle transparent** → dévie normalement mais ne colore jamais le rayon (résultat « Transparent » si c'est tout ce qu'il touche).
-- **Rectangle noir** → dès que le rayon l'atteint, son parcours s'arrête (aucune sortie), quelle que soit l'orientation.
+- **Diamant** → dévie normalement mais ne colore jamais le rayon (résultat « Transparent » si c'est tout ce qu'il touche).
+- **Corps noir** → dès que le rayon l'atteint, son parcours s'arrête (aucune sortie), quelle que soit l'orientation.
 
 ## Table de mélange des couleurs
 
