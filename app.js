@@ -147,6 +147,14 @@ function snapCoord(raw, halfExtent){
   const frac = ((halfExtent % 1) + 1) % 1;
   return Math.round(raw - frac) + frac;
 }
+function resnapAfterTransform(piece){
+  if(!piece.center) return;
+  const {hw,hh} = boundingHalfExtents(piece);
+  let cx = snapCoord(piece.center.x, hw), cy = snapCoord(piece.center.y, hh);
+  cx = Math.min(COLS-hw, Math.max(hw, cx));
+  cy = Math.min(ROWS-hh, Math.max(hh, cy));
+  piece.center = {x:cx, y:cy};
+}
 function pointInPolygon(pt, poly){
   let inside = false;
   for(let i=0,j=poly.length-1;i<poly.length;j=i++){
@@ -231,7 +239,7 @@ function intersectRaySegment(pos, dir, A, B){
     if(s < -EPS || s > 1+EPS) return null;
     const x = A.x + s*(B.x-A.x);
     const t = (x - pos.x) / dir.dx;
-    if(t <= EPS) return null;
+    if(t < -EPS) return null;
     return { t, point:{x, y:pos.y} };
   } else {
     if(Math.abs(A.x-B.x) < EPS) return null;
@@ -239,7 +247,7 @@ function intersectRaySegment(pos, dir, A, B){
     if(s < -EPS || s > 1+EPS) return null;
     const y = A.y + s*(B.y-A.y);
     const t = (y - pos.y) / dir.dy;
-    if(t <= EPS) return null;
+    if(t < -EPS) return null;
     return { t, point:{x:pos.x, y} };
   }
 }
@@ -284,15 +292,19 @@ function simulateBeam(side,index){
   const colorsHit = new Set();
   const points = [pos];
   let guard=0, absorbed=false, exitSide=null, exitIndex=null;
+  let skipPieceId=null, skipEdgeIdx=null;
 
   while(true){
     guard++;
     if(guard>400){ absorbed='loop'; break; }
     let best = { ...intersectBoundary(pos,dir), kind:'boundary' };
     for(const piece of placed){
-      for(const [A,B] of pieceEdges(piece)){
+      const edges = pieceEdges(piece);
+      for(let ei=0; ei<edges.length; ei++){
+        if(piece.id===skipPieceId && ei===skipEdgeIdx) continue;
+        const [A,B] = edges[ei];
         const hit = intersectRaySegment(pos,dir,A,B);
-        if(hit && hit.t < best.t - EPS) best = { t:hit.t, point:hit.point, kind:'edge', piece, edgeType:edgeKind(A,B) };
+        if(hit && hit.t < best.t - EPS) best = { t:hit.t, point:hit.point, kind:'edge', piece, edgeType:edgeKind(A,B), edgeIdx:ei };
       }
     }
     if(best.kind==='boundary'){
@@ -309,7 +321,8 @@ function simulateBeam(side,index){
     if(def.isOnyx){ absorbed=true; break; }
     if(def.colorKey) colorsHit.add(def.colorKey);
     dir = best.edgeType==='wall' ? {dx:-dir.dx,dy:-dir.dy} : reflect(dir, best.edgeType);
-    pos = { x: best.point.x + dir.dx*1e-4, y: best.point.y + dir.dy*1e-4 };
+    pos = best.point;
+    skipPieceId = best.piece.id; skipEdgeIdx = best.edgeIdx;
   }
   const color = absorbed==='loop' ? {name:'Boucle infinie détectée',hex:'#c1503f'} : (absorbed ? CONFIG.ABSORBED : resolveColor(colorsHit));
   return { entrySide:side, entryIndex:index, exitSide, exitIndex, absorbed, color, points };
@@ -432,14 +445,17 @@ function renderPalette(){
   $('#setupOptions').style.display = hideSetup?'none':'flex';
   $('#setupHint').style.display = hideSetup?'none':'block';
   if(hideSetup) return;
+  const cs = computeCellSize();
   inPalette.forEach(piece=>{
     const shape = SHAPES[piece.type];
     const pts = shape.pts.map(v=> transformVertex(v,false,0,{x:0,y:0}));
     const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
     const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
-    const pad=0.25;
+    const w=maxX-minX, h=maxY-minY, pad=0.15;
     const svg = document.createElementNS(SVGNS,'svg');
-    svg.setAttribute('viewBox', `${minX-pad} ${minY-pad} ${(maxX-minX)+2*pad} ${(maxY-minY)+2*pad}`);
+    svg.setAttribute('viewBox', `${minX-pad} ${minY-pad} ${w+2*pad} ${h+2*pad}`);
+    svg.style.width = ((w+2*pad)*cs)+'px';
+    svg.style.height = ((h+2*pad)*cs)+'px';
     svg.classList.add('palette-tile');
     const def = CONFIG.PIECES[piece.type];
     const poly = document.createElementNS(SVGNS,'polygon');
@@ -451,15 +467,22 @@ function renderPalette(){
     svg.appendChild(poly);
     svg.dataset.id = piece.id;
     paletteEl.appendChild(svg);
-    attachPieceInteraction(svg, piece, true);
+    attachPieceInteraction(svg, piece);
   });
 }
 
+function lighten(hex, amt){
+  const [r,g,b] = hexToRgb(hex);
+  const mix = c => Math.round(c + (255-c)*amt);
+  return 'rgb('+mix(r)+','+mix(g)+','+mix(b)+')';
+}
 function renderTraces(){
   let html = state.traces.map(t=>{
     const d = t.points.map((p,i)=> (i===0?'M':'L')+p.x+','+p.y).join(' ');
-    return `<path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.22" stroke-linejoin="round" stroke-linecap="round" opacity="0.38" vector-effect="non-scaling-stroke"/>
-            <path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.075" stroke-linejoin="round" stroke-linecap="round" opacity="1" vector-effect="non-scaling-stroke"/>`;
+    const core = lighten(t.hex, 0.55);
+    return `<path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.4" stroke-linejoin="round" stroke-linecap="round" opacity="0.35" vector-effect="non-scaling-stroke"/>
+            <path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.18" stroke-linejoin="round" stroke-linecap="round" opacity="0.85" vector-effect="non-scaling-stroke"/>
+            <path d="${d}" fill="none" stroke="${core}" stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round" opacity="1" vector-effect="non-scaling-stroke"/>`;
   }).join('');
   html += state.emptyMarks.map(m=>{
     const s=0.14;
@@ -467,9 +490,6 @@ function renderTraces(){
       <line x1="${m.x-s}" y1="${m.y-s}" x2="${m.x+s}" y2="${m.y+s}"/>
       <line x1="${m.x-s}" y1="${m.y+s}" x2="${m.x+s}" y2="${m.y-s}"/>
     </g>`;
-  }).join('');
-  html += state.occupiedMarks.map(m=>{
-    return `<circle cx="${m.x}" cy="${m.y}" r="0.05" fill="rgba(20,16,12,0.5)"/>`;
   }).join('');
   traceSvg.innerHTML = html;
 }
@@ -552,8 +572,11 @@ function buildMixBoard(){
 }
 
 // ---------------------------------------------------------------------
-// INTERACTIONS — rotate / flip / drag
+// INTERACTIONS — tap = pivoter, double-tap = miroir, glisser = déplacer
 // ---------------------------------------------------------------------
+const pendingTaps = new Map(); // piece.id -> timeoutId
+const DOUBLE_TAP_MS = 280;
+
 function attachPieceInteraction(el, piece){
   el.addEventListener('pointerdown', ev=> onPieceDown(ev, piece, el));
 }
@@ -562,67 +585,84 @@ function flashInvalid(el){
   setTimeout(()=> el.classList.remove('invalid-pulse'), 400);
   if(navigator.vibrate) navigator.vibrate([10,30,10]);
 }
+function doRotate(piece){
+  const prevRotation = piece.rotation, prevCenter = piece.center;
+  piece.rotation = (piece.rotation + 90) % 360;
+  resnapAfterTransform(piece);
+  if(piece.center && !placementValid(piece, piece.id)){
+    piece.rotation = prevRotation; piece.center = prevCenter;
+    renderPalette(); renderPieces();
+    const freshEl = document.querySelector(`[data-id="${piece.id}"]`);
+    if(freshEl) flashInvalid(freshEl);
+  } else {
+    saveState();
+    renderPalette(); renderPieces();
+  }
+}
+function doFlip(piece){
+  const prevFlipped = piece.flipped, prevCenter = piece.center;
+  piece.flipped = !piece.flipped;
+  resnapAfterTransform(piece);
+  if(piece.center && !placementValid(piece, piece.id)){
+    piece.flipped = prevFlipped; piece.center = prevCenter;
+    renderPalette(); renderPieces();
+    const freshEl = document.querySelector(`[data-id="${piece.id}"]`);
+    if(freshEl) flashInvalid(freshEl);
+  } else {
+    saveState();
+    renderPalette(); renderPieces();
+    const freshEl = document.querySelector(`[data-id="${piece.id}"]`);
+    if(freshEl){ freshEl.classList.add('flip-pulse'); setTimeout(()=>freshEl.classList.remove('flip-pulse'),350); }
+    if(navigator.vibrate) navigator.vibrate(15);
+  }
+}
 
 function onPieceDown(ev, piece, el){
   if(state.started) return;
   ev.preventDefault();
   const startX=ev.clientX, startY=ev.clientY;
-  let moved=false, longPressed=false, dragging=false;
+  let moved=false, dragging=false;
   let ghost=null;
   const boardRect = ()=> boardEl.getBoundingClientRect();
   const cs = ()=> boardRect().width / COLS;
-
-  const longPressTimer = setTimeout(()=>{
-    if(!moved){
-      longPressed = true;
-      const prevFlipped = piece.flipped;
-      piece.flipped = !piece.flipped;
-      if(piece.center && !placementValid(piece, piece.id)){
-        piece.flipped = prevFlipped;
-        flashInvalid(el);
-      } else {
-        saveState();
-        el.classList.add('flip-pulse');
-        setTimeout(()=>el.classList.remove('flip-pulse'),350);
-        if(navigator.vibrate) navigator.vibrate(15);
-      }
-      renderPalette(); renderPieces();
-    }
-  }, 480);
 
   function startDrag(){
     dragging = true;
     el.classList.add('dragging');
     ghost = document.createElement('div');
     ghost.style.position='fixed'; ghost.style.zIndex=999; ghost.style.pointerEvents='none';
-    const size = cs()*3.4;
-    ghost.style.width = size+'px'; ghost.style.height = size+'px';
     const shape = SHAPES[piece.type];
     const pts = shape.pts.map(v=> transformVertex(v, piece.flipped, piece.rotation, {x:0,y:0}));
     const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
     const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
-    const pad=0.3;
+    const w=maxX-minX, h=maxY-minY, pad=0.15;
+    const csVal = cs();
+    ghost.style.width = ((w+2*pad)*csVal)+'px';
+    ghost.style.height = ((h+2*pad)*csVal)+'px';
     const def = CONFIG.PIECES[piece.type];
-    ghost.innerHTML = `<svg viewBox="${minX-pad} ${minY-pad} ${(maxX-minX)+2*pad} ${(maxY-minY)+2*pad}" width="100%" height="100%">
+    ghost.innerHTML = `<svg viewBox="${minX-pad} ${minY-pad} ${w+2*pad} ${h+2*pad}" width="100%" height="100%">
       <polygon points="${polyPointsAttr(pts)}" fill="${def.isDiamond?'rgba(207,216,220,0.55)':def.hex}" stroke="rgba(0,0,0,.4)" stroke-width="0.06"/>
     </svg>`;
     document.body.appendChild(ghost);
     positionGhost(ev.clientX, ev.clientY);
   }
   function positionGhost(x,y){
-    const s = parseFloat(ghost.style.width);
-    ghost.style.left = (x - s/2)+'px';
-    ghost.style.top = (y - s/2)+'px';
+    const gw = parseFloat(ghost.style.width), gh = parseFloat(ghost.style.height);
+    ghost.style.left = (x - gw/2)+'px';
+    ghost.style.top = (y - gh/2)+'px';
   }
   function onMove(e){
     const dx=e.clientX-startX, dy=e.clientY-startY;
-    if(!moved && Math.hypot(dx,dy) > 9){ moved=true; clearTimeout(longPressTimer); startDrag(); }
+    if(!moved && Math.hypot(dx,dy) > 9){
+      moved=true;
+      if(pendingTaps.has(piece.id)){ clearTimeout(pendingTaps.get(piece.id)); pendingTaps.delete(piece.id); }
+      startDrag();
+    }
     if(dragging) positionGhost(e.clientX, e.clientY);
   }
   function onUp(e){
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
-    clearTimeout(longPressTimer);
     if(dragging){
       const rect = boardRect();
       const cellsz = rect.width / COLS;
@@ -646,17 +686,16 @@ function onPieceDown(ev, piece, el){
       saveState();
       renderPalette();
       renderPieces();
-    } else if(!longPressed){
-      const prevRotation = piece.rotation;
-      piece.rotation = (piece.rotation + 90) % 360;
-      if(piece.center && !placementValid(piece, piece.id)){
-        piece.rotation = prevRotation;
-        flashInvalid(el);
+    } else {
+      // Pas de glissement : tap simple = pivoter, double-tap = miroir.
+      if(pendingTaps.has(piece.id)){
+        clearTimeout(pendingTaps.get(piece.id));
+        pendingTaps.delete(piece.id);
+        doFlip(piece);
       } else {
-        saveState();
+        const timeoutId = setTimeout(()=>{ pendingTaps.delete(piece.id); doRotate(piece); }, DOUBLE_TAP_MS);
+        pendingTaps.set(piece.id, timeoutId);
       }
-      renderPalette();
-      renderPieces();
     }
   }
   window.addEventListener('pointermove', onMove);
@@ -692,6 +731,11 @@ function onLabelClick(side,index){
   renderLabels(); renderHistory(); renderTraces();
 }
 
+function gemDisplayName(piece){
+  const def = CONFIG.PIECES[piece.type];
+  if(def.colorKey) return CONFIG.MIX[def.colorKey].name;
+  return def.label;
+}
 function onCellClick(r,c,cellEl){
   const key = r+','+c;
   if(state.cellUsed[key]) return;
@@ -700,9 +744,9 @@ function onCellClick(r,c,cellEl){
   const coord = LEFT_LABELS[r] + (c+1);
   let text, hex;
   if(piece){
-    text = `<b>${coord}</b> — Occupée`;
-    hex = '#8a93a3';
-    state.occupiedMarks.push({x:c+0.5, y:r+0.5});
+    const def = CONFIG.PIECES[piece.type];
+    text = `<b>${coord}</b> — ${gemDisplayName(piece)}`;
+    hex = def.hex;
   } else {
     text = `<b>${coord}</b> — Vide`;
     hex = '#6b6355';
