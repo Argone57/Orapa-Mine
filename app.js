@@ -165,8 +165,12 @@ function pointInPolygon(pt, poly){
   return inside;
 }
 function pieceAtCell(row,col){
-  const pt = {x:col+0.5, y:row+0.5};
-  return state.pieces.find(p=> p.center && pointInPolygon(pt, pieceVertices(p)));
+  const cellPoly = [{x:col,y:row},{x:col+1,y:row},{x:col+1,y:row+1},{x:col,y:row+1}];
+  return state.pieces.find(p=>{
+    if(!p.center) return false;
+    const inter = clipPolygon(ensureCCW(pieceVertices(p)), cellPoly);
+    return inter.length>0 && polyArea(inter) > 1e-6;
+  });
 }
 
 // ---------------------------------------------------------------------
@@ -502,18 +506,11 @@ function renderPalette(){
   });
 }
 
-function lighten(hex, amt){
-  const [r,g,b] = hexToRgb(hex);
-  const mix = c => Math.round(c + (255-c)*amt);
-  return 'rgb('+mix(r)+','+mix(g)+','+mix(b)+')';
-}
 function renderTraces(){
   let html = state.traces.map(t=>{
     const d = t.points.map((p,i)=> (i===0?'M':'L')+p.x+','+p.y).join(' ');
-    const core = lighten(t.hex, 0.55);
-    return `<path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.4" stroke-linejoin="round" stroke-linecap="round" opacity="0.35" vector-effect="non-scaling-stroke"/>
-            <path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.18" stroke-linejoin="round" stroke-linecap="round" opacity="0.85" vector-effect="non-scaling-stroke"/>
-            <path d="${d}" fill="none" stroke="${core}" stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round" opacity="1" vector-effect="non-scaling-stroke"/>`;
+    return `<path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.55" stroke-linejoin="round" stroke-linecap="round" opacity="0.32" vector-effect="non-scaling-stroke"/>
+            <path d="${d}" fill="none" stroke="${t.hex}" stroke-width="0.3" stroke-linejoin="round" stroke-linecap="round" opacity="1" vector-effect="non-scaling-stroke"/>`;
   }).join('');
   html += state.emptyMarks.map(m=>{
     const s=0.14;
