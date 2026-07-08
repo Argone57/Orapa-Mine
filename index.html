@@ -54,9 +54,10 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .palette{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:12px;border-radius:var(--radius);background:var(--panel);border:1px solid var(--vein);min-height:76px;position:relative;}
 .palette.empty::before{content:'Toutes les gemmes sont placées sur la grille.';color:var(--text-faint);font-size:.8rem;font-style:italic;padding:8px;}
 .palette-tile{touch-action:none;cursor:grab;flex:0 0 auto;}
-.board-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;}
+.board-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;touch-action:none;}
 .board-frame{
   display:inline-grid;
+  touch-action:none;
   grid-template-columns: var(--cs) 1fr var(--cs);
   grid-template-rows: var(--cs) 1fr var(--cs);
   border:2px solid var(--vein-light); border-radius:8px;
@@ -83,9 +84,9 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .cellhit.queried{animation:flashCell .8s ease;}
 .cellhit.used-empty,.cellhit.used-occupied{cursor:default;}
 @keyframes flashCell{0%{background:rgba(255,255,255,.55)}100%{background:transparent}}
-.overlaysvg{position:absolute;inset:0;}
+.overlaysvg{position:absolute;inset:0;pointer-events:none;}
 .piece-poly{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));touch-action:none;}
-.piece-poly.locked{pointer-events:none;}
+.piece-poly.interactive{pointer-events:auto;}
 .piece-poly.dragging{opacity:.35;}
 .flip-pulse{animation:flipFlash .35s ease;}
 @keyframes flipFlash{0%{filter:brightness(2.4)}100%{filter:brightness(1)}}
@@ -132,8 +133,8 @@ button:disabled{opacity:.35;cursor:not-allowed;}
   </header>
 
   <div id="setupOptions" class="setup-options">
-    <label><input type="checkbox" id="optGray" checked> Triangle transparent</label>
-    <label><input type="checkbox" id="optOnyx" checked> Rectangle noir</label>
+    <label><input type="checkbox" id="optGray" checked> Diamant</label>
+    <label><input type="checkbox" id="optOnyx" checked> Corps noir</label>
   </div>
   <div id="setupHint" style="text-align:center;color:var(--text-faint);font-size:.78rem;margin:6px 0 0;">
     Glisse une gemme sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir

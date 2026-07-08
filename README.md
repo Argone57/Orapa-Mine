@@ -31,6 +31,7 @@ Triangle blanc, Losange blanc, Triangle bleu, Triangle jaune, Diamant, Corps noi
 - Tape une pièce posée : elle pivote de **90°**.
 - Reste appuyé un peu plus longtemps : elle se **retourne en miroir** (utile surtout pour le trapèze rouge, seule pièce asymétrique).
 - **Les pièces ne peuvent se toucher que par un coin** : tout déplacement, rotation ou miroir qui mettrait deux pièces en contact par un côté (ou les ferait se chevaucher) est automatiquement refusé et la pièce revient à sa position précédente (petit flash rouge).
+- **Chaque gemme posée doit rester atteignable sans rebond** : il doit exister au moins un bord (lettre ou chiffre) d'où un rayon tiré en ligne droite touche cette gemme avant toute autre pièce. Un placement qui enfermerait une gemme (aucun tir direct possible) est refusé pour la même raison.
 - Les cases à cocher permettent d'inclure ou non le **Diamant** et le **Corps noir**.
 - « Démarrer la partie » verrouille tout. « Recommencer » efface placement + historique (confirmation demandée).
 

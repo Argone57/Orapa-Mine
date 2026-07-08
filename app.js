@@ -228,6 +228,37 @@ function placementValid(candidate, excludeId){
   return true;
 }
 
+// Chaque gemme posée doit pouvoir être touchée par au moins un rayon SANS rebond
+// (un tir direct depuis un bord qui l'atteint avant toute autre pièce).
+function firstHitPieceId(side, index){
+  let pos, dir;
+  if(side==='top'){ pos={x:index+0.5,y:0}; dir={dx:0,dy:1}; }
+  else if(side==='bottom'){ pos={x:index+0.5,y:ROWS}; dir={dx:0,dy:-1}; }
+  else if(side==='left'){ pos={x:0,y:index+0.5}; dir={dx:1,dy:0}; }
+  else { pos={x:COLS,y:index+0.5}; dir={dx:-1,dy:0}; }
+  let best = { ...intersectBoundary(pos,dir), kind:'boundary' };
+  for(const piece of state.pieces){
+    if(!piece.center) continue;
+    for(const [A,B] of pieceEdges(piece)){
+      const hit = intersectRaySegment(pos,dir,A,B);
+      if(hit && hit.t < best.t - EPS) best = { t:hit.t, kind:'edge', pieceId:piece.id };
+    }
+  }
+  return best.kind==='edge' ? best.pieceId : null;
+}
+function unreachablePieces(){
+  const reached = new Set();
+  for(let i=0;i<COLS;i++){
+    let id=firstHitPieceId('top',i); if(id) reached.add(id);
+    id=firstHitPieceId('bottom',i); if(id) reached.add(id);
+  }
+  for(let i=0;i<ROWS;i++){
+    let id=firstHitPieceId('left',i); if(id) reached.add(id);
+    id=firstHitPieceId('right',i); if(id) reached.add(id);
+  }
+  return state.pieces.filter(p=>p.center && !reached.has(p.id));
+}
+
 // ---------------------------------------------------------------------
 // GEOMETRY — tracé du rayon
 // ---------------------------------------------------------------------
@@ -356,8 +387,8 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 
 function computeCellSize(){
   const available = Math.min(window.innerWidth - 24, 680);
-  let cs = Math.floor((available - 2*40) / COLS);
-  cs = Math.max(30, Math.min(cs, 46));
+  let cs = Math.floor((available - 12) / (COLS + 2));
+  cs = Math.max(24, Math.min(cs, 46));
   document.documentElement.style.setProperty('--cs', cs+'px');
   return cs;
 }
@@ -422,7 +453,7 @@ function svgPolyForPiece(piece){
   poly.setAttribute('stroke', def.isOnyx ? '#cfd8dc' : 'rgba(0,0,0,.4)');
   poly.setAttribute('stroke-width', def.isOnyx ? 0.03 : 0.045);
   poly.setAttribute('vector-effect','non-scaling-stroke');
-  poly.setAttribute('class','piece-poly'+(state.started?' locked':''));
+  poly.setAttribute('class','piece-poly'+(state.started?'':' interactive'));
   poly.dataset.id = piece.id;
   return poly;
 }
@@ -572,11 +603,8 @@ function buildMixBoard(){
 }
 
 // ---------------------------------------------------------------------
-// INTERACTIONS — tap = pivoter, double-tap = miroir, glisser = déplacer
+// INTERACTIONS — tap = pivoter, appui long = miroir, glisser = déplacer
 // ---------------------------------------------------------------------
-const pendingTaps = new Map(); // piece.id -> timeoutId
-const DOUBLE_TAP_MS = 280;
-
 function attachPieceInteraction(el, piece){
   el.addEventListener('pointerdown', ev=> onPieceDown(ev, piece, el));
 }
@@ -585,46 +613,40 @@ function flashInvalid(el){
   setTimeout(()=> el.classList.remove('invalid-pulse'), 400);
   if(navigator.vibrate) navigator.vibrate([10,30,10]);
 }
-function doRotate(piece){
-  const prevRotation = piece.rotation, prevCenter = piece.center;
-  piece.rotation = (piece.rotation + 90) % 360;
-  resnapAfterTransform(piece);
-  if(piece.center && !placementValid(piece, piece.id)){
-    piece.rotation = prevRotation; piece.center = prevCenter;
-    renderPalette(); renderPieces();
-    const freshEl = document.querySelector(`[data-id="${piece.id}"]`);
-    if(freshEl) flashInvalid(freshEl);
-  } else {
-    saveState();
-    renderPalette(); renderPieces();
-  }
-}
-function doFlip(piece){
-  const prevFlipped = piece.flipped, prevCenter = piece.center;
-  piece.flipped = !piece.flipped;
-  resnapAfterTransform(piece);
-  if(piece.center && !placementValid(piece, piece.id)){
-    piece.flipped = prevFlipped; piece.center = prevCenter;
-    renderPalette(); renderPieces();
-    const freshEl = document.querySelector(`[data-id="${piece.id}"]`);
-    if(freshEl) flashInvalid(freshEl);
-  } else {
-    saveState();
-    renderPalette(); renderPieces();
-    const freshEl = document.querySelector(`[data-id="${piece.id}"]`);
-    if(freshEl){ freshEl.classList.add('flip-pulse'); setTimeout(()=>freshEl.classList.remove('flip-pulse'),350); }
-    if(navigator.vibrate) navigator.vibrate(15);
-  }
+function snapshotOf(piece){ return { center: piece.center? {...piece.center} : null, rotation: piece.rotation, flipped: piece.flipped }; }
+function restoreSnapshot(piece, snap){ piece.center = snap.center; piece.rotation = snap.rotation; piece.flipped = snap.flipped; }
+function isFullyValid(piece){
+  if(!piece.center) return true;
+  return placementValid(piece, piece.id) && unreachablePieces().length===0;
 }
 
 function onPieceDown(ev, piece, el){
   if(state.started) return;
   ev.preventDefault();
   const startX=ev.clientX, startY=ev.clientY;
-  let moved=false, dragging=false;
+  let moved=false, longPressed=false, dragging=false;
   let ghost=null;
   const boardRect = ()=> boardEl.getBoundingClientRect();
   const cs = ()=> boardRect().width / COLS;
+
+  const longPressTimer = setTimeout(()=>{
+    if(!moved){
+      longPressed = true;
+      const snap = snapshotOf(piece);
+      piece.flipped = !piece.flipped;
+      resnapAfterTransform(piece);
+      if(!isFullyValid(piece)){
+        restoreSnapshot(piece, snap);
+        flashInvalid(el);
+      } else {
+        saveState();
+        el.classList.add('flip-pulse');
+        setTimeout(()=>el.classList.remove('flip-pulse'),350);
+        if(navigator.vibrate) navigator.vibrate(15);
+      }
+      renderPalette(); renderPieces();
+    }
+  }, 480);
 
   function startDrag(){
     dragging = true;
@@ -653,16 +675,13 @@ function onPieceDown(ev, piece, el){
   }
   function onMove(e){
     const dx=e.clientX-startX, dy=e.clientY-startY;
-    if(!moved && Math.hypot(dx,dy) > 9){
-      moved=true;
-      if(pendingTaps.has(piece.id)){ clearTimeout(pendingTaps.get(piece.id)); pendingTaps.delete(piece.id); }
-      startDrag();
-    }
+    if(!moved && Math.hypot(dx,dy) > 9){ moved=true; clearTimeout(longPressTimer); startDrag(); }
     if(dragging) positionGhost(e.clientX, e.clientY);
   }
   function onUp(e){
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
+    clearTimeout(longPressTimer);
     if(dragging){
       const rect = boardRect();
       const cellsz = rect.width / COLS;
@@ -673,29 +692,29 @@ function onPieceDown(ev, piece, el){
       cx = Math.min(COLS-hw, Math.max(hw, cx));
       cy = Math.min(ROWS-hh, Math.max(hh, cy));
       const withinBoard = e.clientX>=rect.left && e.clientX<=rect.right && e.clientY>=rect.top && e.clientY<=rect.bottom;
-      const prevCenter = piece.center;
-      if(withinBoard){
-        const candidate = { ...piece, center:{x:cx,y:cy} };
-        if(placementValid(candidate, piece.id)) piece.center = {x:cx,y:cy};
-        else { piece.center = prevCenter; flashInvalid(el); }
-      } else {
-        piece.center = null;
+      const snap = snapshotOf(piece);
+      piece.center = withinBoard ? {x:cx,y:cy} : null;
+      if(!isFullyValid(piece)){
+        restoreSnapshot(piece, snap);
+        flashInvalid(el);
       }
       ghost.remove();
       el.classList.remove('dragging');
       saveState();
       renderPalette();
       renderPieces();
-    } else {
-      // Pas de glissement : tap simple = pivoter, double-tap = miroir.
-      if(pendingTaps.has(piece.id)){
-        clearTimeout(pendingTaps.get(piece.id));
-        pendingTaps.delete(piece.id);
-        doFlip(piece);
+    } else if(!longPressed){
+      const snap = snapshotOf(piece);
+      piece.rotation = (piece.rotation + 90) % 360;
+      resnapAfterTransform(piece);
+      if(!isFullyValid(piece)){
+        restoreSnapshot(piece, snap);
+        flashInvalid(el);
       } else {
-        const timeoutId = setTimeout(()=>{ pendingTaps.delete(piece.id); doRotate(piece); }, DOUBLE_TAP_MS);
-        pendingTaps.set(piece.id, timeoutId);
+        saveState();
       }
+      renderPalette();
+      renderPieces();
     }
   }
   window.addEventListener('pointermove', onMove);
