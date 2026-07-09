@@ -189,7 +189,7 @@ function randomizePlacement(){
     renderAll();
     return true;
   }
-  alert("Je n'ai pas trouvé de disposition valide, retente en cliquant à nouveau sur Aléatoire.");
+  setTimeout(()=> alert("Je n'ai pas trouvé de disposition valide, retente en cliquant à nouveau sur Aléatoire."), 60);
   return false;
 }
 
@@ -199,7 +199,7 @@ function randomizePlacement(){
 function startSoloGame(){
   const secret = generateRandomLayout();
   if(!secret){
-    alert("Je n'ai pas réussi à générer une grille, réessaie.");
+    setTimeout(()=> alert("Je n'ai pas réussi à générer une grille, réessaie."), 60);
     return;
   }
   state.mode = 'solo';
@@ -251,7 +251,7 @@ function proposeSolution(){
     state.soloResult = 'win';
     saveState();
     renderAll();
-    alert('🏆 Bravo, tu as retrouvé la disposition exacte !');
+    setTimeout(()=> alert('🏆 Bravo, tu as retrouvé la disposition exacte !'), 60);
     return;
   }
   state.soloAttempts++;
@@ -260,10 +260,10 @@ function proposeSolution(){
     state.soloResult = 'lose';
     saveState();
     renderAll();
-    alert("💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).");
+    setTimeout(()=> alert("💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour)."), 60);
   } else {
     saveState();
-    alert("C'est faux ! Il te reste un essai avant l'échec.");
+    setTimeout(()=> alert("C'est faux ! Il te reste un essai avant l'échec."), 60);
   }
 }
 
@@ -811,10 +811,25 @@ function buildMixBoard(){
 function attachPieceInteraction(el, piece){
   el.addEventListener('pointerdown', ev=> onPieceDown(ev, piece, el));
 }
+let toastTimer = null;
+function showToast(msg){
+  let toast = document.getElementById('toastMsg');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'toastMsg';
+    toast.className = 'toast-msg';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> toast.classList.remove('show'), 1600);
+}
 function flashInvalid(el){
   el.classList.add('invalid-pulse');
   setTimeout(()=> el.classList.remove('invalid-pulse'), 400);
   if(navigator.vibrate) navigator.vibrate([10,30,10]);
+  showToast('⛔ Placement refusé (contact par un côté ou gemme injoignable)');
 }
 function snapshotOf(piece){ return { center: piece.center? {...piece.center} : null, rotation: piece.rotation, flipped: piece.flipped }; }
 function restoreSnapshot(piece, snap){ piece.center = snap.center; piece.rotation = snap.rotation; piece.flipped = snap.flipped; }

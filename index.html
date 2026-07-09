@@ -122,6 +122,14 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .mix-icon{width:22px;height:22px;flex:0 0 22px;}
 .mix-name{color:var(--text);font-weight:600;}
 .help-fab{position:fixed;bottom:18px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);font-family:'Cinzel',serif;font-weight:700;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.5);}
+.toast-msg{
+  position:fixed; left:50%; bottom:80px; transform:translateX(-50%) translateY(20px);
+  background:#2a1712; border:1px solid var(--danger); color:#f5b8ae;
+  padding:10px 16px; border-radius:8px; font-size:.82rem; font-weight:600;
+  box-shadow:0 6px 18px rgba(0,0,0,.5); opacity:0; pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease; z-index:300; max-width:88vw; text-align:center;
+}
+.toast-msg.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
