@@ -113,6 +113,58 @@ function resetAll(){
 }
 
 // ---------------------------------------------------------------------
+// PLACEMENT ALÉATOIRE — respecte le contact coin-à-coin et l'accessibilité
+// sans rebond, en tenant compte des extensions activées.
+// ---------------------------------------------------------------------
+const ROTATIONS = [0,90,180,270];
+function tryRandomLayout(){
+  const types = allTypes().slice().sort(()=> Math.random()-0.5);
+  const placed = [];
+  for(const type of types){
+    let ok = false;
+    for(let tries=0; tries<250 && !ok; tries++){
+      const rotation = ROTATIONS[Math.floor(Math.random()*4)];
+      const flipped = Math.random() < 0.5;
+      const probe = { id:'r_'+type, type, center:{x:COLS/2,y:ROWS/2}, rotation, flipped };
+      const {hw,hh} = boundingHalfExtents(probe);
+      if(hw*2>COLS || hh*2>ROWS) break; // ne rentre pas, inutile d'insister sur cette rotation
+      const rawX = hw + Math.random()*(COLS-2*hw);
+      const rawY = hh + Math.random()*(ROWS-2*hh);
+      let cx = snapCoord(rawX,hw), cy = snapCoord(rawY,hh);
+      cx = Math.min(COLS-hw, Math.max(hw,cx));
+      cy = Math.min(ROWS-hh, Math.max(hh,cy));
+      const candidate = { id:'r_'+type, type, center:{x:cx,y:cy}, rotation, flipped };
+      if(placementValid(candidate, null, placed)){
+        placed.push(candidate);
+        ok = true;
+      }
+    }
+    if(!ok) return null;
+  }
+  if(unreachablePieces(placed).length > 0) return null;
+  return placed.map(p=> ({ id:'p'+(pieceIdSeq++), type:p.type, center:p.center, rotation:p.rotation, flipped:p.flipped }));
+}
+function randomizePlacement(){
+  for(let attempt=0; attempt<60; attempt++){
+    const layout = tryRandomLayout();
+    if(layout){
+      state.history = [];
+      state.labelColor = {top:{},bottom:{},left:{},right:{}};
+      state.labelBounce = {top:{},bottom:{},left:{},right:{}};
+      state.cellUsed = {};
+      state.traces = [];
+      state.emptyMarks = [];
+      state.pieces = layout;
+      saveState();
+      renderAll();
+      return true;
+    }
+  }
+  alert("Je n'ai pas trouvé de disposition valide, retente en cliquant à nouveau sur Aléatoire.");
+  return false;
+}
+
+// ---------------------------------------------------------------------
 // GEOMETRY — transform & rendering helpers
 // ---------------------------------------------------------------------
 function transformVertex(v, flipped, rotation, center){
@@ -220,12 +272,13 @@ function touchesBySide(polyA, polyB){
   if(maxExtent(inter) > 1e-3) return true;  // contact le long d'une arête
   return false;                              // simple contact ponctuel (coin) -> autorisé
 }
-function placementValid(candidate, excludeId){
+function placementValid(candidate, excludeId, piecesList){
+  piecesList = piecesList || state.pieces;
   const {hw,hh} = boundingHalfExtents(candidate);
   if(candidate.center.x-hw < -1e-6 || candidate.center.x+hw > COLS+1e-6) return false;
   if(candidate.center.y-hh < -1e-6 || candidate.center.y+hh > ROWS+1e-6) return false;
   const polyA = pieceVertices(candidate);
-  for(const other of state.pieces){
+  for(const other of piecesList){
     if(!other.center || other.id===excludeId) continue;
     if(touchesBySide(polyA, pieceVertices(other))) return false;
   }
@@ -234,14 +287,15 @@ function placementValid(candidate, excludeId){
 
 // Chaque gemme posée doit pouvoir être touchée par au moins un rayon SANS rebond
 // (un tir direct depuis un bord qui l'atteint avant toute autre pièce).
-function firstHitPieceId(side, index){
+function firstHitPieceId(side, index, piecesList){
+  piecesList = piecesList || state.pieces;
   let pos, dir;
   if(side==='top'){ pos={x:index+0.5,y:0}; dir={dx:0,dy:1}; }
   else if(side==='bottom'){ pos={x:index+0.5,y:ROWS}; dir={dx:0,dy:-1}; }
   else if(side==='left'){ pos={x:0,y:index+0.5}; dir={dx:1,dy:0}; }
   else { pos={x:COLS,y:index+0.5}; dir={dx:-1,dy:0}; }
   let best = { ...intersectBoundary(pos,dir), kind:'boundary' };
-  for(const piece of state.pieces){
+  for(const piece of piecesList){
     if(!piece.center) continue;
     for(const [A,B] of pieceEdges(piece)){
       const hit = intersectRaySegment(pos,dir,A,B);
@@ -250,17 +304,18 @@ function firstHitPieceId(side, index){
   }
   return best.kind==='edge' ? best.pieceId : null;
 }
-function unreachablePieces(){
+function unreachablePieces(piecesList){
+  piecesList = piecesList || state.pieces;
   const reached = new Set();
   for(let i=0;i<COLS;i++){
-    let id=firstHitPieceId('top',i); if(id) reached.add(id);
-    id=firstHitPieceId('bottom',i); if(id) reached.add(id);
+    let id=firstHitPieceId('top',i,piecesList); if(id) reached.add(id);
+    id=firstHitPieceId('bottom',i,piecesList); if(id) reached.add(id);
   }
   for(let i=0;i<ROWS;i++){
-    let id=firstHitPieceId('left',i); if(id) reached.add(id);
-    id=firstHitPieceId('right',i); if(id) reached.add(id);
+    let id=firstHitPieceId('left',i,piecesList); if(id) reached.add(id);
+    id=firstHitPieceId('right',i,piecesList); if(id) reached.add(id);
   }
-  return state.pieces.filter(p=>p.center && !reached.has(p.id));
+  return piecesList.filter(p=>p.center && !reached.has(p.id));
 }
 
 // ---------------------------------------------------------------------
@@ -540,6 +595,7 @@ function renderModePill(){
   pill.classList.toggle('live', state.started);
   pill.querySelector('span:last-child').textContent = state.started?'Partie en cours':'Placement des gemmes';
   $('#btnStart').disabled = state.started;
+  $('#btnRandom').style.display = state.started ? 'none' : '';
 }
 function renderAll(){
   renderModePill();
@@ -778,6 +834,7 @@ function onCellClick(r,c,cellEl){
 // ---------------------------------------------------------------------
 // TOP LEVEL EVENTS
 // ---------------------------------------------------------------------
+$('#btnRandom').addEventListener('click', ()=>{ if(state.started) return; randomizePlacement(); });
 $('#btnStart').addEventListener('click', ()=>{ if(state.started) return; state.started=true; saveState(); renderAll(); });
 $('#btnReset').addEventListener('click', ()=>{
   if(!confirm("Recommencer efface le placement des gemmes et tout l'historique. Continuer ?")) return;
