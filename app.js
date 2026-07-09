@@ -64,19 +64,34 @@ const CONFIG = {
 // STATE
 // ---------------------------------------------------------------------
 let state = {
+  mode:'gm', // 'gm' | 'solo'
   started:false,
   includeGray:true,
   includeOnyx:true,
   pieces:[],
+  secretPieces:[],
+  soloAttempts:0,
+  soloOver:false,
+  soloResult:null,
   history:[],
   labelColor:{ top:{}, bottom:{}, left:{}, right:{} },
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
   cellUsed:{},
   traces:[],
   emptyMarks:[],
-  occupiedMarks:[]
+  occupiedMarks:[],
+  coordDots:[]
 };
 let pieceIdSeq = 1;
+
+function piecesEditable(){
+  if(state.mode==='solo') return !state.soloOver;
+  return !state.started;
+}
+function raysEnabled(){
+  if(state.mode==='solo') return !state.soloOver;
+  return state.started;
+}
 
 function allTypes(){
   const t = ['red','yellow','blue','white','rhombus'];
@@ -95,18 +110,25 @@ function loadState(){
     const s = JSON.parse(raw);
     if(!s || !Array.isArray(s.pieces)) return false;
     state = s;
+    state.mode = state.mode || 'gm';
+    state.secretPieces = state.secretPieces || [];
+    state.soloAttempts = state.soloAttempts || 0;
+    state.soloOver = state.soloOver || false;
+    state.soloResult = state.soloResult || null;
     state.labelBounce = state.labelBounce || {top:{},bottom:{},left:{},right:{}};
     state.cellUsed = state.cellUsed || {};
     state.occupiedMarks = state.occupiedMarks || [];
-    pieceIdSeq = 1 + state.pieces.reduce((m,p)=>Math.max(m, parseInt((p.id||'p0').slice(1))||0), 0);
+    state.coordDots = state.coordDots || [];
+    pieceIdSeq = 1 + state.pieces.concat(state.secretPieces).reduce((m,p)=>Math.max(m, parseInt((p.id||'p0').slice(1))||0), 0);
     return true;
   }catch(e){ return false; }
 }
 function resetAll(){
   const g = state.includeGray, o = state.includeOnyx;
-  state = { started:false, includeGray:g, includeOnyx:o, pieces:[], history:[],
+  state = { mode:'gm', started:false, includeGray:g, includeOnyx:o, pieces:[], secretPieces:[],
+            soloAttempts:0, soloOver:false, soloResult:null, history:[],
             labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
-            cellUsed:{}, traces:[], emptyMarks:[], occupiedMarks:[] };
+            cellUsed:{}, traces:[], emptyMarks:[], occupiedMarks:[], coordDots:[] };
   state.pieces = freshPieceSet();
   saveState();
   renderAll();
@@ -144,24 +166,105 @@ function tryRandomLayout(){
   if(unreachablePieces(placed).length > 0) return null;
   return placed.map(p=> ({ id:'p'+(pieceIdSeq++), type:p.type, center:p.center, rotation:p.rotation, flipped:p.flipped }));
 }
-function randomizePlacement(){
-  for(let attempt=0; attempt<60; attempt++){
+function generateRandomLayout(maxAttempts){
+  maxAttempts = maxAttempts || 60;
+  for(let attempt=0; attempt<maxAttempts; attempt++){
     const layout = tryRandomLayout();
-    if(layout){
-      state.history = [];
-      state.labelColor = {top:{},bottom:{},left:{},right:{}};
-      state.labelBounce = {top:{},bottom:{},left:{},right:{}};
-      state.cellUsed = {};
-      state.traces = [];
-      state.emptyMarks = [];
-      state.pieces = layout;
-      saveState();
-      renderAll();
-      return true;
-    }
+    if(layout) return layout;
+  }
+  return null;
+}
+function randomizePlacement(){
+  const layout = generateRandomLayout();
+  if(layout){
+    state.history = [];
+    state.labelColor = {top:{},bottom:{},left:{},right:{}};
+    state.labelBounce = {top:{},bottom:{},left:{},right:{}};
+    state.cellUsed = {};
+    state.traces = [];
+    state.emptyMarks = [];
+    state.coordDots = [];
+    state.pieces = layout;
+    saveState();
+    renderAll();
+    return true;
   }
   alert("Je n'ai pas trouvé de disposition valide, retente en cliquant à nouveau sur Aléatoire.");
   return false;
+}
+
+// ---------------------------------------------------------------------
+// MODE SOLO — une grille secrète est générée, le joueur doit la retrouver.
+// ---------------------------------------------------------------------
+function startSoloGame(){
+  const secret = generateRandomLayout();
+  if(!secret){
+    alert("Je n'ai pas réussi à générer une grille, réessaie.");
+    return;
+  }
+  state.mode = 'solo';
+  state.started = false;
+  state.secretPieces = secret;
+  state.pieces = freshPieceSet();
+  state.soloAttempts = 0;
+  state.soloOver = false;
+  state.soloResult = null;
+  state.history = [];
+  state.labelColor = {top:{},bottom:{},left:{},right:{}};
+  state.labelBounce = {top:{},bottom:{},left:{},right:{}};
+  state.cellUsed = {};
+  state.traces = [];
+  state.emptyMarks = [];
+  state.coordDots = [];
+  saveState();
+  renderAll();
+}
+function polygonsMatch(pA, pB, tol){
+  tol = tol || 1e-3;
+  const vA = pieceVertices(pA), vB = pieceVertices(pB);
+  if(vA.length !== vB.length) return false;
+  const used = new Array(vB.length).fill(false);
+  for(const va of vA){
+    let found = false;
+    for(let i=0;i<vB.length;i++){
+      if(used[i]) continue;
+      if(Math.abs(va.x-vB[i].x)<tol && Math.abs(va.y-vB[i].y)<tol){ used[i]=true; found=true; break; }
+    }
+    if(!found) return false;
+  }
+  return true;
+}
+function evaluateGuess(){
+  for(const type of allTypes()){
+    const s = state.secretPieces.find(p=>p.type===type);
+    const g = state.pieces.find(p=>p.type===type && p.center);
+    if(!s || !g) return false;
+    if(!polygonsMatch(s,g)) return false;
+  }
+  return true;
+}
+function proposeSolution(){
+  if(state.mode!=='solo' || state.soloOver) return;
+  const correct = evaluateGuess();
+  if(correct){
+    state.soloOver = true;
+    state.soloResult = 'win';
+    saveState();
+    renderAll();
+    alert('🏆 Bravo, tu as retrouvé la disposition exacte !');
+    return;
+  }
+  state.soloAttempts++;
+  if(state.soloAttempts >= 2){
+    state.soloOver = true;
+    state.soloResult = 'lose';
+    saveState();
+    renderAll();
+    alert("💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).");
+  } else {
+    saveState();
+    alert("C'est faux ! Il te reste un essai avant l'échec.");
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -216,9 +319,10 @@ function pointInPolygon(pt, poly){
   }
   return inside;
 }
-function pieceAtCell(row,col){
+function pieceAtCell(row,col,piecesList){
+  piecesList = piecesList || state.pieces;
   const cellPoly = [{x:col,y:row},{x:col+1,y:row},{x:col+1,y:row+1},{x:col,y:row+1}];
-  return state.pieces.find(p=>{
+  return piecesList.find(p=>{
     if(!p.center) return false;
     const inter = clipPolygon(ensureCCW(pieceVertices(p)), cellPoly);
     return inter.length>0 && polyArea(inter) > 1e-6;
@@ -371,14 +475,14 @@ function resolveColor(set){
   return CONFIG.MIX[colorKeyOf(set)] || CONFIG.NONE;
 }
 
-function simulateBeam(side,index){
+function simulateBeam(side,index,piecesList){
   let pos, dir;
   if(side==='top'){ pos={x:index+0.5,y:0}; dir={dx:0,dy:1}; }
   else if(side==='bottom'){ pos={x:index+0.5,y:ROWS}; dir={dx:0,dy:-1}; }
   else if(side==='left'){ pos={x:0,y:index+0.5}; dir={dx:1,dy:0}; }
   else { pos={x:COLS,y:index+0.5}; dir={dx:-1,dy:0}; }
 
-  const placed = state.pieces.filter(p=>p.center);
+  const placed = (piecesList || state.pieces).filter(p=>p.center);
   const colorsHit = new Set();
   const points = [pos];
   let guard=0, absorbed=false, exitSide=null, exitIndex=null;
@@ -461,7 +565,7 @@ function renderLabels(){
 function makeLabel(side,index){
   const div=document.createElement('div');
   const used = state.labelColor[side][index] !== undefined;
-  div.className='label'+(state.started && !used ? ' clickable':'');
+  div.className='label'+(raysEnabled() && !used ? ' clickable':'');
   div.textContent = labelText(side,index);
   if(used){
     const hex = state.labelColor[side][index];
@@ -475,7 +579,7 @@ function makeLabel(side,index){
       div.appendChild(arrow);
     }
   }
-  if(state.started && !used) div.addEventListener('click', ()=> onLabelClick(side,index));
+  if(raysEnabled() && !used) div.addEventListener('click', ()=> onLabelClick(side,index));
   return div;
 }
 
@@ -494,7 +598,7 @@ function renderBgGrid(){
       cell.style.border='1px solid rgba(0,0,0,.18)';
       cell.dataset.row=r; cell.dataset.col=c;
       const used = state.cellUsed[r+','+c];
-      if(state.started && !used) cell.addEventListener('click', ()=> onCellClick(r,c,cell));
+      if(raysEnabled() && !used) cell.addEventListener('click', ()=> onCellClick(r,c,cell));
       frag.appendChild(cell);
     }
   }
@@ -503,25 +607,43 @@ function renderBgGrid(){
 
 function polyPointsAttr(verts){ return verts.map(v=> v.x+','+v.y).join(' '); }
 
-function svgPolyForPiece(piece){
+function svgPolyForPiece(piece, opts){
+  opts = opts || {};
   const def = CONFIG.PIECES[piece.type];
   const verts = pieceVertices(piece);
   const poly = document.createElementNS(SVGNS,'polygon');
   poly.setAttribute('points', polyPointsAttr(verts));
-  poly.setAttribute('fill', def.isDiamond ? 'rgba(207,216,220,0.55)' : def.hex);
-  poly.setAttribute('stroke', def.isOnyx ? '#cfd8dc' : 'rgba(0,0,0,.4)');
-  poly.setAttribute('stroke-width', def.isOnyx ? 0.03 : 0.045);
+  if(opts.outline){
+    poly.setAttribute('fill','none');
+    poly.setAttribute('stroke', def.isOnyx ? '#cfd8dc' : def.hex);
+    poly.setAttribute('stroke-width', 0.1);
+    poly.setAttribute('stroke-dasharray','0.14,0.09');
+  } else {
+    poly.setAttribute('fill', def.isDiamond ? 'rgba(207,216,220,0.55)' : def.hex);
+    poly.setAttribute('stroke', def.isOnyx ? '#cfd8dc' : 'rgba(0,0,0,.4)');
+    poly.setAttribute('stroke-width', def.isOnyx ? 0.03 : 0.045);
+  }
   poly.setAttribute('vector-effect','non-scaling-stroke');
-  poly.setAttribute('class','piece-poly'+(state.started?'':' interactive'));
+  poly.setAttribute('class','piece-poly'+(!opts.outline && piecesEditable() ? ' interactive':''));
   poly.dataset.id = piece.id;
   return poly;
 }
 function renderPieces(){
   pieceSvg.innerHTML='';
+  if(state.mode==='solo' && state.soloOver){
+    // Comparaison finale : la grille secrète en plein, les gemmes du joueur en contour.
+    state.secretPieces.forEach(piece=>{
+      pieceSvg.appendChild(svgPolyForPiece(piece));
+    });
+    state.pieces.filter(p=>p.center).forEach(piece=>{
+      pieceSvg.appendChild(svgPolyForPiece(piece, {outline:true}));
+    });
+    return;
+  }
   state.pieces.filter(p=>p.center).forEach(piece=>{
     const el = svgPolyForPiece(piece);
     pieceSvg.appendChild(el);
-    if(!state.started) attachPieceInteraction(el, piece);
+    if(piecesEditable()) attachPieceInteraction(el, piece);
   });
 }
 
@@ -529,12 +651,16 @@ function renderPalette(){
   paletteEl.innerHTML='';
   const inPalette = state.pieces.filter(p=>!p.center);
   paletteEl.classList.toggle('empty', inPalette.length===0);
-  const hideSetup = state.started;
-  $('#paletteTitle').style.display = hideSetup?'none':'';
-  paletteEl.style.display = hideSetup?'none':'flex';
-  $('#setupOptions').style.display = hideSetup?'none':'flex';
-  $('#setupHint').style.display = hideSetup?'none':'block';
-  if(hideSetup) return;
+  const showPalette = piecesEditable();
+  const showCheckboxes = state.mode==='gm' && !state.started;
+  $('#paletteTitle').style.display = showPalette?'':'none';
+  paletteEl.style.display = showPalette?'flex':'none';
+  $('#setupOptions').style.display = showCheckboxes?'flex':'none';
+  $('#setupHint').style.display = showPalette?'block':'none';
+  $('#setupHint').textContent = state.mode==='solo'
+    ? "Place tes gemmes comme tu penses que la grille secrète est composée · tape pour pivoter · reste appuyé pour retourner en miroir · clique un bord ou une case pour indice"
+    : "Glisse une gemme sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir";
+  if(!showPalette) return;
   const cs = computeCellSize();
   inPalette.forEach(piece=>{
     const shape = SHAPES[piece.type];
@@ -574,6 +700,9 @@ function renderTraces(){
       <line x1="${m.x-s}" y1="${m.y+s}" x2="${m.x+s}" y2="${m.y-s}"/>
     </g>`;
   }).join('');
+  html += state.coordDots.map(m=>{
+    return `<circle cx="${m.x}" cy="${m.y}" r="0.17" fill="${m.hex}" stroke="rgba(0,0,0,.45)" stroke-width="0.03"/>`;
+  }).join('');
   traceSvg.innerHTML = html;
 }
 
@@ -592,13 +721,34 @@ function renderHistory(){
 }
 function renderModePill(){
   const pill=$('#modePill');
-  pill.classList.toggle('live', state.started);
-  pill.querySelector('span:last-child').textContent = state.started?'Partie en cours':'Placement des gemmes';
+  let text, cls;
+  if(state.mode==='solo'){
+    if(state.soloOver){
+      text = state.soloResult==='win' ? '🏆 Victoire !' : '💥 Défaite';
+      cls = state.soloResult==='win' ? 'win' : 'lose';
+    } else {
+      text = 'Mode solo — devine la grille';
+      cls = 'live';
+    }
+  } else {
+    text = state.started ? 'Partie en cours' : 'Placement des gemmes';
+    cls = state.started ? 'live' : '';
+  }
+  pill.className = 'mode-pill' + (cls ? (' '+cls) : '');
+  pill.querySelector('span:last-child').textContent = text;
+}
+function renderControls(){
+  const gmPreStart = state.mode==='gm' && !state.started;
+  $('#btnRandom').style.display = gmPreStart ? '' : 'none';
+  $('#btnSolo').style.display = gmPreStart ? '' : 'none';
+  $('#btnStart').style.display = state.mode==='gm' ? '' : 'none';
   $('#btnStart').disabled = state.started;
-  $('#btnRandom').style.display = state.started ? 'none' : '';
+  $('#btnPropose').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
+  $('#btnBackToGM').style.display = state.mode==='solo' ? '' : 'none';
 }
 function renderAll(){
   renderModePill();
+  renderControls();
   renderLabels();
   renderBgGrid();
   renderPalette();
@@ -674,7 +824,7 @@ function isFullyValid(piece){
 }
 
 function onPieceDown(ev, piece, el){
-  if(state.started) return;
+  if(!piecesEditable()) return;
   ev.preventDefault();
   const startX=ev.clientX, startY=ev.clientY;
   let moved=false, longPressed=false, dragging=false;
@@ -781,7 +931,8 @@ function timeNow(){ const d=new Date(); return d.toLocaleTimeString('fr-FR',{hou
 
 function onLabelClick(side,index){
   if(state.labelColor[side][index] !== undefined) return;
-  const result = simulateBeam(side,index);
+  const piecesForRay = state.mode==='solo' ? state.secretPieces : state.pieces;
+  const result = simulateBeam(side,index,piecesForRay);
   state.labelColor[side][index] = result.color.hex;
   let text;
   if(result.absorbed){
@@ -798,7 +949,9 @@ function onLabelClick(side,index){
       : `<b>${labelText(side,index)}</b> — <b>${exitLabel}</b> — ${result.color.name}`;
   }
   state.history.push({ text, hex: result.color.hex, time: timeNow() });
-  state.traces.push({ points: result.points, hex: result.color.hex });
+  if(state.mode!=='solo'){
+    state.traces.push({ points: result.points, hex: result.color.hex });
+  }
   saveState();
   renderLabels(); renderHistory(); renderTraces();
 }
@@ -812,13 +965,15 @@ function onCellClick(r,c,cellEl){
   const key = r+','+c;
   if(state.cellUsed[key]) return;
   state.cellUsed[key] = true;
-  const piece = pieceAtCell(r,c);
+  const piecesForQuery = state.mode==='solo' ? state.secretPieces : state.pieces;
+  const piece = pieceAtCell(r,c,piecesForQuery);
   const coord = LEFT_LABELS[r] + (c+1);
   let text, hex;
   if(piece){
     const def = CONFIG.PIECES[piece.type];
     text = `<b>${coord}</b> — ${gemDisplayName(piece)}`;
     hex = def.hex;
+    if(state.mode==='solo') state.coordDots.push({x:c+0.5, y:r+0.5, hex:def.hex});
   } else {
     text = `<b>${coord}</b> — Vide`;
     hex = '#6b6355';
@@ -834,9 +989,20 @@ function onCellClick(r,c,cellEl){
 // ---------------------------------------------------------------------
 // TOP LEVEL EVENTS
 // ---------------------------------------------------------------------
-$('#btnRandom').addEventListener('click', ()=>{ if(state.started) return; randomizePlacement(); });
-$('#btnStart').addEventListener('click', ()=>{ if(state.started) return; state.started=true; saveState(); renderAll(); });
+$('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; randomizePlacement(); });
+$('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; startSoloGame(); });
+$('#btnStart').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; state.started=true; saveState(); renderAll(); });
+$('#btnPropose').addEventListener('click', ()=> proposeSolution());
+$('#btnBackToGM').addEventListener('click', ()=>{
+  if(!confirm('Quitter le mode solo et revenir à la console maître du jeu ? La partie solo en cours sera perdue.')) return;
+  resetAll();
+});
 $('#btnReset').addEventListener('click', ()=>{
+  if(state.mode==='solo'){
+    if(!confirm('Lancer un nouveau défi solo ? La grille actuelle et son historique seront perdus.')) return;
+    startSoloGame();
+    return;
+  }
   if(!confirm("Recommencer efface le placement des gemmes et tout l'historique. Continuer ?")) return;
   resetAll();
 });

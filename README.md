@@ -68,6 +68,22 @@ Pour ajuster une teinte exacte, modifie l'objet `CONFIG.MIX` en haut de `app.js`
 
 Tout est centralisé dans l'objet `SHAPES` en haut de `app.js` : chaque pièce est une liste de sommets `[x,y]` relatifs à son centre (unité = 1 case). Modifie ces coordonnées si une forme ou une taille ne correspond pas exactement à ton exemplaire physique — le reste du moteur (rotation, miroir, calcul du rayon) s'adapte automatiquement.
 
+## Mode solo
+
+Le bouton **🧩 Jouer en solo** (visible avant de démarrer une partie maître du jeu) génère une grille aléatoire cachée que tu dois retrouver :
+
+- Les gemmes de la grille secrète ne sont **jamais affichées**.
+- Tu peux cliquer les bords (lettres/chiffres) comme d'habitude : le résultat (entrée/sortie/couleur) s'ajoute à l'historique, mais **le trajet du rayon n'est pas dessiné** sur la grille — seule l'info textuelle est donnée.
+- Cliquer une case intérieure fonctionne comme en maître du jeu, avec une différence : si elle touche une gemme secrète, un **rond plein de sa couleur** apparaît sur la grille (en plus de la ligne dans l'historique).
+- En parallèle, tu places **tes propres gemmes** (palette identique, mêmes règles de contact coin-à-coin et d'accessibilité) pour construire ta réponse — exactement comme en phase de placement du maître du jeu.
+- **✅ Proposer une solution** compare ta disposition à la grille secrète (une pièce est considérée juste si sa forme finale est identique, peu importe si la rotation/le miroir utilisés sont différents mais donnent le même résultat visuel) :
+  - Tout est juste → 🏆 victoire, partie terminée.
+  - Erreur au 1ᵉʳ essai → message d'échec, la partie continue.
+  - Erreur au 2ᵉ essai → 💥 défaite, partie terminée. La grille secrète est alors révélée en plein, et tes gemmes restent visibles en **contour pointillé de leur couleur** par-dessus, pour comparer facilement.
+- **↩ Retour maître du jeu** quitte le mode solo à tout moment (avec confirmation) et revient à la console habituelle.
+
+Le mode maître du jeu (placement manuel, bouton Aléatoire, Démarrer la partie) n'est pas affecté par cette fonctionnalité.
+
 ## Fichiers
 
 - `index.html` — structure et styles.
