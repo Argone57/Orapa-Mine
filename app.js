@@ -224,6 +224,7 @@ function startSoloGame(){
     setTimeout(()=> alert("Je n'ai pas réussi à générer une grille, réessaie."), 60);
     return;
   }
+  setHintMode(false);
   state.mode = 'solo';
   state.started = false;
   state.secretPieces = secret;
@@ -831,6 +832,8 @@ function renderControls(){
   $('#btnStart').style.display = state.mode==='gm' ? '' : 'none';
   $('#btnStart').disabled = state.started;
   $('#btnPropose').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
+  $('#btnHint').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
+  updateHintModeUI();
   $('#btnBackToGM').style.display = state.mode==='solo' ? '' : 'none';
   const soloReveal = state.mode==='solo' && state.soloOver;
   $('#btnToggleGuess').style.display = soloReveal ? '' : 'none';
@@ -1093,13 +1096,32 @@ function gemDisplayName(piece){
   if(def.colorKey) return CONFIG.MIX[def.colorKey].name;
   return def.label;
 }
+let hintModeActive = false;
+function setHintMode(active){
+  hintModeActive = active;
+  updateHintModeUI();
+}
+function updateHintModeUI(){
+  const btn = document.getElementById('btnHint');
+  if(!btn) return;
+  btn.classList.toggle('active', hintModeActive);
+  btn.textContent = hintModeActive ? '🔍 Mode indice actif — touche une case' : '🔍 Demander un indice';
+}
+
 function onCellClick(r,c,cellEl){
   const key = r+','+c;
   if(state.cellUsed[key]) return;
+  if(state.mode==='solo' && !hintModeActive){
+    showToast('Active d\'abord « 🔍 Demander un indice »');
+    return;
+  }
+  const coord = LEFT_LABELS[r] + (c+1);
+  if(state.mode==='solo'){
+    if(!confirm(`Révéler le contenu de la case ${coord} ?`)) return;
+  }
   state.cellUsed[key] = true;
   const piecesForQuery = state.mode==='solo' ? state.secretPieces : state.pieces;
   const piece = pieceAtCell(r,c,piecesForQuery);
-  const coord = LEFT_LABELS[r] + (c+1);
   let text, hex;
   if(piece){
     const def = CONFIG.PIECES[piece.type];
@@ -1112,6 +1134,7 @@ function onCellClick(r,c,cellEl){
     state.emptyMarks.push({x:c+0.5, y:r+0.5});
   }
   state.history.push({ text, hex, time: timeNow() });
+  if(state.mode==='solo') setHintMode(false);
   saveState();
   renderHistory();
   renderTraces();
@@ -1122,8 +1145,9 @@ function onCellClick(r,c,cellEl){
 // TOP LEVEL EVENTS
 // ---------------------------------------------------------------------
 $('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; randomizePlacement(); });
-$('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; startSoloGame(); });
+$('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; openSoloSetupModal(); });
 $('#btnStart').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; state.started=true; saveState(); renderAll(); });
+$('#btnHint').addEventListener('click', ()=> setHintMode(!hintModeActive));
 $('#btnPropose').addEventListener('click', ()=> proposeSolution());
 $('#btnToggleGuess').addEventListener('click', ()=>{ state.soloShowGuess = !state.soloShowGuess; saveState(); renderControls(); renderPieces(); });
 $('#btnToggleSecret').addEventListener('click', ()=>{ state.soloShowSecret = !state.soloShowSecret; saveState(); renderControls(); renderPieces(); });
@@ -1133,12 +1157,27 @@ $('#btnBackToGM').addEventListener('click', ()=>{
 });
 $('#btnReset').addEventListener('click', ()=>{
   if(state.mode==='solo'){
-    if(!confirm('Lancer un nouveau défi solo ? La grille actuelle et son historique seront perdus.')) return;
-    startSoloGame();
+    openSoloSetupModal();
     return;
   }
   if(!confirm("Recommencer efface le placement des gemmes et tout l'historique. Continuer ?")) return;
   resetAll();
+});
+function openSoloSetupModal(){
+  $('#soloOptGray').checked = state.includeGray;
+  $('#soloOptOnyx').checked = state.includeOnyx;
+  $('#soloOptSapphire').checked = state.includeSapphire;
+  $('#soloSetupModal').classList.add('open');
+}
+function closeSoloSetupModal(){ $('#soloSetupModal').classList.remove('open'); }
+$('#soloSetupCancel').addEventListener('click', closeSoloSetupModal);
+$('#soloSetupModal').addEventListener('click', e=>{ if(e.target.id==='soloSetupModal') closeSoloSetupModal(); });
+$('#soloSetupConfirm').addEventListener('click', ()=>{
+  state.includeGray = $('#soloOptGray').checked;
+  state.includeOnyx = $('#soloOptOnyx').checked;
+  state.includeSapphire = $('#soloOptSapphire').checked;
+  closeSoloSetupModal();
+  startSoloGame();
 });
 $('#optGray').addEventListener('change', e=> syncOptionalPiece('gray', e.target.checked, 'includeGray'));
 $('#optOnyx').addEventListener('change', e=> syncOptionalPiece('onyx', e.target.checked, 'includeOnyx'));

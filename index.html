@@ -49,6 +49,8 @@ button:active{transform:scale(.96);}
 button.primary{background:linear-gradient(180deg,#3a2c17,#2a1f10);border-color:var(--gold);color:var(--gold-bright);}
 button.danger{border-color:#6b3a30;color:#e59c8c;}
 button.ghost{background:transparent;}
+button.ghost.active{background:linear-gradient(180deg,#3a2c17,#2a1f10);border-color:var(--gold);color:var(--gold-bright);animation:hintPulse 1.4s infinite;}
+@keyframes hintPulse{0%,100%{box-shadow:0 0 0 0 rgba(230,194,122,.5)}50%{box-shadow:0 0 0 6px rgba(230,194,122,0)}}
 button:disabled{opacity:.35;cursor:not-allowed;}
 .setup-options{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:12px 0 4px;font-size:.8rem;color:var(--text-dim);}
 .setup-options label{display:flex;align-items:center;gap:6px;cursor:pointer;}
@@ -147,9 +149,10 @@ button:disabled{opacity:.35;cursor:not-allowed;}
     <div class="subtitle">Console du maître du jeu</div>
     <div id="modePill" class="mode-pill"><span class="dot"></span><span>Placement des gemmes</span></div>
     <div class="controls">
-      <button id="btnRandom" class="ghost">🎲 Aléatoire</button>
       <button id="btnSolo" class="ghost">🧩 Jouer en solo</button>
+      <button id="btnRandom" class="ghost">🎲 Aléatoire</button>
       <button id="btnStart" class="primary">Démarrer la partie</button>
+      <button id="btnHint" class="ghost" style="display:none;">🔍 Demander un indice</button>
       <button id="btnPropose" class="primary" style="display:none;">✅ Proposer une solution</button>
       <button id="btnToggleGuess" class="ghost" style="display:none;">👁 Mes gemmes</button>
       <button id="btnToggleSecret" class="ghost" style="display:none;">👁 Gemmes à trouver</button>
@@ -200,6 +203,22 @@ button:disabled{opacity:.35;cursor:not-allowed;}
     <button class="close-x" id="closeHelp">×</button>
     <h2>Couleurs créées par combinaison</h2>
     <div id="mixBoard" class="mix-board"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="soloSetupModal">
+  <div class="modal">
+    <h2>🧩 Nouveau défi solo</h2>
+    <p>Quelles gemmes optionnelles la grille secrète peut-elle contenir ?</p>
+    <div class="setup-options" style="justify-content:flex-start;margin:14px 0;">
+      <label><input type="checkbox" id="soloOptGray"> Diamant</label>
+      <label><input type="checkbox" id="soloOptOnyx"> Corps noir</label>
+      <label><input type="checkbox" id="soloOptSapphire"> Saphir bleu ciel</label>
+    </div>
+    <div class="controls" style="justify-content:flex-end;">
+      <button id="soloSetupCancel" class="ghost">Annuler</button>
+      <button id="soloSetupConfirm" class="primary">Lancer le défi</button>
+    </div>
   </div>
 </div>
 

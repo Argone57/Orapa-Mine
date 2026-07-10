@@ -42,7 +42,7 @@ Triangle blanc, Losange blanc, Triangle bleu, Triangle jaune, Diamant, Corps noi
 
 - Clique une lettre/chiffre en bordure : un rayon est lancé, sa trajectoire réelle (rebonds sur les arêtes des pièces) est calculée, et le résultat s'ajoute à l'historique au format `Entrée — Sortie — Couleur`. Les deux lettres/chiffres concernés se colorent en pastille pleine (texte clair ou foncé selon la couleur pour rester lisible). Si le rayon ressort par son point d'entrée, un symbole ↔ apparaît. **Une lettre/chiffre déjà utilisé — comme entrée ou comme sortie — ne peut plus être recliqué.**
 - Si le rayon atteint le Corps noir, l'historique n'indique que `Entrée — Absorbé`.
-- Clique une case intérieure (ex. B3) : l'historique indique seulement `Vide` (avec une croix qui reste affichée) ou `Occupée` (sans révéler la pièce). **Une case déjà interrogée ne peut plus être recliquée.**
+- Clique une case intérieure (ex. B3) : l'historique indique seulement `Vide` (avec une croix qui reste affichée) ou `Occupée` (sans révéler la pièce). **Une case déjà interrogée ne peut plus être recliquée.** *(En mode solo, ce comportement change — voir plus bas.)*
 - Le trajet de chaque rayon reste tracé sur le plateau, en surbrillance pour bien le voir.
 - Une lettre/chiffre déjà utilisé reste cliquable : ça n'relance pas de rayon, mais affiche une petite bulle rappelant où il était ressorti (ou « Absorbé », ou « Ressort ici même »).
 
@@ -73,11 +73,14 @@ Tout est centralisé dans l'objet `SHAPES` en haut de `app.js` : chaque pièce e
 
 ## Mode solo
 
-Le bouton **🧩 Jouer en solo** (visible avant de démarrer une partie maître du jeu) génère une grille aléatoire cachée que tu dois retrouver :
+Le bouton **🧩 Jouer en solo** ouvre d'abord une petite fenêtre pour choisir quelles extensions (Diamant, Corps noir, Saphir bleu ciel) peuvent apparaître dans la grille secrète, puis génère une grille aléatoire cachée que tu dois retrouver. La même fenêtre réapparaît si tu cliques **Recommencer** pendant une partie solo (tu peux changer les extensions à chaque nouveau défi) :
 
 - Les gemmes de la grille secrète ne sont **jamais affichées**.
 - Tu peux cliquer les bords (lettres/chiffres) comme d'habitude : le résultat (entrée/sortie/couleur) s'ajoute à l'historique, mais **le trajet du rayon n'est pas dessiné** sur la grille — seule l'info textuelle est donnée.
-- Cliquer une case intérieure fonctionne comme en maître du jeu, avec une différence : si elle touche une gemme secrète, un **rond plein de sa couleur** apparaît sur la grille (en plus de la ligne dans l'historique).
+- **Cliquer une case intérieure ne révèle plus rien directement.** Il faut d'abord activer **🔍 Demander un indice** (le bouton se met à pulser pour indiquer qu'il est actif). Le clic suivant sur une case demande confirmation (« Révéler le contenu de la case B3 ? ») :
+  - Si tu confirmes, la case est révélée (comme en maître du jeu — `Vide` + croix, ou un **rond plein de la couleur** de la gemme touchée) et le mode indice se désactive automatiquement.
+  - Si tu annules, rien ne se passe et le mode indice reste actif : tu peux cliquer une autre case.
+  - Recliquer sur **🔍 Demander un indice** désactive le mode sans révéler quoi que ce soit.
 - En parallèle, tu places **tes propres gemmes** (palette identique, mêmes règles de contact coin-à-coin et d'accessibilité) pour construire ta réponse — exactement comme en phase de placement du maître du jeu.
 - **✅ Proposer une solution** compare ta disposition à la grille secrète (une pièce est considérée juste si sa forme finale est identique, peu importe si la rotation/le miroir utilisés sont différents mais donnent le même résultat visuel) :
   - Tout est juste → 🏆 victoire, partie terminée.
