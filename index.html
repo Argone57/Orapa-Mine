@@ -130,6 +130,14 @@ button:disabled{opacity:.35;cursor:not-allowed;}
   transition:opacity .2s ease, transform .2s ease; z-index:300; max-width:88vw; text-align:center;
 }
 .toast-msg.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+.label-bubble{
+  position:fixed; transform:translate(-50%,-100%) translateY(-8px);
+  background:#241c13; border:1px solid var(--gold); color:var(--gold-bright);
+  padding:6px 10px; border-radius:7px; font-size:.72rem; font-weight:700; white-space:nowrap;
+  box-shadow:0 6px 16px rgba(0,0,0,.5); opacity:0; pointer-events:none;
+  transition:opacity .15s ease; z-index:310;
+}
+.label-bubble.show{ opacity:1; }
 </style>
 </head>
 <body>
@@ -143,6 +151,8 @@ button:disabled{opacity:.35;cursor:not-allowed;}
       <button id="btnSolo" class="ghost">🧩 Jouer en solo</button>
       <button id="btnStart" class="primary">Démarrer la partie</button>
       <button id="btnPropose" class="primary" style="display:none;">✅ Proposer une solution</button>
+      <button id="btnToggleGuess" class="ghost" style="display:none;">👁 Mes gemmes</button>
+      <button id="btnToggleSecret" class="ghost" style="display:none;">👁 Gemmes à trouver</button>
       <button id="btnReset" class="danger">Recommencer</button>
       <button id="btnBackToGM" class="ghost" style="display:none;">↩ Retour maître du jeu</button>
     </div>

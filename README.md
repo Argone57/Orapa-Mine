@@ -44,6 +44,7 @@ Triangle blanc, Losange blanc, Triangle bleu, Triangle jaune, Diamant, Corps noi
 - Si le rayon atteint le Corps noir, l'historique n'indique que `Entrée — Absorbé`.
 - Clique une case intérieure (ex. B3) : l'historique indique seulement `Vide` (avec une croix qui reste affichée) ou `Occupée` (sans révéler la pièce). **Une case déjà interrogée ne peut plus être recliquée.**
 - Le trajet de chaque rayon reste tracé sur le plateau, en surbrillance pour bien le voir.
+- Une lettre/chiffre déjà utilisé reste cliquable : ça n'relance pas de rayon, mais affiche une petite bulle rappelant où il était ressorti (ou « Absorbé », ou « Ressort ici même »).
 
 Tout est sauvegardé automatiquement dans le navigateur (localStorage) : un rafraîchissement ne fait rien perdre.
 
@@ -83,6 +84,7 @@ Le bouton **🧩 Jouer en solo** (visible avant de démarrer une partie maître 
   - Erreur au 1ᵉʳ essai → message d'échec, la partie continue.
   - Erreur au 2ᵉ essai → 💥 défaite, partie terminée. La grille secrète est alors révélée en plein, et tes gemmes restent visibles en **contour pointillé de leur couleur** par-dessus, pour comparer facilement.
 - **↩ Retour maître du jeu** quitte le mode solo à tout moment (avec confirmation) et revient à la console habituelle.
+- En cas de défaite, deux boutons **👁 Mes gemmes** / **👁 Gemmes à trouver** permettent de masquer temporairement l'une ou l'autre couche pour mieux comparer.
 
 Le mode maître du jeu (placement manuel, bouton Aléatoire, Démarrer la partie) n'est pas affecté par cette fonctionnalité.
 

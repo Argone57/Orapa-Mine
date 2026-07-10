@@ -76,9 +76,12 @@ let state = {
   soloAttempts:0,
   soloOver:false,
   soloResult:null,
+  soloShowGuess:true,
+  soloShowSecret:true,
   history:[],
   labelColor:{ top:{}, bottom:{}, left:{}, right:{} },
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
+  labelPair:{ top:{}, bottom:{}, left:{}, right:{} },
   cellUsed:{},
   traces:[],
   emptyMarks:[],
@@ -120,9 +123,12 @@ function loadState(){
     state.soloOver = state.soloOver || false;
     state.soloResult = state.soloResult || null;
     state.labelBounce = state.labelBounce || {top:{},bottom:{},left:{},right:{}};
+    state.labelPair = state.labelPair || {top:{},bottom:{},left:{},right:{}};
     state.cellUsed = state.cellUsed || {};
     state.occupiedMarks = state.occupiedMarks || [];
     state.coordDots = state.coordDots || [];
+    if(state.soloShowGuess === undefined) state.soloShowGuess = true;
+    if(state.soloShowSecret === undefined) state.soloShowSecret = true;
     if(state.includeSapphire === undefined) state.includeSapphire = true;
     pieceIdSeq = 1 + state.pieces.concat(state.secretPieces).reduce((m,p)=>Math.max(m, parseInt((p.id||'p0').slice(1))||0), 0);
     // Resynchronise state.pieces avec les cases à cocher (répare les sauvegardes antérieures
@@ -141,8 +147,9 @@ function loadState(){
 function resetAll(){
   const g = state.includeGray, o = state.includeOnyx, s2 = state.includeSapphire;
   state = { mode:'gm', started:false, includeGray:g, includeOnyx:o, includeSapphire:s2, pieces:[], secretPieces:[],
-            soloAttempts:0, soloOver:false, soloResult:null, history:[],
+            soloAttempts:0, soloOver:false, soloResult:null, soloShowGuess:true, soloShowSecret:true, history:[],
             labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
+            labelPair:{top:{},bottom:{},left:{},right:{}},
             cellUsed:{}, traces:[], emptyMarks:[], occupiedMarks:[], coordDots:[] };
   state.pieces = freshPieceSet();
   saveState();
@@ -224,9 +231,12 @@ function startSoloGame(){
   state.soloAttempts = 0;
   state.soloOver = false;
   state.soloResult = null;
+  state.soloShowGuess = true;
+  state.soloShowSecret = true;
   state.history = [];
   state.labelColor = {top:{},bottom:{},left:{},right:{}};
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
+  state.labelPair = {top:{},bottom:{},left:{},right:{}};
   state.cellUsed = {};
   state.traces = [];
   state.emptyMarks = [];
@@ -586,7 +596,7 @@ function renderLabels(){
 function makeLabel(side,index){
   const div=document.createElement('div');
   const used = state.labelColor[side][index] !== undefined;
-  div.className='label'+(raysEnabled() && !used ? ' clickable':'');
+  div.className='label'+(raysEnabled() ? ' clickable':'');
   div.textContent = labelText(side,index);
   if(used){
     const hex = state.labelColor[side][index];
@@ -600,8 +610,30 @@ function makeLabel(side,index){
       div.appendChild(arrow);
     }
   }
-  if(raysEnabled() && !used) div.addEventListener('click', ()=> onLabelClick(side,index));
+  if(raysEnabled()){
+    if(used){
+      div.addEventListener('click', ()=> showLabelBubble(div, state.labelPair[side][index] || '?'));
+    } else {
+      div.addEventListener('click', ()=> onLabelClick(side,index));
+    }
+  }
   return div;
+}
+function showLabelBubble(el, text){
+  let bubble = document.getElementById('labelBubble');
+  if(!bubble){
+    bubble = document.createElement('div');
+    bubble.id = 'labelBubble';
+    bubble.className = 'label-bubble';
+    document.body.appendChild(bubble);
+  }
+  const rect = el.getBoundingClientRect();
+  bubble.textContent = text;
+  bubble.style.left = (rect.left + rect.width/2) + 'px';
+  bubble.style.top = rect.top + 'px';
+  bubble.classList.add('show');
+  clearTimeout(showLabelBubble._t);
+  showLabelBubble._t = setTimeout(()=> bubble.classList.remove('show'), 1600);
 }
 
 function renderBgGrid(){
@@ -683,12 +715,16 @@ function renderPieces(){
   pieceSvg.innerHTML='';
   if(state.mode==='solo' && state.soloOver){
     // Comparaison finale : la grille secrète en plein, les gemmes du joueur en contour épais bien visible.
-    state.secretPieces.forEach(piece=>{
-      pieceSvg.appendChild(svgPolyForPiece(piece));
-    });
-    state.pieces.filter(p=>p.center).forEach(piece=>{
-      pieceSvg.appendChild(svgOutlinePiece(piece));
-    });
+    if(state.soloShowSecret){
+      state.secretPieces.forEach(piece=>{
+        pieceSvg.appendChild(svgPolyForPiece(piece));
+      });
+    }
+    if(state.soloShowGuess){
+      state.pieces.filter(p=>p.center).forEach(piece=>{
+        pieceSvg.appendChild(svgOutlinePiece(piece));
+      });
+    }
     return;
   }
   state.pieces.filter(p=>p.center).forEach(piece=>{
@@ -715,7 +751,7 @@ function renderPalette(){
   const cs = computeCellSize();
   inPalette.forEach(piece=>{
     const shape = SHAPES[piece.type];
-    const pts = shape.pts.map(v=> transformVertex(v,false,0,{x:0,y:0}));
+    const pts = shape.pts.map(v=> transformVertex(v, piece.flipped, piece.rotation, {x:0,y:0}));
     const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
     const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
     const w=maxX-minX, h=maxY-minY, pad=0.15;
@@ -796,6 +832,11 @@ function renderControls(){
   $('#btnStart').disabled = state.started;
   $('#btnPropose').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
   $('#btnBackToGM').style.display = state.mode==='solo' ? '' : 'none';
+  const soloReveal = state.mode==='solo' && state.soloOver;
+  $('#btnToggleGuess').style.display = soloReveal ? '' : 'none';
+  $('#btnToggleSecret').style.display = soloReveal ? '' : 'none';
+  $('#btnToggleGuess').textContent = (state.soloShowGuess?'👁 ':'🚫 ') + 'Mes gemmes';
+  $('#btnToggleSecret').textContent = (state.soloShowSecret?'👁 ':'🚫 ') + 'Gemmes à trouver';
 }
 function renderAll(){
   renderModePill();
@@ -1017,19 +1058,27 @@ function onLabelClick(side,index){
   const piecesForRay = state.mode==='solo' ? state.secretPieces : state.pieces;
   const result = simulateBeam(side,index,piecesForRay);
   state.labelColor[side][index] = result.color.hex;
+  const entryLabelTxt = labelText(side,index);
   let text;
   if(result.absorbed){
-    text = `<b>${labelText(side,index)}</b> — Absorbé`;
+    text = `<b>${entryLabelTxt}</b> — Absorbé`;
+    state.labelPair[side][index] = 'Absorbé (aucune sortie)';
   } else {
     const bounced = result.exitSide===side && result.exitIndex===index;
     const exitLabel = labelText(result.exitSide, result.exitIndex);
     if(state.labelColor[result.exitSide][result.exitIndex] === undefined){
       state.labelColor[result.exitSide][result.exitIndex] = result.color.hex;
     }
-    if(bounced) state.labelBounce[side][index] = true;
+    if(bounced){
+      state.labelBounce[side][index] = true;
+      state.labelPair[side][index] = 'Ressort ici même (↔)';
+    } else {
+      state.labelPair[side][index] = `Sort en ${exitLabel}`;
+      state.labelPair[result.exitSide][result.exitIndex] = `Entré par ${entryLabelTxt}`;
+    }
     text = bounced
-      ? `<b>${labelText(side,index)}</b> ↔ — ${result.color.name}`
-      : `<b>${labelText(side,index)}</b> — <b>${exitLabel}</b> — ${result.color.name}`;
+      ? `<b>${entryLabelTxt}</b> ↔ — ${result.color.name}`
+      : `<b>${entryLabelTxt}</b> — <b>${exitLabel}</b> — ${result.color.name}`;
   }
   state.history.push({ text, hex: result.color.hex, time: timeNow() });
   if(state.mode!=='solo'){
@@ -1076,6 +1125,8 @@ $('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.st
 $('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; startSoloGame(); });
 $('#btnStart').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; state.started=true; saveState(); renderAll(); });
 $('#btnPropose').addEventListener('click', ()=> proposeSolution());
+$('#btnToggleGuess').addEventListener('click', ()=>{ state.soloShowGuess = !state.soloShowGuess; saveState(); renderControls(); renderPieces(); });
+$('#btnToggleSecret').addEventListener('click', ()=>{ state.soloShowSecret = !state.soloShowSecret; saveState(); renderControls(); renderPieces(); });
 $('#btnBackToGM').addEventListener('click', ()=>{
   if(!confirm('Quitter le mode solo et revenir à la console maître du jeu ? La partie solo en cours sera perdue.')) return;
   resetAll();
