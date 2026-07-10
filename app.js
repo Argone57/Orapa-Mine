@@ -125,6 +125,16 @@ function loadState(){
     state.coordDots = state.coordDots || [];
     if(state.includeSapphire === undefined) state.includeSapphire = true;
     pieceIdSeq = 1 + state.pieces.concat(state.secretPieces).reduce((m,p)=>Math.max(m, parseInt((p.id||'p0').slice(1))||0), 0);
+    // Resynchronise state.pieces avec les cases à cocher (répare les sauvegardes antérieures
+    // à l'ajout d'une extension : le drapeau existe mais la pièce n'a jamais été créée).
+    // Ne touche jamais aux pièces déjà placées (center non nul) des autres types.
+    if(state.mode==='gm'){
+      [['gray',state.includeGray],['onyx',state.includeOnyx],['sapphire',state.includeSapphire]].forEach(([type,include])=>{
+        const exists = state.pieces.some(p=>p.type===type);
+        if(include && !exists) state.pieces.push(newPiece(type));
+        else if(!include && exists) state.pieces = state.pieces.filter(p=>p.type!==type);
+      });
+    }
     return true;
   }catch(e){ return false; }
 }
