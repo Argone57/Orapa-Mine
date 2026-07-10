@@ -653,6 +653,12 @@ function svgOutlinePiece(piece){
   const def = CONFIG.PIECES[piece.type];
   const pts = polyPointsAttr(pieceVertices(piece));
   const g = document.createElementNS(SVGNS,'g');
+  const tint = def.isOnyx ? '#e8e2d6' : def.hex;
+  const fill = document.createElementNS(SVGNS,'polygon');
+  fill.setAttribute('points', pts);
+  fill.setAttribute('fill', tint);
+  fill.setAttribute('fill-opacity','0.4');
+  fill.setAttribute('stroke','none');
   const back = document.createElementNS(SVGNS,'polygon');
   back.setAttribute('points', pts);
   back.setAttribute('fill','none');
@@ -663,10 +669,11 @@ function svgOutlinePiece(piece){
   const front = document.createElementNS(SVGNS,'polygon');
   front.setAttribute('points', pts);
   front.setAttribute('fill','none');
-  front.setAttribute('stroke', def.isOnyx ? '#e8e2d6' : def.hex);
+  front.setAttribute('stroke', tint);
   front.setAttribute('stroke-width', 0.16);
   front.setAttribute('stroke-linejoin','round');
   front.setAttribute('vector-effect','non-scaling-stroke');
+  g.appendChild(fill);
   g.appendChild(back);
   g.appendChild(front);
   g.dataset.id = piece.id;
@@ -895,6 +902,7 @@ function snapshotOf(piece){ return { center: piece.center? {...piece.center} : n
 function restoreSnapshot(piece, snap){ piece.center = snap.center; piece.rotation = snap.rotation; piece.flipped = snap.flipped; }
 function isFullyValid(piece){
   if(!piece.center) return true;
+  if(state.mode==='solo') return true; // en solo, le joueur place librement ses hypothèses
   return placementValid(piece, piece.id) && unreachablePieces().length===0;
 }
 

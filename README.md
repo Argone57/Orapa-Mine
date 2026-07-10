@@ -31,8 +31,9 @@ Triangle blanc, Losange blanc, Triangle bleu, Triangle jaune, Diamant, Corps noi
 - Glisse une pièce sur la grille : elle s'aimante à la position valide la plus proche.
 - Tape une pièce posée : elle pivote de **90°**.
 - Reste appuyé un peu plus longtemps : elle se **retourne en miroir** (utile surtout pour le trapèze rouge, seule pièce asymétrique).
-- **Les pièces ne peuvent se toucher que par un coin** : tout déplacement, rotation ou miroir qui mettrait deux pièces en contact par un côté (ou les ferait se chevaucher) est automatiquement refusé et la pièce revient à sa position précédente (flash rouge + message).
-- **Chaque gemme posée doit rester atteignable sans rebond** (3 rayons minimum pour le Saphir, 1 pour les autres). Un placement qui enfreint cette règle est refusé pour la même raison.
+- **Les pièces ne peuvent se toucher que par un coin** : tout déplacement, rotation ou miroir qui mettrait deux pièces en contact par un côté (ou les ferait se chevaucher) est automatiquement refusé et la pièce revient à sa position précédente (flash rouge + message). *Cette règle ne s'applique qu'à la grille du maître du jeu.*
+- **Chaque gemme posée doit rester atteignable sans rebond** (3 rayons minimum pour le Saphir, 1 pour les autres). Un placement qui enfreint cette règle est refusé pour la même raison. *Idem, uniquement côté maître du jeu.*
+- **En mode solo**, ces deux règles ne s'appliquent pas à tes propres gemmes (ta grille de réponse) : tu places librement tes hypothèses, à toi de te débrouiller. La grille secrète générée, elle, respecte toujours ces règles pour rester résoluble.
 - Les cases à cocher permettent d'inclure ou non le **Diamant**, le **Corps noir** et le **Saphir bleu ciel**.
 - **« 🎲 Aléatoire »** place automatiquement les gemmes de base (+ extensions cochées) sur la grille en respectant les règles ci-dessus. Chaque clic tire une nouvelle disposition (peut prendre quelques tentatives en interne si le Saphir est activé, sa contrainte des 3 rayons étant plus stricte — invisible pour toi, ça reste quasi instantané).
 - « Démarrer la partie » verrouille tout. « Recommencer » efface placement + historique (confirmation demandée).
