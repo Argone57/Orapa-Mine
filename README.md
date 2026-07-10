@@ -21,19 +21,20 @@ Chaque bord est un point d'entrée indépendant pour un rayon (une même ligne a
 
 ## Les pièces
 
-Triangle blanc, Losange blanc, Triangle bleu, Triangle jaune, Diamant, Corps noir, Trapèze rouge — de vraies formes, chacune en un seul exemplaire.
+Triangle blanc, Losange blanc, Triangle bleu, Triangle jaune, Diamant, Corps noir, Trapèze rouge, Saphir bleu ciel — de vraies formes, chacune en un seul exemplaire.
 - Triangle jaune : triangle rectangle, cathètes de 2 cases.
 - Triangle blanc / Triangle bleu : triangle isocèle, base de 4 cases, hauteur 2 cases.
 - Diamant : même famille, base de 2 cases, hauteur 1 case (ne colore jamais le rayon).
 - Losange blanc : losange 2×2. Corps noir : rectangle 2×1 (arrête le rayon). Trapèze rouge : parallélogramme.
+- **Saphir bleu ciel** : carré plein 1×1. Chaque contact compte comme s'il touchait à la fois une gemme bleue ET une gemme blanche (donne « Bleu ciel » seul, ou se combine avec les autres couleurs touchées selon la table habituelle). **Doit être placé de façon à être atteint directement, sans rebond, par au moins 3 rayons** (au lieu d'1 seul pour les autres gemmes) — un placement qui ne laisse que 1 ou 2 accès directs est refusé.
 
 - Glisse une pièce sur la grille : elle s'aimante à la position valide la plus proche.
 - Tape une pièce posée : elle pivote de **90°**.
 - Reste appuyé un peu plus longtemps : elle se **retourne en miroir** (utile surtout pour le trapèze rouge, seule pièce asymétrique).
-- **Les pièces ne peuvent se toucher que par un coin** : tout déplacement, rotation ou miroir qui mettrait deux pièces en contact par un côté (ou les ferait se chevaucher) est automatiquement refusé et la pièce revient à sa position précédente (petit flash rouge).
-- **Chaque gemme posée doit rester atteignable sans rebond** : il doit exister au moins un bord (lettre ou chiffre) d'où un rayon tiré en ligne droite touche cette gemme avant toute autre pièce. Un placement qui enfermerait une gemme (aucun tir direct possible) est refusé pour la même raison.
-- Les cases à cocher permettent d'inclure ou non le **Diamant** et le **Corps noir**.
-- **« 🎲 Aléatoire »** place automatiquement les 5 gemmes de base (+ Diamant et/ou Corps noir si cochés) sur la grille en respectant les deux règles ci-dessus (contact coin-à-coin uniquement, chaque gemme atteignable sans rebond). Chaque clic tire une nouvelle disposition.
+- **Les pièces ne peuvent se toucher que par un coin** : tout déplacement, rotation ou miroir qui mettrait deux pièces en contact par un côté (ou les ferait se chevaucher) est automatiquement refusé et la pièce revient à sa position précédente (flash rouge + message).
+- **Chaque gemme posée doit rester atteignable sans rebond** (3 rayons minimum pour le Saphir, 1 pour les autres). Un placement qui enfreint cette règle est refusé pour la même raison.
+- Les cases à cocher permettent d'inclure ou non le **Diamant**, le **Corps noir** et le **Saphir bleu ciel**.
+- **« 🎲 Aléatoire »** place automatiquement les gemmes de base (+ extensions cochées) sur la grille en respectant les règles ci-dessus. Chaque clic tire une nouvelle disposition (peut prendre quelques tentatives en interne si le Saphir est activé, sa contrainte des 3 rayons étant plus stricte — invisible pour toi, ça reste quasi instantané).
 - « Démarrer la partie » verrouille tout. « Recommencer » efface placement + historique (confirmation demandée).
 
 ## Pendant la partie

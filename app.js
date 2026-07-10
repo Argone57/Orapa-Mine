@@ -26,7 +26,8 @@ const SHAPES = {
   blue:    { pts: isocelesPts(4,2) },                                // base 4, hauteur 2
   white:   { pts: isocelesPts(4,2) },                                // base 4, hauteur 2
   rhombus: { pts: [[0,-1],[1,0],[0,1],[-1,0]] },                     // losange 2x2
-  gray:    { pts: isocelesPts(2,1) }                                 // base 2, hauteur 1
+  gray:    { pts: isocelesPts(2,1) },                                // base 2, hauteur 1
+  sapphire:{ pts: [[-0.5,-0.5],[0.5,-0.5],[0.5,0.5],[-0.5,0.5]] }    // carré plein 1x1
 };
 
 const CONFIG = {
@@ -37,7 +38,8 @@ const CONFIG = {
     white:   { label:'Triangle blanc', hex:'#f5f1e8', colorKey:'white' },
     rhombus: { label:'Losange blanc',  hex:'#f5f1e8', colorKey:'white' },
     gray:    { label:'Diamant',        hex:'#cfd8dc', colorKey:null, isDiamond:true },
-    onyx:    { label:'Corps noir',     hex:'#0d0b08', colorKey:null, isOnyx:true }
+    onyx:    { label:'Corps noir',     hex:'#0d0b08', colorKey:null, isOnyx:true },
+    sapphire:{ label:'Saphir bleu ciel', hex:'#a8d8f0', colorKey:null, colorKeys:['blue','white'], minHits:3 }
   },
   MIX: {
     'red':                    { name:'Rouge',        hex:'#d1293d' },
@@ -68,6 +70,7 @@ let state = {
   started:false,
   includeGray:true,
   includeOnyx:true,
+  includeSapphire:true,
   pieces:[],
   secretPieces:[],
   soloAttempts:0,
@@ -97,6 +100,7 @@ function allTypes(){
   const t = ['red','yellow','blue','white','rhombus'];
   if(state.includeGray) t.push('gray');
   if(state.includeOnyx) t.push('onyx');
+  if(state.includeSapphire) t.push('sapphire');
   return t;
 }
 function freshPieceSet(){ return allTypes().map(t=> newPiece(t)); }
@@ -119,13 +123,14 @@ function loadState(){
     state.cellUsed = state.cellUsed || {};
     state.occupiedMarks = state.occupiedMarks || [];
     state.coordDots = state.coordDots || [];
+    if(state.includeSapphire === undefined) state.includeSapphire = true;
     pieceIdSeq = 1 + state.pieces.concat(state.secretPieces).reduce((m,p)=>Math.max(m, parseInt((p.id||'p0').slice(1))||0), 0);
     return true;
   }catch(e){ return false; }
 }
 function resetAll(){
-  const g = state.includeGray, o = state.includeOnyx;
-  state = { mode:'gm', started:false, includeGray:g, includeOnyx:o, pieces:[], secretPieces:[],
+  const g = state.includeGray, o = state.includeOnyx, s2 = state.includeSapphire;
+  state = { mode:'gm', started:false, includeGray:g, includeOnyx:o, includeSapphire:s2, pieces:[], secretPieces:[],
             soloAttempts:0, soloOver:false, soloResult:null, history:[],
             labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
             cellUsed:{}, traces:[], emptyMarks:[], occupiedMarks:[], coordDots:[] };
@@ -410,16 +415,21 @@ function firstHitPieceId(side, index, piecesList){
 }
 function unreachablePieces(piecesList){
   piecesList = piecesList || state.pieces;
-  const reached = new Set();
+  const hitCounts = {};
+  function bump(id){ if(id) hitCounts[id] = (hitCounts[id]||0) + 1; }
   for(let i=0;i<COLS;i++){
-    let id=firstHitPieceId('top',i,piecesList); if(id) reached.add(id);
-    id=firstHitPieceId('bottom',i,piecesList); if(id) reached.add(id);
+    bump(firstHitPieceId('top',i,piecesList));
+    bump(firstHitPieceId('bottom',i,piecesList));
   }
   for(let i=0;i<ROWS;i++){
-    let id=firstHitPieceId('left',i,piecesList); if(id) reached.add(id);
-    id=firstHitPieceId('right',i,piecesList); if(id) reached.add(id);
+    bump(firstHitPieceId('left',i,piecesList));
+    bump(firstHitPieceId('right',i,piecesList));
   }
-  return piecesList.filter(p=>p.center && !reached.has(p.id));
+  return piecesList.filter(p=>{
+    if(!p.center) return false;
+    const need = (CONFIG.PIECES[p.type].minHits) || 1;
+    return (hitCounts[p.id]||0) < need;
+  });
 }
 
 // ---------------------------------------------------------------------
@@ -514,6 +524,7 @@ function simulateBeam(side,index,piecesList){
     points.push(best.point);
     if(def.isOnyx){ absorbed=true; break; }
     if(def.colorKey) colorsHit.add(def.colorKey);
+    if(def.colorKeys) def.colorKeys.forEach(k=> colorsHit.add(k));
     dir = best.edgeType==='wall' ? {dx:-dir.dx,dy:-dir.dy} : reflect(dir, best.edgeType);
     pos = best.point;
     skipPieceId = best.piece.id; skipEdgeIdx = best.edgeIdx;
@@ -628,15 +639,38 @@ function svgPolyForPiece(piece, opts){
   poly.dataset.id = piece.id;
   return poly;
 }
+function svgOutlinePiece(piece){
+  const def = CONFIG.PIECES[piece.type];
+  const pts = polyPointsAttr(pieceVertices(piece));
+  const g = document.createElementNS(SVGNS,'g');
+  const back = document.createElementNS(SVGNS,'polygon');
+  back.setAttribute('points', pts);
+  back.setAttribute('fill','none');
+  back.setAttribute('stroke','rgba(8,6,4,0.95)');
+  back.setAttribute('stroke-width', 0.32);
+  back.setAttribute('stroke-linejoin','round');
+  back.setAttribute('vector-effect','non-scaling-stroke');
+  const front = document.createElementNS(SVGNS,'polygon');
+  front.setAttribute('points', pts);
+  front.setAttribute('fill','none');
+  front.setAttribute('stroke', def.isOnyx ? '#e8e2d6' : def.hex);
+  front.setAttribute('stroke-width', 0.16);
+  front.setAttribute('stroke-linejoin','round');
+  front.setAttribute('vector-effect','non-scaling-stroke');
+  g.appendChild(back);
+  g.appendChild(front);
+  g.dataset.id = piece.id;
+  return g;
+}
 function renderPieces(){
   pieceSvg.innerHTML='';
   if(state.mode==='solo' && state.soloOver){
-    // Comparaison finale : la grille secrète en plein, les gemmes du joueur en contour.
+    // Comparaison finale : la grille secrète en plein, les gemmes du joueur en contour épais bien visible.
     state.secretPieces.forEach(piece=>{
       pieceSvg.appendChild(svgPolyForPiece(piece));
     });
     state.pieces.filter(p=>p.center).forEach(piece=>{
-      pieceSvg.appendChild(svgPolyForPiece(piece, {outline:true}));
+      pieceSvg.appendChild(svgOutlinePiece(piece));
     });
     return;
   }
@@ -755,6 +789,7 @@ function renderAll(){
   renderPieces();
   renderTraces();
   renderHistory();
+  buildMixBoard();
 }
 
 function shapeIconSVG(type, size){
@@ -802,7 +837,22 @@ function buildMixBoard(){
         ${row(['red','yellow','blue'],'blue+red+yellow')}
         ${row(['red','yellow','blue','white'],'blue+red+white+yellow')}
       </div>
-    </div>`;
+    </div>
+    ${state.includeSapphire ? `
+    <hr class="mix-sep">
+    <div style="color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Saphir bleu ciel — compte comme bleu + blanc à chaque contact</div>
+    <div class="mix-quad">
+      <div class="mix-block">
+        ${row(['sapphire'],'blue+white')}
+        ${row(['sapphire','white'],'blue+white')}
+        ${row(['sapphire','blue'],'blue+white')}
+      </div>
+      <div class="mix-block">
+        ${row(['sapphire','red'],'blue+red+white')}
+        ${row(['sapphire','yellow'],'blue+white+yellow')}
+        ${row(['sapphire','red','yellow'],'blue+red+white+yellow')}
+      </div>
+    </div>` : ''}`;
 }
 
 // ---------------------------------------------------------------------
@@ -1023,6 +1073,7 @@ $('#btnReset').addEventListener('click', ()=>{
 });
 $('#optGray').addEventListener('change', e=> syncOptionalPiece('gray', e.target.checked, 'includeGray'));
 $('#optOnyx').addEventListener('change', e=> syncOptionalPiece('onyx', e.target.checked, 'includeOnyx'));
+$('#optSapphire').addEventListener('change', e=> syncOptionalPiece('sapphire', e.target.checked, 'includeSapphire'));
 function syncOptionalPiece(type, include, flagName){
   state[flagName] = include;
   const existing = state.pieces.filter(p=>p.type===type);
@@ -1044,6 +1095,7 @@ function init(){
   if(!restored){ state.pieces = freshPieceSet(); }
   $('#optGray').checked = state.includeGray;
   $('#optOnyx').checked = state.includeOnyx;
+  $('#optSapphire').checked = state.includeSapphire;
   computeCellSize();
   renderAll();
 }
