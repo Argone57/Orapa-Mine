@@ -752,14 +752,22 @@ function renderPalette(){
   const cs = computeCellSize();
   inPalette.forEach(piece=>{
     const shape = SHAPES[piece.type];
+    // Encombrement maximal possible (à rotation 0, une rotation de 90° ne fait qu'échanger
+    // largeur/hauteur donc le plus grand côté reste identique) -> taille de conteneur FIXE,
+    // pour que la tuile ne change jamais de taille/position dans la palette en tournant.
+    const basePts = shape.pts.map(v=> transformVertex(v,false,0,{x:0,y:0}));
+    const bxs=basePts.map(p=>p.x), bys=basePts.map(p=>p.y);
+    const baseW = Math.max(...bxs)-Math.min(...bxs), baseH = Math.max(...bys)-Math.min(...bys);
+    const pad = 0.15;
+    const boxSize = Math.max(baseW,baseH) + 2*pad;
+
     const pts = shape.pts.map(v=> transformVertex(v, piece.flipped, piece.rotation, {x:0,y:0}));
     const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
-    const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
-    const w=maxX-minX, h=maxY-minY, pad=0.15;
+    const cx=(Math.min(...xs)+Math.max(...xs))/2, cy=(Math.min(...ys)+Math.max(...ys))/2;
     const svg = document.createElementNS(SVGNS,'svg');
-    svg.setAttribute('viewBox', `${minX-pad} ${minY-pad} ${w+2*pad} ${h+2*pad}`);
-    svg.style.width = ((w+2*pad)*cs)+'px';
-    svg.style.height = ((h+2*pad)*cs)+'px';
+    svg.setAttribute('viewBox', `${cx-boxSize/2} ${cy-boxSize/2} ${boxSize} ${boxSize}`);
+    svg.style.width = (boxSize*cs)+'px';
+    svg.style.height = (boxSize*cs)+'px';
     svg.classList.add('palette-tile');
     const def = CONFIG.PIECES[piece.type];
     const poly = document.createElementNS(SVGNS,'polygon');
