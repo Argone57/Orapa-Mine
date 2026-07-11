@@ -140,6 +140,12 @@ button:disabled{opacity:.35;cursor:not-allowed;}
   transition:opacity .15s ease; z-index:310;
 }
 .label-bubble.show{ opacity:1; }
+.label.pulse{ animation: labelCellPulse 1s ease; }
+@keyframes labelCellPulse{
+  0%{ box-shadow:0 0 0 0 rgba(230,194,122,.9); transform:scale(1); }
+  30%{ box-shadow:0 0 0 6px rgba(230,194,122,0); transform:scale(1.18); }
+  100%{ box-shadow:0 0 0 0 rgba(230,194,122,0); transform:scale(1); }
+}
 </style>
 </head>
 <body>

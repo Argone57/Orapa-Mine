@@ -82,6 +82,7 @@ let state = {
   labelColor:{ top:{}, bottom:{}, left:{}, right:{} },
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
   labelPair:{ top:{}, bottom:{}, left:{}, right:{} },
+  labelPartner:{ top:{}, bottom:{}, left:{}, right:{} },
   cellUsed:{},
   traces:[],
   emptyMarks:[],
@@ -124,6 +125,7 @@ function loadState(){
     state.soloResult = state.soloResult || null;
     state.labelBounce = state.labelBounce || {top:{},bottom:{},left:{},right:{}};
     state.labelPair = state.labelPair || {top:{},bottom:{},left:{},right:{}};
+    state.labelPartner = state.labelPartner || {top:{},bottom:{},left:{},right:{}};
     state.cellUsed = state.cellUsed || {};
     state.occupiedMarks = state.occupiedMarks || [];
     state.coordDots = state.coordDots || [];
@@ -150,6 +152,7 @@ function resetAll(){
             soloAttempts:0, soloOver:false, soloResult:null, soloShowGuess:true, soloShowSecret:true, history:[],
             labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
             labelPair:{top:{},bottom:{},left:{},right:{}},
+            labelPartner:{top:{},bottom:{},left:{},right:{}},
             cellUsed:{}, traces:[], emptyMarks:[], occupiedMarks:[], coordDots:[] };
   state.pieces = freshPieceSet();
   saveState();
@@ -238,6 +241,7 @@ function startSoloGame(){
   state.labelColor = {top:{},bottom:{},left:{},right:{}};
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
   state.labelPair = {top:{},bottom:{},left:{},right:{}};
+  state.labelPartner = {top:{},bottom:{},left:{},right:{}};
   state.cellUsed = {};
   state.traces = [];
   state.emptyMarks = [];
@@ -599,6 +603,8 @@ function makeLabel(side,index){
   const used = state.labelColor[side][index] !== undefined;
   div.className='label'+(raysEnabled() ? ' clickable':'');
   div.textContent = labelText(side,index);
+  div.dataset.side = side;
+  div.dataset.index = index;
   if(used){
     const hex = state.labelColor[side][index];
     div.classList.add('used');
@@ -613,12 +619,27 @@ function makeLabel(side,index){
   }
   if(raysEnabled()){
     if(used){
-      div.addEventListener('click', ()=> showLabelBubble(div, state.labelPair[side][index] || '?'));
+      div.addEventListener('click', ()=>{
+        showLabelBubble(div, state.labelPair[side][index] || '?');
+        pulseLabelPair(side, index);
+      });
     } else {
       div.addEventListener('click', ()=> onLabelClick(side,index));
     }
   }
   return div;
+}
+function pulseOneLabel(side,index){
+  const el = document.querySelector(`.label[data-side="${side}"][data-index="${index}"]`);
+  if(!el) return;
+  el.classList.remove('pulse'); void el.offsetWidth;
+  el.classList.add('pulse');
+  setTimeout(()=> el.classList.remove('pulse'), 1000);
+}
+function pulseLabelPair(side,index){
+  pulseOneLabel(side,index);
+  const partner = state.labelPartner[side] && state.labelPartner[side][index];
+  if(partner && !(partner.side===side && partner.index===index)) pulseOneLabel(partner.side, partner.index);
 }
 function showLabelBubble(el, text){
   let bubble = document.getElementById('labelBubble');
@@ -1074,6 +1095,7 @@ function onLabelClick(side,index){
   if(result.absorbed){
     text = `<b>${entryLabelTxt}</b> — Absorbé`;
     state.labelPair[side][index] = 'Absorbé (aucune sortie)';
+    state.labelPartner[side][index] = null;
   } else {
     const bounced = result.exitSide===side && result.exitIndex===index;
     const exitLabel = labelText(result.exitSide, result.exitIndex);
@@ -1083,9 +1105,12 @@ function onLabelClick(side,index){
     if(bounced){
       state.labelBounce[side][index] = true;
       state.labelPair[side][index] = 'Ressort ici même (↔)';
+      state.labelPartner[side][index] = { side, index };
     } else {
       state.labelPair[side][index] = `Sort en ${exitLabel}`;
-      state.labelPair[result.exitSide][result.exitIndex] = `Entré par ${entryLabelTxt}`;
+      state.labelPair[result.exitSide][result.exitIndex] = state.mode==='solo' ? `Sort en ${entryLabelTxt}` : `Entré par ${entryLabelTxt}`;
+      state.labelPartner[side][index] = { side: result.exitSide, index: result.exitIndex };
+      state.labelPartner[result.exitSide][result.exitIndex] = { side, index };
     }
     text = bounced
       ? `<b>${entryLabelTxt}</b> ↔ — ${result.color.name}`
