@@ -91,6 +91,15 @@ Le bouton **🧩 Jouer en solo** ouvre d'abord une petite fenêtre pour choisir 
 
 Le mode maître du jeu (placement manuel, bouton Aléatoire, Démarrer la partie) n'est pas affecté par cette fonctionnalité.
 
+## Classements solo
+
+Le bouton flottant **🏆** (en bas à gauche, visible partout) ouvre les classements. Un classement séparé existe pour chacune des 8 combinaisons d'extensions possibles (aucune, Diamant seul, Corps noir seul, Saphir seul, et toutes leurs combinaisons), avec les **10 meilleurs scores** de chacun.
+
+- Le score privilégie le **coût** : chaque rayon lancé coûte **1 point**, chaque coordonnée révélée coûte **3 points** (les coordonnées sont plus « chères » qu'un simple rayon).
+- À coût égal, le **temps** départage — chronométré entre le tout premier indice demandé (rayon ou coordonnée, peu importe lequel vient en premier) et la victoire.
+- Un score n'est enregistré qu'en cas de **victoire**.
+- Chaque classement peut être **réinitialisé indépendamment** (bouton dédié, confirmation demandée).
+
 ## Fichiers
 
 - `index.html` — structure et styles.

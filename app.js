@@ -78,6 +78,8 @@ let state = {
   soloResult:null,
   soloShowGuess:true,
   soloShowSecret:true,
+  moveCost:0,
+  firstActionTime:null,
   history:[],
   labelColor:{ top:{}, bottom:{}, left:{}, right:{} },
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
@@ -90,6 +92,51 @@ let state = {
   coordDots:[]
 };
 let pieceIdSeq = 1;
+
+// ---------------------------------------------------------------------
+// CLASSEMENTS SOLO — persistés séparément (indépendants d'une partie en cours)
+// ---------------------------------------------------------------------
+const COST_RAY = 1, COST_COORD = 3;
+const RANKINGS_KEY = 'orapaMineRankingsV1';
+const RANKING_COMBOS = [
+  [false,false,false],[true,false,false],[false,true,false],[false,false,true],
+  [true,true,false],[true,false,true],[false,true,true],[true,true,true]
+];
+function configKey(g,o,s){
+  const parts = [];
+  if(g) parts.push('Diamant');
+  if(o) parts.push('Corps noir');
+  if(s) parts.push('Saphir bleu ciel');
+  return parts.length ? parts.join(' + ') : 'Aucune extension';
+}
+function loadRankings(){
+  try{ const raw = localStorage.getItem(RANKINGS_KEY); return raw ? JSON.parse(raw) : {}; }
+  catch(e){ return {}; }
+}
+function saveRankings(r){ try{ localStorage.setItem(RANKINGS_KEY, JSON.stringify(r)); }catch(e){} }
+function formatDuration(ms){
+  const s = Math.max(0, Math.round(ms/1000));
+  const m = Math.floor(s/60), sec = s%60;
+  return m>0 ? `${m} min ${sec}s` : `${sec}s`;
+}
+function registerSoloAction(cost){
+  if(state.mode!=='solo' || state.soloOver) return;
+  if(state.firstActionTime === null) state.firstActionTime = Date.now();
+  state.moveCost = (state.moveCost||0) + cost;
+}
+function recordScore(){
+  const key = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
+  const rankings = loadRankings();
+  if(!rankings[key]) rankings[key] = [];
+  const elapsedMs = state.firstActionTime ? (Date.now() - state.firstActionTime) : 0;
+  const entry = { cost: state.moveCost||0, timeMs: elapsedMs, date: Date.now() };
+  rankings[key].push(entry);
+  rankings[key].sort((a,b)=> a.cost - b.cost || a.timeMs - b.timeMs);
+  rankings[key] = rankings[key].slice(0,10);
+  saveRankings(rankings);
+  const rank = rankings[key].indexOf(entry) + 1;
+  return { key, entry, rank, madeList: rank>0 };
+}
 
 function piecesEditable(){
   if(state.mode==='solo') return !state.soloOver;
@@ -129,6 +176,8 @@ function loadState(){
     state.cellUsed = state.cellUsed || {};
     state.occupiedMarks = state.occupiedMarks || [];
     state.coordDots = state.coordDots || [];
+    if(state.moveCost === undefined) state.moveCost = 0;
+    if(state.firstActionTime === undefined) state.firstActionTime = null;
     if(state.soloShowGuess === undefined) state.soloShowGuess = true;
     if(state.soloShowSecret === undefined) state.soloShowSecret = true;
     if(state.includeSapphire === undefined) state.includeSapphire = true;
@@ -237,6 +286,8 @@ function startSoloGame(){
   state.soloResult = null;
   state.soloShowGuess = true;
   state.soloShowSecret = true;
+  state.moveCost = 0;
+  state.firstActionTime = null;
   state.history = [];
   state.labelColor = {top:{},bottom:{},left:{},right:{}};
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
@@ -279,9 +330,11 @@ function proposeSolution(){
   if(correct){
     state.soloOver = true;
     state.soloResult = 'win';
+    const score = recordScore();
     saveState();
     renderAll();
-    setTimeout(()=> alert('🏆 Bravo, tu as retrouvé la disposition exacte !'), 60);
+    const rankMsg = score.madeList ? ` Tu entres dans le classement « ${score.key} » à la place #${score.rank} !` : '';
+    setTimeout(()=> alert(`🏆 Bravo, tu as retrouvé la disposition exacte !\nCoût : ${score.entry.cost} · Temps : ${formatDuration(score.entry.timeMs)}${rankMsg}`), 60);
     return;
   }
   state.soloAttempts++;
@@ -1106,6 +1159,7 @@ function timeNow(){ const d=new Date(); return d.toLocaleTimeString('fr-FR',{hou
 
 function onLabelClick(side,index){
   if(state.labelColor[side][index] !== undefined) return;
+  registerSoloAction(COST_RAY);
   const piecesForRay = state.mode==='solo' ? state.secretPieces : state.pieces;
   const result = simulateBeam(side,index,piecesForRay);
   state.labelColor[side][index] = result.color.hex;
@@ -1167,6 +1221,7 @@ function onCellClick(r,c,cellEl){
   const coord = LEFT_LABELS[r] + (c+1);
   if(state.mode==='solo'){
     if(!confirm(`Révéler le contenu de la case ${coord} ?`)) return;
+    registerSoloAction(COST_COORD);
   }
   state.cellUsed[key] = true;
   const piecesForQuery = state.mode==='solo' ? state.secretPieces : state.pieces;
@@ -1241,6 +1296,49 @@ function syncOptionalPiece(type, include, flagName){
 $('#helpFab').addEventListener('click', ()=> $('#helpModal').classList.add('open'));
 $('#closeHelp').addEventListener('click', ()=> $('#helpModal').classList.remove('open'));
 $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('#helpModal').classList.remove('open'); });
+
+function buildRankingConfigOptions(){
+  const select = $('#rankingConfigSelect');
+  select.innerHTML = RANKING_COMBOS.map(([g,o,s])=>{
+    const key = configKey(g,o,s);
+    return `<option value="${key}">${key}</option>`;
+  }).join('');
+}
+function renderRankingList(){
+  const key = $('#rankingConfigSelect').value;
+  const rankings = loadRankings();
+  const list = rankings[key] || [];
+  const el = $('#rankingList');
+  if(list.length===0){
+    el.innerHTML = '<div class="history-empty">Aucun score enregistré pour cette configuration.</div>';
+    return;
+  }
+  el.innerHTML = list.map((e,i)=>{
+    const d = new Date(e.date).toLocaleDateString('fr-FR');
+    return `<div class="ranking-row">
+      <span class="ranking-rank${i===0?' top1':''}">#${i+1}</span>
+      <span>Coût ${e.cost} · ${formatDuration(e.timeMs)}</span>
+      <span class="ranking-date">${d}</span>
+    </div>`;
+  }).join('');
+}
+$('#rankingsFab').addEventListener('click', ()=>{
+  buildRankingConfigOptions();
+  $('#rankingConfigSelect').value = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
+  renderRankingList();
+  $('#rankingsModal').classList.add('open');
+});
+$('#closeRankings').addEventListener('click', ()=> $('#rankingsModal').classList.remove('open'));
+$('#rankingsModal').addEventListener('click', e=>{ if(e.target.id==='rankingsModal') $('#rankingsModal').classList.remove('open'); });
+$('#rankingConfigSelect').addEventListener('change', renderRankingList);
+$('#btnResetRanking').addEventListener('click', ()=>{
+  const key = $('#rankingConfigSelect').value;
+  if(!confirm(`Réinitialiser le classement « ${key} » ? Cette action est irréversible.`)) return;
+  const rankings = loadRankings();
+  rankings[key] = [];
+  saveRankings(rankings);
+  renderRankingList();
+});
 window.addEventListener('resize', ()=>{ renderBgGrid(); renderPieces(); renderTraces(); });
 
 // ---------------------------------------------------------------------

@@ -124,6 +124,13 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .mix-icon{width:22px;height:22px;flex:0 0 22px;}
 .mix-name{color:var(--text);font-weight:600;}
 .help-fab{position:fixed;bottom:18px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);font-family:'Cinzel',serif;font-weight:700;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.5);}
+.rankings-fab{left:18px;right:auto;}
+.ranking-select{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--vein);border-radius:8px;padding:8px 10px;font-family:'Space Grotesk',sans-serif;font-size:.85rem;margin:10px 0;}
+.ranking-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:.83rem;border-bottom:1px solid rgba(91,70,48,.3);}
+.ranking-row:last-child{border-bottom:none;}
+.ranking-rank{width:26px;font-weight:700;color:var(--gold-bright);font-family:'Cinzel',serif;}
+.ranking-rank.top1{color:#ffd766;}
+.ranking-date{margin-left:auto;font-size:.68rem;color:var(--text-faint);}
 .toast-msg{
   position:fixed; left:50%; bottom:80px; transform:translateX(-50%) translateY(20px);
   background:#2a1712; border:1px solid var(--danger); color:#f5b8ae;
@@ -204,6 +211,20 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 </div>
 
 <button class="help-fab" id="helpFab">?</button>
+<button class="help-fab rankings-fab" id="rankingsFab">🏆</button>
+
+<div class="modal-backdrop" id="rankingsModal">
+  <div class="modal">
+    <button class="close-x" id="closeRankings">×</button>
+    <h2>🏆 Classements solo</h2>
+    <p>Le classement privilégie le <b>coût</b> (1 point par rayon lancé, 3 points par coordonnée révélée), le temps départage à coût égal — chronométré entre le premier indice demandé et la victoire. 10 meilleurs scores par configuration d'extensions.</p>
+    <select id="rankingConfigSelect" class="ranking-select"></select>
+    <div id="rankingList" class="history-panel" style="max-height:320px;"></div>
+    <div class="controls" style="justify-content:flex-end;margin-top:14px;">
+      <button id="btnResetRanking" class="danger">Réinitialiser ce classement</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-backdrop" id="helpModal">
   <div class="modal">
