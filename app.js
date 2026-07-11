@@ -80,6 +80,8 @@ let state = {
   soloShowSecret:true,
   moveCost:0,
   firstActionTime:null,
+  rayCount:0,
+  coordCount:0,
   history:[],
   labelColor:{ top:{}, bottom:{}, left:{}, right:{} },
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
@@ -119,17 +121,29 @@ function formatDuration(ms){
   const m = Math.floor(s/60), sec = s%60;
   return m>0 ? `${m} min ${sec}s` : `${sec}s`;
 }
-function registerSoloAction(cost){
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function registerSoloAction(kind){
   if(state.mode!=='solo' || state.soloOver) return;
   if(state.firstActionTime === null) state.firstActionTime = Date.now();
-  state.moveCost = (state.moveCost||0) + cost;
+  if(kind==='ray'){ state.moveCost = (state.moveCost||0) + COST_RAY; state.rayCount = (state.rayCount||0) + 1; }
+  else { state.moveCost = (state.moveCost||0) + COST_COORD; state.coordCount = (state.coordCount||0) + 1; }
 }
-function recordScore(){
+function formatScoreLine(e){
+  return `${e.cost} pts (${e.rayCount||0}🔦 + ${e.coordCount||0}📍) · ${formatDuration(e.timeMs)}`;
+}
+function recordScore(name){
   const key = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
   const rankings = loadRankings();
   if(!rankings[key]) rankings[key] = [];
   const elapsedMs = state.firstActionTime ? (Date.now() - state.firstActionTime) : 0;
-  const entry = { cost: state.moveCost||0, timeMs: elapsedMs, date: Date.now() };
+  const entry = {
+    name: (name||'').trim().slice(0,24) || 'Anonyme',
+    cost: state.moveCost||0, timeMs: elapsedMs,
+    rayCount: state.rayCount||0, coordCount: state.coordCount||0,
+    date: Date.now()
+  };
   rankings[key].push(entry);
   rankings[key].sort((a,b)=> a.cost - b.cost || a.timeMs - b.timeMs);
   rankings[key] = rankings[key].slice(0,10);
@@ -178,6 +192,8 @@ function loadState(){
     state.coordDots = state.coordDots || [];
     if(state.moveCost === undefined) state.moveCost = 0;
     if(state.firstActionTime === undefined) state.firstActionTime = null;
+    if(state.rayCount === undefined) state.rayCount = 0;
+    if(state.coordCount === undefined) state.coordCount = 0;
     if(state.soloShowGuess === undefined) state.soloShowGuess = true;
     if(state.soloShowSecret === undefined) state.soloShowSecret = true;
     if(state.includeSapphire === undefined) state.includeSapphire = true;
@@ -288,6 +304,8 @@ function startSoloGame(){
   state.soloShowSecret = true;
   state.moveCost = 0;
   state.firstActionTime = null;
+  state.rayCount = 0;
+  state.coordCount = 0;
   state.history = [];
   state.labelColor = {top:{},bottom:{},left:{},right:{}};
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
@@ -330,11 +348,12 @@ function proposeSolution(){
   if(correct){
     state.soloOver = true;
     state.soloResult = 'win';
-    const score = recordScore();
+    const name = (prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement :', '') || '').trim();
+    const score = recordScore(name);
     saveState();
     renderAll();
     const rankMsg = score.madeList ? ` Tu entres dans le classement « ${score.key} » à la place #${score.rank} !` : '';
-    setTimeout(()=> alert(`🏆 Bravo, tu as retrouvé la disposition exacte !\nCoût : ${score.entry.cost} · Temps : ${formatDuration(score.entry.timeMs)}${rankMsg}`), 60);
+    setTimeout(()=> alert(`🏆 Bravo ${score.entry.name} !\n${formatScoreLine(score.entry)}${rankMsg}`), 60);
     return;
   }
   state.soloAttempts++;
@@ -1159,7 +1178,7 @@ function timeNow(){ const d=new Date(); return d.toLocaleTimeString('fr-FR',{hou
 
 function onLabelClick(side,index){
   if(state.labelColor[side][index] !== undefined) return;
-  registerSoloAction(COST_RAY);
+  registerSoloAction('ray');
   const piecesForRay = state.mode==='solo' ? state.secretPieces : state.pieces;
   const result = simulateBeam(side,index,piecesForRay);
   state.labelColor[side][index] = result.color.hex;
@@ -1221,7 +1240,7 @@ function onCellClick(r,c,cellEl){
   const coord = LEFT_LABELS[r] + (c+1);
   if(state.mode==='solo'){
     if(!confirm(`Révéler le contenu de la case ${coord} ?`)) return;
-    registerSoloAction(COST_COORD);
+    registerSoloAction('coord');
   }
   state.cellUsed[key] = true;
   const piecesForQuery = state.mode==='solo' ? state.secretPieces : state.pieces;
@@ -1316,9 +1335,12 @@ function renderRankingList(){
   el.innerHTML = list.map((e,i)=>{
     const d = new Date(e.date).toLocaleDateString('fr-FR');
     return `<div class="ranking-row">
-      <span class="ranking-rank${i===0?' top1':''}">#${i+1}</span>
-      <span>Coût ${e.cost} · ${formatDuration(e.timeMs)}</span>
-      <span class="ranking-date">${d}</span>
+      <div class="ranking-row-top">
+        <span class="ranking-rank${i===0?' top1':''}">#${i+1}</span>
+        <span class="ranking-name">${escapeHtml(e.name||'Anonyme')}</span>
+        <span class="ranking-date">${d}</span>
+      </div>
+      <div class="ranking-row-score">${formatScoreLine(e)}</div>
     </div>`;
   }).join('');
 }
