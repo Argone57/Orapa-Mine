@@ -649,11 +649,17 @@ function showLabelBubble(el, text){
     bubble.className = 'label-bubble';
     document.body.appendChild(bubble);
   }
-  const rect = el.getBoundingClientRect();
   bubble.textContent = text;
-  bubble.style.left = (rect.left + rect.width/2) + 'px';
-  bubble.style.top = rect.top + 'px';
   bubble.classList.add('show');
+  const rect = el.getBoundingClientRect();
+  const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
+  const margin = 8;
+  let left = rect.left + rect.width/2;
+  left = Math.max(bw/2+margin, Math.min(window.innerWidth-bw/2-margin, left));
+  const above = rect.top - bh - 10 >= 0;
+  bubble.classList.toggle('below', !above);
+  bubble.style.left = left+'px';
+  bubble.style.top = (above ? rect.top : rect.bottom) + 'px';
   clearTimeout(showLabelBubble._t);
   showLabelBubble._t = setTimeout(()=> bubble.classList.remove('show'), 1600);
 }
@@ -762,6 +768,19 @@ function renderPalette(){
   paletteEl.classList.toggle('empty', inPalette.length===0);
   const showPalette = piecesEditable();
   const showCheckboxes = state.mode==='gm' && !state.started;
+  if(state.mode==='gm'){
+    // Les cases à cocher reflètent toujours la présence réelle des pièces (et non un
+    // simple drapeau qui pourrait se désynchroniser, par ex. après un retour du mode solo).
+    const hasGray = state.pieces.some(p=>p.type==='gray');
+    const hasOnyx = state.pieces.some(p=>p.type==='onyx');
+    const hasSapphire = state.pieces.some(p=>p.type==='sapphire');
+    state.includeGray = hasGray;
+    state.includeOnyx = hasOnyx;
+    state.includeSapphire = hasSapphire;
+    $('#optGray').checked = hasGray;
+    $('#optOnyx').checked = hasOnyx;
+    $('#optSapphire').checked = hasSapphire;
+  }
   $('#paletteTitle').style.display = showPalette?'':'none';
   paletteEl.style.display = showPalette?'flex':'none';
   $('#setupOptions').style.display = showCheckboxes?'flex':'none';
@@ -1144,10 +1163,7 @@ function updateHintModeUI(){
 function onCellClick(r,c,cellEl){
   const key = r+','+c;
   if(state.cellUsed[key]) return;
-  if(state.mode==='solo' && !hintModeActive){
-    showToast('Active d\'abord « 🔍 Demander un indice »');
-    return;
-  }
+  if(state.mode==='solo' && !hintModeActive) return;
   const coord = LEFT_LABELS[r] + (c+1);
   if(state.mode==='solo'){
     if(!confirm(`Révéler le contenu de la case ${coord} ?`)) return;
