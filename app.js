@@ -82,6 +82,8 @@ let state = {
   firstActionTime:null,
   rayCount:0,
   coordCount:0,
+  gridId:null,
+  gridRanked:true,
   history:[],
   labelColor:{ top:{}, bottom:{}, left:{}, right:{} },
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
@@ -142,6 +144,7 @@ function recordScore(name){
     name: (name||'').trim().slice(0,24) || 'Anonyme',
     cost: state.moveCost||0, timeMs: elapsedMs,
     rayCount: state.rayCount||0, coordCount: state.coordCount||0,
+    gridId: state.gridId||null,
     date: Date.now()
   };
   rankings[key].push(entry);
@@ -194,6 +197,8 @@ function loadState(){
     if(state.firstActionTime === undefined) state.firstActionTime = null;
     if(state.rayCount === undefined) state.rayCount = 0;
     if(state.coordCount === undefined) state.coordCount = 0;
+    if(state.gridId === undefined) state.gridId = null;
+    if(state.gridRanked === undefined) state.gridRanked = true;
     if(state.soloShowGuess === undefined) state.soloShowGuess = true;
     if(state.soloShowSecret === undefined) state.soloShowSecret = true;
     if(state.includeSapphire === undefined) state.includeSapphire = true;
@@ -228,20 +233,48 @@ function resetAll(){
 // PLACEMENT ALÉATOIRE — respecte le contact coin-à-coin et l'accessibilité
 // sans rebond, en tenant compte des extensions activées.
 // ---------------------------------------------------------------------
+let rng = Math.random;
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function seedFromString(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++) h = Math.imul(31,h) + str.charCodeAt(i) | 0;
+  return h>>>0;
+}
+const GRID_ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sans 0/O/1/I/L ambigus
+function generateGridId(){
+  let base = '';
+  for(let i=0;i<6;i++) base += GRID_ID_CHARS[Math.floor(Math.random()*GRID_ID_CHARS.length)];
+  const flags = (state.includeGray?'1':'0') + (state.includeOnyx?'1':'0') + (state.includeSapphire?'1':'0');
+  return `${base}-${flags}`;
+}
+function parseGridId(input){
+  const clean = (input||'').trim().toUpperCase().replace(/\s+/g,'');
+  const m = clean.match(/^([A-Z0-9]{4,10})-?([01]{3})$/);
+  if(!m) return null;
+  return { base:m[1], flags:m[2], full:`${m[1]}-${m[2]}` };
+}
+
 const ROTATIONS = [0,90,180,270];
 function tryRandomLayout(){
-  const types = allTypes().slice().sort(()=> Math.random()-0.5);
+  const types = allTypes().slice().sort(()=> rng()-0.5);
   const placed = [];
   for(const type of types){
     let ok = false;
     for(let tries=0; tries<250 && !ok; tries++){
-      const rotation = ROTATIONS[Math.floor(Math.random()*4)];
-      const flipped = Math.random() < 0.5;
+      const rotation = ROTATIONS[Math.floor(rng()*4)];
+      const flipped = rng() < 0.5;
       const probe = { id:'r_'+type, type, center:{x:COLS/2,y:ROWS/2}, rotation, flipped };
       const {hw,hh} = boundingHalfExtents(probe);
       if(hw*2>COLS || hh*2>ROWS) break; // ne rentre pas, inutile d'insister sur cette rotation
-      const rawX = hw + Math.random()*(COLS-2*hw);
-      const rawY = hh + Math.random()*(ROWS-2*hh);
+      const rawX = hw + rng()*(COLS-2*hw);
+      const rawY = hh + rng()*(ROWS-2*hh);
       let cx = snapCoord(rawX,hw), cy = snapCoord(rawY,hh);
       cx = Math.min(COLS-hw, Math.max(hw,cx));
       cy = Math.min(ROWS-hh, Math.max(hh,cy));
@@ -286,10 +319,30 @@ function randomizePlacement(){
 // ---------------------------------------------------------------------
 // MODE SOLO — une grille secrète est générée, le joueur doit la retrouver.
 // ---------------------------------------------------------------------
-function startSoloGame(){
+function startSoloGame(explicitId){
+  let gridId, seedBase, ranked;
+  if(explicitId){
+    const parsed = parseGridId(explicitId);
+    if(!parsed){
+      setTimeout(()=> alert("Identifiant invalide. Format attendu : XXXXXX-XXX (ex. 7F3K9Q-101)."), 60);
+      return;
+    }
+    state.includeGray = parsed.flags[0]==='1';
+    state.includeOnyx = parsed.flags[1]==='1';
+    state.includeSapphire = parsed.flags[2]==='1';
+    gridId = parsed.full;
+    seedBase = parsed.base;
+    ranked = false;
+  } else {
+    gridId = generateGridId();
+    seedBase = gridId.split('-')[0];
+    ranked = true;
+  }
+  rng = mulberry32(seedFromString(seedBase));
   const secret = generateRandomLayout();
+  rng = Math.random;
   if(!secret){
-    setTimeout(()=> alert("Je n'ai pas réussi à générer une grille, réessaie."), 60);
+    setTimeout(()=> alert("Je n'ai pas réussi à générer cette grille, réessaie."), 60);
     return;
   }
   setHintMode(false);
@@ -297,6 +350,8 @@ function startSoloGame(){
   state.started = false;
   state.secretPieces = secret;
   state.pieces = freshPieceSet();
+  state.gridId = gridId;
+  state.gridRanked = ranked;
   state.soloAttempts = 0;
   state.soloOver = false;
   state.soloResult = null;
@@ -348,12 +403,18 @@ function proposeSolution(){
   if(correct){
     state.soloOver = true;
     state.soloResult = 'win';
-    const name = (prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement :', '') || '').trim();
-    const score = recordScore(name);
-    saveState();
-    renderAll();
-    const rankMsg = score.madeList ? ` Tu entres dans le classement « ${score.key} » à la place #${score.rank} !` : '';
-    setTimeout(()=> alert(`🏆 Bravo ${score.entry.name} !\n${formatScoreLine(score.entry)}${rankMsg}`), 60);
+    if(state.gridRanked){
+      const name = (prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement :', '') || '').trim();
+      const score = recordScore(name);
+      saveState();
+      renderAll();
+      const rankMsg = score.madeList ? ` Tu entres dans le classement « ${score.key} » à la place #${score.rank} !` : '';
+      setTimeout(()=> alert(`🏆 Bravo ${score.entry.name} !\n${formatScoreLine(score.entry)}${rankMsg}`), 60);
+    } else {
+      saveState();
+      renderAll();
+      setTimeout(()=> alert('🏆 Bravo, tu as retrouvé la disposition exacte !\n(Grille chargée par identifiant — non comptabilisée au classement.)'), 60);
+    }
     return;
   }
   state.soloAttempts++;
@@ -949,6 +1010,7 @@ function renderControls(){
   const gmPreStart = state.mode==='gm' && !state.started;
   $('#btnRandom').style.display = gmPreStart ? '' : 'none';
   $('#btnSolo').style.display = gmPreStart ? '' : 'none';
+  $('#btnLoadGrid').style.display = gmPreStart ? '' : 'none';
   $('#btnStart').style.display = state.mode==='gm' ? '' : 'none';
   $('#btnStart').disabled = state.started;
   $('#btnPropose').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
@@ -960,6 +1022,9 @@ function renderControls(){
   $('#btnToggleSecret').style.display = soloReveal ? '' : 'none';
   $('#btnToggleGuess').textContent = (state.soloShowGuess?'👁 ':'🚫 ') + 'Mes gemmes';
   $('#btnToggleSecret').textContent = (state.soloShowSecret?'👁 ':'🚫 ') + 'Gemmes à trouver';
+  const showGridId = soloReveal && state.gridId;
+  $('#gridIdRow').style.display = showGridId ? 'flex' : 'none';
+  if(showGridId) $('#gridIdText').textContent = state.gridId;
 }
 function renderAll(){
   renderModePill();
@@ -1269,11 +1334,27 @@ function onCellClick(r,c,cellEl){
 // ---------------------------------------------------------------------
 $('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; randomizePlacement(); });
 $('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; openSoloSetupModal(); });
+$('#btnLoadGrid').addEventListener('click', ()=>{
+  if(state.mode!=='gm' || state.started) return;
+  const id = prompt('Entre l\'identifiant de la grille (ex. 7F3K9Q-101) :', '');
+  if(!id) return;
+  const parsed = parseGridId(id);
+  if(!parsed){
+    alert('Identifiant invalide. Format attendu : XXXXXX-XXX (ex. 7F3K9Q-101).');
+    return;
+  }
+  if(!confirm('⚠️ Une partie lancée à partir d\'un identifiant ne sera pas ajoutée au classement. Continuer ?')) return;
+  startSoloGame(parsed.full);
+});
 $('#btnStart').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; state.started=true; saveState(); renderAll(); });
 $('#btnHint').addEventListener('click', ()=> setHintMode(!hintModeActive));
 $('#btnPropose').addEventListener('click', ()=> proposeSolution());
 $('#btnToggleGuess').addEventListener('click', ()=>{ state.soloShowGuess = !state.soloShowGuess; saveState(); renderControls(); renderPieces(); });
 $('#btnToggleSecret').addEventListener('click', ()=>{ state.soloShowSecret = !state.soloShowSecret; saveState(); renderControls(); renderPieces(); });
+$('#btnCopyGridId').addEventListener('click', ()=>{
+  if(!state.gridId) return;
+  if(navigator.clipboard) navigator.clipboard.writeText(state.gridId).then(()=> showToast('Identifiant copié : '+state.gridId));
+});
 $('#btnBackToGM').addEventListener('click', ()=>{
   if(!confirm('Quitter le mode solo et revenir à la console maître du jeu ? La partie solo en cours sera perdue.')) return;
   resetAll();
@@ -1323,6 +1404,7 @@ function buildRankingConfigOptions(){
     return `<option value="${key}">${key}</option>`;
   }).join('');
 }
+let expandedScores = new Set();
 function renderRankingList(){
   const key = $('#rankingConfigSelect').value;
   const rankings = loadRankings();
@@ -1334,15 +1416,36 @@ function renderRankingList(){
   }
   el.innerHTML = list.map((e,i)=>{
     const d = new Date(e.date).toLocaleDateString('fr-FR');
-    return `<div class="ranking-row">
+    const expanded = expandedScores.has(e.date);
+    const detailHtml = expanded ? `
+      <div class="ranking-row-detail">
+        ${e.rayCount||0} rayon${e.rayCount===1?'':'s'} 🔦 + ${e.coordCount||0} coordonnée${e.coordCount===1?'':'s'} 📍 · ${formatDuration(e.timeMs)}
+      </div>
+      ${e.gridId ? `<div class="ranking-row-id">Grille : <b>${escapeHtml(e.gridId)}</b> <button class="ranking-copy-id" data-id="${escapeHtml(e.gridId)}">📋 Copier</button></div>` : ''}` : '';
+    return `<div class="ranking-row${expanded?' expanded':''}" data-date="${e.date}">
       <div class="ranking-row-top">
         <span class="ranking-rank${i===0?' top1':''}">#${i+1}</span>
         <span class="ranking-name">${escapeHtml(e.name||'Anonyme')}</span>
+        <span class="ranking-points">${e.cost} pts</span>
         <span class="ranking-date">${d}</span>
-      </div>
-      <div class="ranking-row-score">${formatScoreLine(e)}</div>
+      </div>${detailHtml}
     </div>`;
   }).join('');
+  el.querySelectorAll('.ranking-row').forEach(row=>{
+    row.addEventListener('click', ev=>{
+      if(ev.target.closest('.ranking-copy-id')) return;
+      const date = Number(row.dataset.date);
+      if(expandedScores.has(date)) expandedScores.delete(date); else expandedScores.add(date);
+      renderRankingList();
+    });
+  });
+  el.querySelectorAll('.ranking-copy-id').forEach(btn=>{
+    btn.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      const id = btn.dataset.id;
+      if(navigator.clipboard) navigator.clipboard.writeText(id).then(()=> showToast('Identifiant copié : '+id));
+    });
+  });
 }
 $('#rankingsFab').addEventListener('click', ()=>{
   buildRankingConfigOptions();

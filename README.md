@@ -98,7 +98,14 @@ Le bouton flottant **🏆** (en bas à gauche, visible partout) ouvre les classe
 - Le score privilégie le **coût** : chaque rayon lancé coûte **1 point**, chaque coordonnée révélée coûte **3 points** (les coordonnées sont plus « chères » qu'un simple rayon). Le détail (nombre de rayons 🔦 et de coordonnées 📍) est affiché à côté du score pour rester lisible en un coup d'œil, ex. `5 pts (2🔦 + 1📍) · 12s`.
 - À coté égal, le **temps** départage — chronométré entre le tout premier indice demandé (rayon ou coordonnée, peu importe lequel vient en premier) et la victoire.
 - À la victoire, une **saisie de nom** est proposée pour le classement (24 caractères max, « Anonyme » par défaut si laissé vide).
-- Un score n'est enregistré qu'en cas de **victoire**.
+- Un score n'est enregistré qu'en cas de **victoire**, et seulement si la grille n'a pas été chargée via un identifiant (voir plus bas).
+- Chaque grille secrète a un **identifiant unique** (ex. `7F3K9Q-101`), affiché — et copiable — sur les écrans de victoire et de défaite.
+- Dans le classement, chaque ligne est **repliée par défaut** (rang, nom, points, date) ; un clic dessus déplie le détail (répartition rayons/coordonnées, temps, et l'identifiant de la grille, copiable).
+- Chaque classement peut être **réinitialisé indépendamment** (bouton dédié, confirmation demandée).
+
+## Rejouer une grille précise
+
+Le bouton **🔑 Grille par identifiant** (accueil, avant de démarrer une partie) permet de ressaisir un identifiant (ex. `7F3K9Q-101`) pour régénérer exactement la même grille secrète — pratique pour défier quelqu'un d'autre sur la même disposition, ou reprendre un identifiant noté depuis le classement. Une partie lancée ainsi **ne compte pas pour le classement** (avertissement affiché avant de lancer).
 - Chaque classement peut être **réinitialisé indépendamment** (bouton dédié, confirmation demandée).
 
 ## Fichiers

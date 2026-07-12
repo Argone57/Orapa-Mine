@@ -123,17 +123,21 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .mix-swatch{width:20px;height:20px;border-radius:5px;flex:0 0 20px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);}
 .mix-icon{width:22px;height:22px;flex:0 0 22px;}
 .mix-name{color:var(--text);font-weight:600;}
-.help-fab{position:fixed;bottom:18px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);font-family:'Cinzel',serif;font-weight:700;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.5);}
+.help-fab{position:fixed;bottom:18px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);font-family:'Cinzel',serif;font-weight:700;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:1.15rem;line-height:1;padding:0;}
 .rankings-fab{left:18px;right:auto;}
 .ranking-select{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--vein);border-radius:8px;padding:8px 10px;font-family:'Space Grotesk',sans-serif;font-size:.85rem;margin:10px 0;}
-.ranking-row{padding:8px 10px;border-radius:6px;font-size:.83rem;border-bottom:1px solid rgba(91,70,48,.3);}
+.ranking-row{padding:8px 10px;border-radius:6px;font-size:.83rem;border-bottom:1px solid rgba(91,70,48,.3);cursor:pointer;}
 .ranking-row:last-child{border-bottom:none;}
+.ranking-row.expanded{background:rgba(230,194,122,.06);}
 .ranking-row-top{display:flex;align-items:center;gap:8px;}
 .ranking-rank{width:26px;flex:0 0 26px;font-weight:700;color:var(--gold-bright);font-family:'Cinzel',serif;}
 .ranking-rank.top1{color:#ffd766;}
 .ranking-name{flex:1;min-width:0;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ranking-points{font-weight:700;color:var(--gold-bright);white-space:nowrap;font-size:.78rem;}
 .ranking-date{font-size:.68rem;color:var(--text-faint);white-space:nowrap;}
-.ranking-row-score{margin-top:3px;margin-left:34px;font-size:.75rem;color:var(--text-dim);}
+.ranking-row-detail{margin-top:6px;margin-left:34px;font-size:.74rem;color:var(--text-dim);}
+.ranking-row-id{margin-top:5px;margin-left:34px;display:flex;align-items:center;gap:8px;font-size:.74rem;color:var(--text-dim);}
+.ranking-copy-id{background:none;border:1px solid var(--vein);border-radius:5px;padding:2px 8px;font-size:.68rem;color:var(--gold-bright);cursor:pointer;}
 .toast-msg{
   position:fixed; left:50%; bottom:80px; transform:translateX(-50%) translateY(20px);
   background:#2a1712; border:1px solid var(--danger); color:#f5b8ae;
@@ -165,8 +169,13 @@ button:disabled{opacity:.35;cursor:not-allowed;}
     <h1>💎 Orapa Mine</h1>
     <div class="subtitle">Console du maître du jeu</div>
     <div id="modePill" class="mode-pill"><span class="dot"></span><span>Placement des gemmes</span></div>
+    <div id="gridIdRow" style="display:none;align-items:center;gap:8px;font-size:.75rem;color:var(--text-dim);">
+      <span>Grille : <b id="gridIdText" style="color:var(--gold-bright);font-family:'Cinzel',serif;"></b></span>
+      <button id="btnCopyGridId" class="ghost" style="padding:4px 10px;font-size:.7rem;">📋 Copier</button>
+    </div>
     <div class="controls">
       <button id="btnSolo" class="ghost">🧩 Jouer en solo</button>
+      <button id="btnLoadGrid" class="ghost">🔑 Grille par identifiant</button>
       <button id="btnRandom" class="ghost">🎲 Aléatoire</button>
       <button id="btnStart" class="primary">Démarrer la partie</button>
       <button id="btnHint" class="ghost" style="display:none;">🔍 Demander un indice</button>
@@ -220,7 +229,8 @@ button:disabled{opacity:.35;cursor:not-allowed;}
   <div class="modal">
     <button class="close-x" id="closeRankings">×</button>
     <h2>🏆 Classements solo</h2>
-    <p>Le classement privilégie le <b>coût</b> (1 point par rayon lancé, 3 points par coordonnée révélée), le temps départage à coût égal — chronométré entre le premier indice demandé et la victoire. 10 meilleurs scores par configuration d'extensions.</p>
+    <p>Moins de points, c'est mieux : un rayon vaut <b>1 point</b>, une coordonnée révélée <b>3 points</b>. À points égaux, c'est le temps le plus court qui gagne (chronométré depuis ta toute première recherche jusqu'à la victoire). Les 10 meilleurs scores sont gardés pour chaque combinaison d'extensions.</p>
+    <p>Clique une ligne pour voir le détail et l'identifiant de la grille.</p>
     <select id="rankingConfigSelect" class="ranking-select"></select>
     <div id="rankingList" class="history-panel" style="max-height:320px;"></div>
     <div class="controls" style="justify-content:flex-end;margin-top:14px;">
