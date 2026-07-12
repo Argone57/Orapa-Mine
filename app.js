@@ -138,7 +138,11 @@ function formatScoreLine(e){
 }
 function formatShareText(e){
   const d = new Date(e.date).toLocaleDateString('fr-FR');
-  return `${d} - ${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ID: ${e.gridId||'?'}`;
+  const decoded = e.gridId ? decodeGridId(e.gridId) : null;
+  const gems = decoded
+    ? gemFlagsEmojiLine(decoded.includeGray, decoded.includeOnyx, decoded.includeSapphire)
+    : gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
+  return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ID: ${e.gridId||'?'}`;
 }
 function recordScore(name, elapsedMsOverride){
   const key = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
@@ -226,10 +230,12 @@ function resetAll(){
   const g = state.includeGray, o = state.includeOnyx, s2 = state.includeSapphire;
   state = { mode:'gm', started:false, includeGray:g, includeOnyx:o, includeSapphire:s2, pieces:[], secretPieces:[],
             soloAttempts:0, soloOver:false, soloResult:null, soloShowGuess:true, soloShowSecret:true, history:[],
+            gridId:null, gridRanked:true, moveCost:0, firstActionTime:null, finalTimeMs:null, rayCount:0, coordCount:0,
             labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
             labelPair:{top:{},bottom:{},left:{},right:{}},
             labelPartner:{top:{},bottom:{},left:{},right:{}},
             cellUsed:{}, traces:[], emptyMarks:[], occupiedMarks:[], coordDots:[] };
+  lastScoreResult = null;
   state.pieces = freshPieceSet();
   saveState();
   renderAll();
@@ -239,48 +245,67 @@ function resetAll(){
 // PLACEMENT ALÉATOIRE — respecte le contact coin-à-coin et l'accessibilité
 // sans rebond, en tenant compte des extensions activées.
 // ---------------------------------------------------------------------
-let rng = Math.random;
-function mulberry32(a){
-  return function(){
-    a |= 0; a = a + 0x6D2B79F5 | 0;
-    let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
+const GRID_ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sans 0/O/1/I/L ambigus, valeurs 0-31
+const TYPE_ORDER = ['red','yellow','blue','white','rhombus','gray','onyx','sapphire'];
+
+// L'identifiant encode DIRECTEMENT le contenu de la grille (position/rotation/miroir
+// de chaque gemme), pas une graine aléatoire : deux grilles identiques donnent toujours
+// le même identifiant, sur n'importe quel appareil ou navigateur, et ça fonctionne aussi
+// bien pour une grille générée aléatoirement que pour une grille placée à la main.
+function encodeGridId(pieces, includeGray, includeOnyx, includeSapphire){
+  const header = (includeGray?1:0) + (includeOnyx?2:0) + (includeSapphire?4:0);
+  const chars = [GRID_ID_CHARS[header]];
+  for(const type of TYPE_ORDER){
+    if(type==='gray' && !includeGray) continue;
+    if(type==='onyx' && !includeOnyx) continue;
+    if(type==='sapphire' && !includeSapphire) continue;
+    const piece = pieces.find(p=>p.type===type && p.center);
+    if(!piece) return null; // grille incomplète, pas d'identifiant possible
+    const x2 = Math.max(0, Math.min(31, Math.round(piece.center.x*2)));
+    const y2 = Math.max(0, Math.min(31, Math.round(piece.center.y*2)));
+    const rotIdx = Math.max(0, ROTATIONS.indexOf(piece.rotation));
+    const combined = rotIdx*2 + (piece.flipped?1:0);
+    chars.push(GRID_ID_CHARS[x2], GRID_ID_CHARS[y2], GRID_ID_CHARS[combined]);
+  }
+  return chars.join('').match(/.{1,4}/g).join('-');
 }
-function seedFromString(str){
-  let h = 0;
-  for(let i=0;i<str.length;i++) h = Math.imul(31,h) + str.charCodeAt(i) | 0;
-  return h>>>0;
+function decodeGridId(input){
+  const clean = (input||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(clean.length < 1) return null;
+  const header = GRID_ID_CHARS.indexOf(clean[0]);
+  if(header<0 || header>7) return null;
+  const includeGray = !!(header&1), includeOnyx = !!(header&2), includeSapphire = !!(header&4);
+  const types = TYPE_ORDER.filter(t=> (t!=='gray'||includeGray) && (t!=='onyx'||includeOnyx) && (t!=='sapphire'||includeSapphire));
+  if(clean.length !== 1 + types.length*3) return null;
+  const pieces = [];
+  let idx = 1;
+  for(const type of types){
+    const cx = GRID_ID_CHARS.indexOf(clean[idx]), cy = GRID_ID_CHARS.indexOf(clean[idx+1]), cc = GRID_ID_CHARS.indexOf(clean[idx+2]);
+    if(cx<0||cy<0||cc<0) return null;
+    pieces.push({ type, center:{x:cx/2,y:cy/2}, rotation:ROTATIONS[Math.floor(cc/2)], flipped: !!(cc%2) });
+    idx += 3;
+  }
+  const formatted = clean.match(/.{1,4}/g).join('-');
+  return { includeGray, includeOnyx, includeSapphire, pieces, id: formatted };
 }
-const GRID_ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sans 0/O/1/I/L ambigus
-function generateGridId(){
-  let base = '';
-  for(let i=0;i<6;i++) base += GRID_ID_CHARS[Math.floor(Math.random()*GRID_ID_CHARS.length)];
-  const flags = (state.includeGray?'1':'0') + (state.includeOnyx?'1':'0') + (state.includeSapphire?'1':'0');
-  return `${base}-${flags}`;
-}
-function parseGridId(input){
-  const clean = (input||'').trim().toUpperCase().replace(/\s+/g,'');
-  const m = clean.match(/^([A-Z0-9]{4,10})-?([01]{3})$/);
-  if(!m) return null;
-  return { base:m[1], flags:m[2], full:`${m[1]}-${m[2]}` };
+function gemFlagsEmojiLine(g,o,s){
+  return `💎 ${g?'✅':'❌'} / ⬛️ ${o?'✅':'❌'} / 🟦 ${s?'✅':'❌'}`;
 }
 
 const ROTATIONS = [0,90,180,270];
 function tryRandomLayout(){
-  const types = allTypes().slice().sort(()=> rng()-0.5);
+  const types = allTypes().slice().sort(()=> Math.random()-0.5);
   const placed = [];
   for(const type of types){
     let ok = false;
     for(let tries=0; tries<250 && !ok; tries++){
-      const rotation = ROTATIONS[Math.floor(rng()*4)];
-      const flipped = rng() < 0.5;
+      const rotation = ROTATIONS[Math.floor(Math.random()*4)];
+      const flipped = Math.random() < 0.5;
       const probe = { id:'r_'+type, type, center:{x:COLS/2,y:ROWS/2}, rotation, flipped };
       const {hw,hh} = boundingHalfExtents(probe);
       if(hw*2>COLS || hh*2>ROWS) break; // ne rentre pas, inutile d'insister sur cette rotation
-      const rawX = hw + rng()*(COLS-2*hw);
-      const rawY = hh + rng()*(ROWS-2*hh);
+      const rawX = hw + Math.random()*(COLS-2*hw);
+      const rawY = hh + Math.random()*(ROWS-2*hh);
       let cx = snapCoord(rawX,hw), cy = snapCoord(rawY,hh);
       cx = Math.min(COLS-hw, Math.max(hw,cx));
       cy = Math.min(ROWS-hh, Math.max(hh,cy));
@@ -326,30 +351,31 @@ function randomizePlacement(){
 // MODE SOLO — une grille secrète est générée, le joueur doit la retrouver.
 // ---------------------------------------------------------------------
 function startSoloGame(explicitId){
-  let gridId, seedBase, ranked;
+  let gridId, secret, ranked;
   if(explicitId){
-    const parsed = parseGridId(explicitId);
-    if(!parsed){
-      setTimeout(()=> alert("Identifiant invalide. Format attendu : XXXXXX-XXX (ex. 7F3K9Q-101)."), 60);
+    const decoded = decodeGridId(explicitId);
+    if(!decoded){
+      setTimeout(()=> alert("Identifiant invalide. Vérifie que tu l'as copié en entier."), 60);
       return;
     }
-    state.includeGray = parsed.flags[0]==='1';
-    state.includeOnyx = parsed.flags[1]==='1';
-    state.includeSapphire = parsed.flags[2]==='1';
-    gridId = parsed.full;
-    seedBase = parsed.base;
+    state.includeGray = decoded.includeGray;
+    state.includeOnyx = decoded.includeOnyx;
+    state.includeSapphire = decoded.includeSapphire;
+    secret = decoded.pieces.map(p=> ({ id:'p'+(pieceIdSeq++), type:p.type, center:p.center, rotation:p.rotation, flipped:p.flipped }));
+    if(unreachablePieces(secret).length>0){
+      setTimeout(()=> alert("Cet identifiant ne correspond à aucune grille valide."), 60);
+      return;
+    }
+    gridId = decoded.id;
     ranked = false;
   } else {
-    gridId = generateGridId();
-    seedBase = gridId.split('-')[0];
+    secret = generateRandomLayout();
+    if(!secret){
+      setTimeout(()=> alert("Je n'ai pas réussi à générer une grille, réessaie."), 60);
+      return;
+    }
+    gridId = encodeGridId(secret, state.includeGray, state.includeOnyx, state.includeSapphire);
     ranked = true;
-  }
-  rng = mulberry32(seedFromString(seedBase));
-  const secret = generateRandomLayout();
-  rng = Math.random;
-  if(!secret){
-    setTimeout(()=> alert("Je n'ai pas réussi à générer cette grille, réessaie."), 60);
-    return;
   }
   setHintMode(false);
   state.mode = 'solo';
@@ -1049,9 +1075,12 @@ function renderControls(){
   $('#btnToggleSecret').style.display = soloReveal ? '' : 'none';
   $('#btnToggleGuess').textContent = (state.soloShowGuess?'👁 ':'🚫 ') + 'Mes gemmes';
   $('#btnToggleSecret').textContent = (state.soloShowSecret?'👁 ':'🚫 ') + 'Gemmes à trouver';
-  const showGridId = soloReveal && state.gridId;
+  const showGridId = (soloReveal && state.gridId) || (state.mode==='gm' && state.started && state.gridId);
   $('#gridIdRow').style.display = showGridId ? 'flex' : 'none';
-  if(showGridId) $('#gridIdText').textContent = state.gridId;
+  if(showGridId){
+    $('#gridIdText').textContent = state.gridId;
+    $('#btnCopyGridId').textContent = state.mode==='gm' ? '📋 Copier le défi' : '📋 Copier';
+  }
   $('#btnReplayVictory').style.display = (state.mode==='solo' && state.soloOver && state.soloResult==='win') ? '' : 'none';
 }
 function renderAll(){
@@ -1362,15 +1391,31 @@ function onCellClick(r,c,cellEl){
 // ---------------------------------------------------------------------
 $('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; randomizePlacement(); });
 $('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; openSoloChoiceModal(); });
-$('#btnStart').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; state.started=true; saveState(); renderAll(); });
+$('#btnStart').addEventListener('click', ()=>{
+  if(state.mode!=='gm' || state.started) return;
+  if(state.pieces.some(p=>!p.center)){
+    alert('Place toutes les gemmes sur la grille avant de démarrer la partie.');
+    return;
+  }
+  state.started = true;
+  state.gridId = encodeGridId(state.pieces, state.includeGray, state.includeOnyx, state.includeSapphire);
+  saveState();
+  renderAll();
+});
 $('#btnHint').addEventListener('click', ()=> setHintMode(!hintModeActive));
 $('#btnPropose').addEventListener('click', ()=> proposeSolution());
 $('#btnToggleGuess').addEventListener('click', ()=>{ state.soloShowGuess = !state.soloShowGuess; saveState(); renderControls(); renderPieces(); });
 $('#btnToggleSecret').addEventListener('click', ()=>{ state.soloShowSecret = !state.soloShowSecret; saveState(); renderControls(); renderPieces(); });
 $('#btnReplayVictory').addEventListener('click', ()=> openVictoryModal());
 $('#btnCopyGridId').addEventListener('click', ()=>{
-  if(!state.gridId) return;
-  if(navigator.clipboard) navigator.clipboard.writeText(state.gridId).then(()=> showToast('Identifiant copié : '+state.gridId));
+  if(!state.gridId || !navigator.clipboard) return;
+  if(state.mode==='gm'){
+    const gems = gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
+    const text = `Je te défie à Orapa Mine !\n${gems}\nID: ${state.gridId}`;
+    navigator.clipboard.writeText(text).then(()=> showToast('Défi copié !'));
+  } else {
+    navigator.clipboard.writeText(state.gridId).then(()=> showToast('Identifiant copié : '+state.gridId));
+  }
 });
 $('#btnBackToGM').addEventListener('click', ()=>{
   if(!confirm('Quitter le mode solo et revenir à la console maître du jeu ? La partie solo en cours sera perdue.')) return;
@@ -1390,20 +1435,18 @@ function closeSoloChoiceModal(){ $('#soloChoiceModal').classList.remove('open');
 $('#soloChoiceCancel').addEventListener('click', closeSoloChoiceModal);
 $('#soloChoiceModal').addEventListener('click', e=>{ if(e.target.id==='soloChoiceModal') closeSoloChoiceModal(); });
 $('#soloChoiceRandom').addEventListener('click', ()=>{ closeSoloChoiceModal(); openSoloSetupModal(); });
-$('#soloChoiceById').addEventListener('click', ()=>{
-  closeSoloChoiceModal();
-  promptLoadGridById();
-});
+$('#soloChoiceById').addEventListener('click', ()=> promptLoadGridById());
 function promptLoadGridById(){
-  const id = prompt('Entre l\'identifiant de la grille (ex. 7F3K9Q-101) :', '');
-  if(!id) return;
-  const parsed = parseGridId(id);
-  if(!parsed){
-    alert('Identifiant invalide. Format attendu : XXXXXX-XXX (ex. 7F3K9Q-101).');
-    return;
+  const id = prompt('Entre l\'identifiant de la grille :', '');
+  if(!id) return; // annulé : on reste sur l'écran de choix Aléatoire/Par identifiant
+  const decoded = decodeGridId(id);
+  if(!decoded){
+    alert("Identifiant invalide. Vérifie que tu l'as copié en entier.");
+    return; // reste aussi sur l'écran de choix
   }
   if(!confirm('⚠️ Une partie lancée à partir d\'un identifiant ne sera pas ajoutée au classement. Continuer ?')) return;
-  startSoloGame(parsed.full);
+  closeSoloChoiceModal();
+  startSoloGame(id);
 }
 
 function openSoloSetupModal(){
