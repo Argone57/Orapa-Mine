@@ -137,7 +137,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .ranking-date{font-size:.68rem;color:var(--text-faint);white-space:nowrap;}
 .ranking-row-detail{margin-top:6px;margin-left:34px;font-size:.74rem;color:var(--text-dim);}
 .ranking-row-id{margin-top:5px;margin-left:34px;display:flex;align-items:center;gap:8px;font-size:.74rem;color:var(--text-dim);}
-.ranking-copy-id{background:none;border:1px solid var(--vein);border-radius:5px;padding:2px 8px;font-size:.68rem;color:var(--gold-bright);cursor:pointer;}
+.ranking-copy-id, .ranking-copy-summary{background:none;border:1px solid var(--vein);border-radius:5px;padding:4px 9px;font-size:.68rem;color:var(--gold-bright);cursor:pointer;white-space:nowrap;}
 .toast-msg{
   position:fixed; left:50%; bottom:80px; transform:translateX(-50%) translateY(20px);
   background:#2a1712; border:1px solid var(--danger); color:#f5b8ae;
@@ -175,13 +175,13 @@ button:disabled{opacity:.35;cursor:not-allowed;}
     </div>
     <div class="controls">
       <button id="btnSolo" class="ghost">🧩 Jouer en solo</button>
-      <button id="btnLoadGrid" class="ghost">🔑 Grille par identifiant</button>
       <button id="btnRandom" class="ghost">🎲 Aléatoire</button>
       <button id="btnStart" class="primary">Démarrer la partie</button>
       <button id="btnHint" class="ghost" style="display:none;">🔍 Demander un indice</button>
       <button id="btnPropose" class="primary" style="display:none;">✅ Proposer une solution</button>
       <button id="btnToggleGuess" class="ghost" style="display:none;">👁 Mes gemmes</button>
       <button id="btnToggleSecret" class="ghost" style="display:none;">👁 Gemmes à trouver</button>
+      <button id="btnReplayVictory" class="ghost" style="display:none;">🏆 Revoir la victoire</button>
       <button id="btnReset" class="danger">Recommencer</button>
       <button id="btnBackToGM" class="ghost" style="display:none;">↩ Retour maître du jeu</button>
     </div>
@@ -247,6 +247,20 @@ button:disabled{opacity:.35;cursor:not-allowed;}
   </div>
 </div>
 
+<div class="modal-backdrop" id="soloChoiceModal">
+  <div class="modal">
+    <h2>🧩 Jouer en solo</h2>
+    <p>Comment veux-tu générer la grille secrète ?</p>
+    <div class="controls" style="justify-content:center;margin:16px 0 6px;">
+      <button id="soloChoiceRandom" class="primary">🎲 Aléatoire</button>
+      <button id="soloChoiceById" class="ghost">🔑 Par identifiant</button>
+    </div>
+    <div class="controls" style="justify-content:flex-end;">
+      <button id="soloChoiceCancel" class="ghost">Annuler</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="soloSetupModal">
   <div class="modal">
     <h2>🧩 Nouveau défi solo</h2>
@@ -259,6 +273,23 @@ button:disabled{opacity:.35;cursor:not-allowed;}
     <div class="controls" style="justify-content:flex-end;">
       <button id="soloSetupCancel" class="ghost">Annuler</button>
       <button id="soloSetupConfirm" class="primary">Lancer le défi</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="victoryModal">
+  <div class="modal">
+    <button class="close-x" id="closeVictory">×</button>
+    <h2>🏆 Victoire !</h2>
+    <p id="victoryMessage">Tu as retrouvé la disposition exacte !</p>
+    <div class="ranking-row-detail" id="victoryScoreLine" style="margin-left:0;font-size:.85rem;"></div>
+    <div id="victoryRankLine" style="margin-top:4px;color:var(--gold-bright);font-size:.83rem;"></div>
+    <div class="ranking-row-id" id="victoryIdLine" style="margin-left:0;margin-top:12px;">
+      Grille : <b id="victoryGridId"></b>
+    </div>
+    <div class="controls" style="justify-content:flex-end;margin-top:16px;">
+      <button id="btnVictoryCopyId" class="ghost">📋 Copier ID</button>
+      <button id="btnVictoryCopySummary" class="ghost">📋 Copier le résumé</button>
     </div>
   </div>
 </div>

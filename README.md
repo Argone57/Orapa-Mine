@@ -105,7 +105,13 @@ Le bouton flottant **🏆** (en bas à gauche, visible partout) ouvre les classe
 
 ## Rejouer une grille précise
 
-Le bouton **🔑 Grille par identifiant** (accueil, avant de démarrer une partie) permet de ressaisir un identifiant (ex. `7F3K9Q-101`) pour régénérer exactement la même grille secrète — pratique pour défier quelqu'un d'autre sur la même disposition, ou reprendre un identifiant noté depuis le classement. Une partie lancée ainsi **ne compte pas pour le classement** (avertissement affiché avant de lancer).
+Le bouton **🧩 Jouer en solo** propose désormais un choix : **🎲 Aléatoire** (comme avant) ou **🔑 Par identifiant** — ressaisir un identifiant (ex. `7F3K9Q-101`) régénère exactement la même grille secrète, pratique pour défier quelqu'un d'autre sur la même disposition, ou reprendre un identifiant noté depuis le classement. Une partie lancée ainsi **ne compte pas pour le classement** (avertissement affiché avant de lancer).
+
+## Partager un score
+
+Que ce soit dans le classement (ligne dépliée) ou dans le popup de victoire (rappelable à tout moment via **🏆 Revoir la victoire** tant que la partie n'est pas quittée), deux boutons sont disponibles :
+- **📋 Copier ID** — copie juste l'identifiant de la grille.
+- **📋 Copier le résumé** — copie une ligne complète prête à coller ailleurs, ex. `12/07/2026 - Alice - 4 pts (1🔦/1📍) - ID: Q8RL5H-111`.
 - Chaque classement peut être **réinitialisé indépendamment** (bouton dédié, confirmation demandée).
 
 ## Fichiers

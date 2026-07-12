@@ -84,6 +84,7 @@ let state = {
   coordCount:0,
   gridId:null,
   gridRanked:true,
+  finalTimeMs:null,
   history:[],
   labelColor:{ top:{}, bottom:{}, left:{}, right:{} },
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
@@ -135,11 +136,15 @@ function registerSoloAction(kind){
 function formatScoreLine(e){
   return `${e.cost} pts (${e.rayCount||0}🔦 + ${e.coordCount||0}📍) · ${formatDuration(e.timeMs)}`;
 }
-function recordScore(name){
+function formatShareText(e){
+  const d = new Date(e.date).toLocaleDateString('fr-FR');
+  return `${d} - ${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ID: ${e.gridId||'?'}`;
+}
+function recordScore(name, elapsedMsOverride){
   const key = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
   const rankings = loadRankings();
   if(!rankings[key]) rankings[key] = [];
-  const elapsedMs = state.firstActionTime ? (Date.now() - state.firstActionTime) : 0;
+  const elapsedMs = elapsedMsOverride!=null ? elapsedMsOverride : (state.firstActionTime ? (Date.now() - state.firstActionTime) : 0);
   const entry = {
     name: (name||'').trim().slice(0,24) || 'Anonyme',
     cost: state.moveCost||0, timeMs: elapsedMs,
@@ -198,6 +203,7 @@ function loadState(){
     if(state.rayCount === undefined) state.rayCount = 0;
     if(state.coordCount === undefined) state.coordCount = 0;
     if(state.gridId === undefined) state.gridId = null;
+    if(state.finalTimeMs === undefined) state.finalTimeMs = null;
     if(state.gridRanked === undefined) state.gridRanked = true;
     if(state.soloShowGuess === undefined) state.soloShowGuess = true;
     if(state.soloShowSecret === undefined) state.soloShowSecret = true;
@@ -359,8 +365,10 @@ function startSoloGame(explicitId){
   state.soloShowSecret = true;
   state.moveCost = 0;
   state.firstActionTime = null;
+  state.finalTimeMs = null;
   state.rayCount = 0;
   state.coordCount = 0;
+  lastScoreResult = null;
   state.history = [];
   state.labelColor = {top:{},bottom:{},left:{},right:{}};
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
@@ -397,24 +405,44 @@ function evaluateGuess(){
   }
   return true;
 }
+let lastScoreResult = null;
+function currentEntryForDisplay(){
+  return {
+    name: (lastScoreResult && lastScoreResult.entry.name) || 'Anonyme',
+    cost: state.moveCost||0,
+    timeMs: state.finalTimeMs||0,
+    rayCount: state.rayCount||0,
+    coordCount: state.coordCount||0,
+    gridId: state.gridId,
+    date: (lastScoreResult && lastScoreResult.entry.date) || Date.now()
+  };
+}
+function openVictoryModal(){
+  const entry = currentEntryForDisplay();
+  $('#victoryScoreLine').textContent = formatScoreLine(entry);
+  $('#victoryRankLine').textContent = lastScoreResult && lastScoreResult.madeList
+    ? `Classé #${lastScoreResult.rank} dans « ${lastScoreResult.key} »`
+    : (state.gridRanked ? '' : 'Grille chargée par identifiant — non comptabilisée au classement');
+  $('#victoryGridId').textContent = state.gridId || '';
+  $('#victoryModal').classList.add('open');
+}
 function proposeSolution(){
   if(state.mode!=='solo' || state.soloOver) return;
   const correct = evaluateGuess();
   if(correct){
     state.soloOver = true;
     state.soloResult = 'win';
+    const elapsedMs = state.firstActionTime ? (Date.now() - state.firstActionTime) : 0;
+    state.finalTimeMs = elapsedMs;
     if(state.gridRanked){
       const name = (prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement :', '') || '').trim();
-      const score = recordScore(name);
-      saveState();
-      renderAll();
-      const rankMsg = score.madeList ? ` Tu entres dans le classement « ${score.key} » à la place #${score.rank} !` : '';
-      setTimeout(()=> alert(`🏆 Bravo ${score.entry.name} !\n${formatScoreLine(score.entry)}${rankMsg}`), 60);
+      lastScoreResult = recordScore(name, elapsedMs);
     } else {
-      saveState();
-      renderAll();
-      setTimeout(()=> alert('🏆 Bravo, tu as retrouvé la disposition exacte !\n(Grille chargée par identifiant — non comptabilisée au classement.)'), 60);
+      lastScoreResult = null;
     }
+    saveState();
+    renderAll();
+    setTimeout(()=> openVictoryModal(), 60);
     return;
   }
   state.soloAttempts++;
@@ -1010,7 +1038,6 @@ function renderControls(){
   const gmPreStart = state.mode==='gm' && !state.started;
   $('#btnRandom').style.display = gmPreStart ? '' : 'none';
   $('#btnSolo').style.display = gmPreStart ? '' : 'none';
-  $('#btnLoadGrid').style.display = gmPreStart ? '' : 'none';
   $('#btnStart').style.display = state.mode==='gm' ? '' : 'none';
   $('#btnStart').disabled = state.started;
   $('#btnPropose').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
@@ -1025,6 +1052,7 @@ function renderControls(){
   const showGridId = soloReveal && state.gridId;
   $('#gridIdRow').style.display = showGridId ? 'flex' : 'none';
   if(showGridId) $('#gridIdText').textContent = state.gridId;
+  $('#btnReplayVictory').style.display = (state.mode==='solo' && state.soloOver && state.soloResult==='win') ? '' : 'none';
 }
 function renderAll(){
   renderModePill();
@@ -1333,24 +1361,13 @@ function onCellClick(r,c,cellEl){
 // TOP LEVEL EVENTS
 // ---------------------------------------------------------------------
 $('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; randomizePlacement(); });
-$('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; openSoloSetupModal(); });
-$('#btnLoadGrid').addEventListener('click', ()=>{
-  if(state.mode!=='gm' || state.started) return;
-  const id = prompt('Entre l\'identifiant de la grille (ex. 7F3K9Q-101) :', '');
-  if(!id) return;
-  const parsed = parseGridId(id);
-  if(!parsed){
-    alert('Identifiant invalide. Format attendu : XXXXXX-XXX (ex. 7F3K9Q-101).');
-    return;
-  }
-  if(!confirm('⚠️ Une partie lancée à partir d\'un identifiant ne sera pas ajoutée au classement. Continuer ?')) return;
-  startSoloGame(parsed.full);
-});
+$('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; openSoloChoiceModal(); });
 $('#btnStart').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; state.started=true; saveState(); renderAll(); });
 $('#btnHint').addEventListener('click', ()=> setHintMode(!hintModeActive));
 $('#btnPropose').addEventListener('click', ()=> proposeSolution());
 $('#btnToggleGuess').addEventListener('click', ()=>{ state.soloShowGuess = !state.soloShowGuess; saveState(); renderControls(); renderPieces(); });
 $('#btnToggleSecret').addEventListener('click', ()=>{ state.soloShowSecret = !state.soloShowSecret; saveState(); renderControls(); renderPieces(); });
+$('#btnReplayVictory').addEventListener('click', ()=> openVictoryModal());
 $('#btnCopyGridId').addEventListener('click', ()=>{
   if(!state.gridId) return;
   if(navigator.clipboard) navigator.clipboard.writeText(state.gridId).then(()=> showToast('Identifiant copié : '+state.gridId));
@@ -1367,6 +1384,28 @@ $('#btnReset').addEventListener('click', ()=>{
   if(!confirm("Recommencer efface le placement des gemmes et tout l'historique. Continuer ?")) return;
   resetAll();
 });
+
+function openSoloChoiceModal(){ $('#soloChoiceModal').classList.add('open'); }
+function closeSoloChoiceModal(){ $('#soloChoiceModal').classList.remove('open'); }
+$('#soloChoiceCancel').addEventListener('click', closeSoloChoiceModal);
+$('#soloChoiceModal').addEventListener('click', e=>{ if(e.target.id==='soloChoiceModal') closeSoloChoiceModal(); });
+$('#soloChoiceRandom').addEventListener('click', ()=>{ closeSoloChoiceModal(); openSoloSetupModal(); });
+$('#soloChoiceById').addEventListener('click', ()=>{
+  closeSoloChoiceModal();
+  promptLoadGridById();
+});
+function promptLoadGridById(){
+  const id = prompt('Entre l\'identifiant de la grille (ex. 7F3K9Q-101) :', '');
+  if(!id) return;
+  const parsed = parseGridId(id);
+  if(!parsed){
+    alert('Identifiant invalide. Format attendu : XXXXXX-XXX (ex. 7F3K9Q-101).');
+    return;
+  }
+  if(!confirm('⚠️ Une partie lancée à partir d\'un identifiant ne sera pas ajoutée au classement. Continuer ?')) return;
+  startSoloGame(parsed.full);
+}
+
 function openSoloSetupModal(){
   $('#soloOptGray').checked = state.includeGray;
   $('#soloOptOnyx').checked = state.includeOnyx;
@@ -1395,6 +1434,16 @@ function syncOptionalPiece(type, include, flagName){
 }
 $('#helpFab').addEventListener('click', ()=> $('#helpModal').classList.add('open'));
 $('#closeHelp').addEventListener('click', ()=> $('#helpModal').classList.remove('open'));
+$('#closeVictory').addEventListener('click', ()=> $('#victoryModal').classList.remove('open'));
+$('#victoryModal').addEventListener('click', e=>{ if(e.target.id==='victoryModal') $('#victoryModal').classList.remove('open'); });
+$('#btnVictoryCopyId').addEventListener('click', ()=>{
+  if(!state.gridId) return;
+  if(navigator.clipboard) navigator.clipboard.writeText(state.gridId).then(()=> showToast('Identifiant copié : '+state.gridId));
+});
+$('#btnVictoryCopySummary').addEventListener('click', ()=>{
+  const text = formatShareText(currentEntryForDisplay());
+  if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=> showToast('Résumé copié !'));
+});
 $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('#helpModal').classList.remove('open'); });
 
 function buildRankingConfigOptions(){
@@ -1421,7 +1470,11 @@ function renderRankingList(){
       <div class="ranking-row-detail">
         ${e.rayCount||0} rayon${e.rayCount===1?'':'s'} 🔦 + ${e.coordCount||0} coordonnée${e.coordCount===1?'':'s'} 📍 · ${formatDuration(e.timeMs)}
       </div>
-      ${e.gridId ? `<div class="ranking-row-id">Grille : <b>${escapeHtml(e.gridId)}</b> <button class="ranking-copy-id" data-id="${escapeHtml(e.gridId)}">📋 Copier</button></div>` : ''}` : '';
+      ${e.gridId ? `<div class="ranking-row-id">Grille : <b>${escapeHtml(e.gridId)}</b></div>` : ''}
+      <div class="controls" style="justify-content:flex-start;gap:8px;margin:8px 0 2px 34px;">
+        <button class="ranking-copy-id" data-idx="${i}">📋 Copier ID</button>
+        <button class="ranking-copy-summary" data-idx="${i}">📋 Copier le résumé</button>
+      </div>` : '';
     return `<div class="ranking-row${expanded?' expanded':''}" data-date="${e.date}">
       <div class="ranking-row-top">
         <span class="ranking-rank${i===0?' top1':''}">#${i+1}</span>
@@ -1433,7 +1486,7 @@ function renderRankingList(){
   }).join('');
   el.querySelectorAll('.ranking-row').forEach(row=>{
     row.addEventListener('click', ev=>{
-      if(ev.target.closest('.ranking-copy-id')) return;
+      if(ev.target.closest('.ranking-copy-id') || ev.target.closest('.ranking-copy-summary')) return;
       const date = Number(row.dataset.date);
       if(expandedScores.has(date)) expandedScores.delete(date); else expandedScores.add(date);
       renderRankingList();
@@ -1442,8 +1495,16 @@ function renderRankingList(){
   el.querySelectorAll('.ranking-copy-id').forEach(btn=>{
     btn.addEventListener('click', ev=>{
       ev.stopPropagation();
-      const id = btn.dataset.id;
-      if(navigator.clipboard) navigator.clipboard.writeText(id).then(()=> showToast('Identifiant copié : '+id));
+      const entry = list[Number(btn.dataset.idx)];
+      if(navigator.clipboard) navigator.clipboard.writeText(entry.gridId||'').then(()=> showToast('Identifiant copié : '+entry.gridId));
+    });
+  });
+  el.querySelectorAll('.ranking-copy-summary').forEach(btn=>{
+    btn.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      const entry = list[Number(btn.dataset.idx)];
+      const text = formatShareText(entry);
+      if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=> showToast('Résumé copié !'));
     });
   });
 }
