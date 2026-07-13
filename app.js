@@ -644,6 +644,30 @@ function unreachablePieces(piecesList){
   });
 }
 
+// Calcule l'ensemble des pièces en conflit (contact par un côté / chevauchement / hors
+// grille / injoignable) SANS jamais empêcher le placement — sert uniquement à les colorer
+// et à bloquer le bouton Démarrer tant qu'il en reste.
+function computeInvalidPieceIds(piecesList){
+  piecesList = piecesList || state.pieces;
+  const placed = piecesList.filter(p=>p.center);
+  const invalid = new Set();
+  for(let i=0;i<placed.length;i++){
+    const {hw,hh} = boundingHalfExtents(placed[i]);
+    if(placed[i].center.x-hw < -1e-6 || placed[i].center.x+hw > COLS+1e-6 ||
+       placed[i].center.y-hh < -1e-6 || placed[i].center.y+hh > ROWS+1e-6){
+      invalid.add(placed[i].id);
+    }
+    for(let j=i+1;j<placed.length;j++){
+      if(touchesBySide(pieceVertices(placed[i]), pieceVertices(placed[j]))){
+        invalid.add(placed[i].id);
+        invalid.add(placed[j].id);
+      }
+    }
+  }
+  unreachablePieces(piecesList).forEach(p=> invalid.add(p.id));
+  return invalid;
+}
+
 // ---------------------------------------------------------------------
 // GEOMETRY — tracé du rayon
 // ---------------------------------------------------------------------
@@ -886,13 +910,17 @@ function svgPolyForPiece(piece, opts){
     poly.setAttribute('stroke', def.isOnyx ? '#cfd8dc' : def.hex);
     poly.setAttribute('stroke-width', 0.1);
     poly.setAttribute('stroke-dasharray','0.14,0.09');
+  } else if(opts.invalid){
+    poly.setAttribute('fill', 'rgba(180,60,50,0.75)');
+    poly.setAttribute('stroke', '#ff8a5c');
+    poly.setAttribute('stroke-width', 0.06);
   } else {
     poly.setAttribute('fill', def.isDiamond ? 'rgba(207,216,220,0.55)' : def.hex);
     poly.setAttribute('stroke', def.isOnyx ? '#cfd8dc' : 'rgba(0,0,0,.4)');
     poly.setAttribute('stroke-width', def.isOnyx ? 0.03 : 0.045);
   }
   poly.setAttribute('vector-effect','non-scaling-stroke');
-  poly.setAttribute('class','piece-poly'+(!opts.outline && piecesEditable() ? ' interactive':''));
+  poly.setAttribute('class','piece-poly'+(!opts.outline && piecesEditable() ? ' interactive':'')+(opts.invalid?' piece-invalid':''));
   poly.dataset.id = piece.id;
   return poly;
 }
@@ -942,8 +970,9 @@ function renderPieces(){
     }
     return;
   }
+  const invalidIds = (state.mode==='gm' && !state.started) ? computeInvalidPieceIds(state.pieces) : new Set();
   state.pieces.filter(p=>p.center).forEach(piece=>{
-    const el = svgPolyForPiece(piece);
+    const el = svgPolyForPiece(piece, { invalid: invalidIds.has(piece.id) });
     pieceSvg.appendChild(el);
     if(piecesEditable()) attachPieceInteraction(el, piece);
   });
@@ -1065,7 +1094,16 @@ function renderControls(){
   $('#btnRandom').style.display = gmPreStart ? '' : 'none';
   $('#btnSolo').style.display = gmPreStart ? '' : 'none';
   $('#btnStart').style.display = state.mode==='gm' ? '' : 'none';
-  $('#btnStart').disabled = state.started;
+  let startBlockReason = '';
+  if(state.mode==='gm' && !state.started){
+    const unplaced = state.pieces.some(p=>!p.center);
+    const conflictCount = computeInvalidPieceIds(state.pieces).size;
+    if(unplaced) startBlockReason = 'Place toutes les gemmes avant de démarrer.';
+    else if(conflictCount>0) startBlockReason = `${conflictCount} gemme${conflictCount>1?'s':''} en conflit (en rouge) à corriger avant de démarrer.`;
+  }
+  $('#btnStart').disabled = state.started || !!startBlockReason;
+  $('#startBlockMsg').textContent = startBlockReason;
+  $('#startBlockMsg').style.display = startBlockReason ? 'block' : 'none';
   $('#btnPropose').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
   $('#btnHint').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
   updateHintModeUI();
@@ -1178,20 +1216,6 @@ function showToast(msg){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=> toast.classList.remove('show'), 1600);
 }
-function flashInvalid(el){
-  el.classList.add('invalid-pulse');
-  setTimeout(()=> el.classList.remove('invalid-pulse'), 400);
-  if(navigator.vibrate) navigator.vibrate([10,30,10]);
-  showToast('⛔ Placement refusé (contact par un côté ou gemme injoignable)');
-}
-function snapshotOf(piece){ return { center: piece.center? {...piece.center} : null, rotation: piece.rotation, flipped: piece.flipped }; }
-function restoreSnapshot(piece, snap){ piece.center = snap.center; piece.rotation = snap.rotation; piece.flipped = snap.flipped; }
-function isFullyValid(piece){
-  if(!piece.center) return true;
-  if(state.mode==='solo') return true; // en solo, le joueur place librement ses hypothèses
-  return placementValid(piece, piece.id) && unreachablePieces().length===0;
-}
-
 function onPieceDown(ev, piece, el){
   if(!piecesEditable()) return;
   ev.preventDefault();
@@ -1204,18 +1228,12 @@ function onPieceDown(ev, piece, el){
   const longPressTimer = setTimeout(()=>{
     if(!moved){
       longPressed = true;
-      const snap = snapshotOf(piece);
       piece.flipped = !piece.flipped;
       resnapAfterTransform(piece);
-      if(!isFullyValid(piece)){
-        restoreSnapshot(piece, snap);
-        flashInvalid(el);
-      } else {
-        saveState();
-        el.classList.add('flip-pulse');
-        setTimeout(()=>el.classList.remove('flip-pulse'),350);
-        if(navigator.vibrate) navigator.vibrate(15);
-      }
+      saveState();
+      el.classList.add('flip-pulse');
+      setTimeout(()=>el.classList.remove('flip-pulse'),350);
+      if(navigator.vibrate) navigator.vibrate(15);
       renderPalette(); renderPieces();
     }
   }, 480);
@@ -1264,27 +1282,16 @@ function onPieceDown(ev, piece, el){
       cx = Math.min(COLS-hw, Math.max(hw, cx));
       cy = Math.min(ROWS-hh, Math.max(hh, cy));
       const withinBoard = e.clientX>=rect.left && e.clientX<=rect.right && e.clientY>=rect.top && e.clientY<=rect.bottom;
-      const snap = snapshotOf(piece);
       piece.center = withinBoard ? {x:cx,y:cy} : null;
-      if(!isFullyValid(piece)){
-        restoreSnapshot(piece, snap);
-        flashInvalid(el);
-      }
       ghost.remove();
       el.classList.remove('dragging');
       saveState();
       renderPalette();
       renderPieces();
     } else if(!longPressed){
-      const snap = snapshotOf(piece);
       piece.rotation = (piece.rotation + 90) % 360;
       resnapAfterTransform(piece);
-      if(!isFullyValid(piece)){
-        restoreSnapshot(piece, snap);
-        flashInvalid(el);
-      } else {
-        saveState();
-      }
+      saveState();
       renderPalette();
       renderPieces();
     }
@@ -1395,6 +1402,10 @@ $('#btnStart').addEventListener('click', ()=>{
   if(state.mode!=='gm' || state.started) return;
   if(state.pieces.some(p=>!p.center)){
     alert('Place toutes les gemmes sur la grille avant de démarrer la partie.');
+    return;
+  }
+  if(computeInvalidPieceIds(state.pieces).size>0){
+    alert('Certaines gemmes sont en conflit (affichées en rouge sur la grille) : contact par un côté, chevauchement, ou gemme injoignable. Corrige-les avant de démarrer.');
     return;
   }
   state.started = true;

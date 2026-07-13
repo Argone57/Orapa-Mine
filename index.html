@@ -96,8 +96,8 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .piece-poly.dragging{opacity:.35;}
 .flip-pulse{animation:flipFlash .35s ease;}
 @keyframes flipFlash{0%{filter:brightness(2.4)}100%{filter:brightness(1)}}
-.invalid-pulse{animation:invalidFlash .4s ease;}
-@keyframes invalidFlash{0%{filter:brightness(1.6) saturate(3) hue-rotate(-20deg)}100%{filter:none}}
+.piece-invalid{animation:pieceInvalidPulse 1.4s ease-in-out infinite;}
+@keyframes pieceInvalidPulse{0%,100%{opacity:.75}50%{opacity:1}}
 .history-panel{background:var(--panel);border:1px solid var(--vein);border-radius:var(--radius);max-height:280px;overflow-y:auto;padding:6px;}
 .history-empty{color:var(--text-faint);font-size:.82rem;font-style:italic;padding:14px;text-align:center;}
 .history-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;font-size:.85rem;border-bottom:1px solid rgba(91,70,48,.3);}
@@ -177,6 +177,9 @@ button:disabled{opacity:.35;cursor:not-allowed;}
       <button id="btnSolo" class="ghost">🧩 Jouer en solo</button>
       <button id="btnRandom" class="ghost">🎲 Aléatoire</button>
       <button id="btnStart" class="primary">Démarrer la partie</button>
+    </div>
+    <div id="startBlockMsg" style="display:none;color:#f5b8ae;font-size:.78rem;margin-top:8px;text-align:center;"></div>
+    <div class="controls">
       <button id="btnHint" class="ghost" style="display:none;">🔍 Demander un indice</button>
       <button id="btnPropose" class="primary" style="display:none;">✅ Proposer une solution</button>
       <button id="btnToggleGuess" class="ghost" style="display:none;">👁 Mes gemmes</button>
