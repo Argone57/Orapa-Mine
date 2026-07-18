@@ -102,6 +102,23 @@ Le bouton flottant **🏆** (en bas à gauche, visible partout) ouvre les classe
 - Dans le classement, chaque ligne est **repliée par défaut** (rang, nom, points, date) ; un clic dessus déplie le détail (répartition rayons/coordonnées, temps, et l'identifiant de la grille, copiable).
 - Chaque classement peut être **réinitialisé indépendamment** (bouton dédié, confirmation demandée).
 
+## Défi du jour
+
+Depuis le choix « 🧩 Jouer en solo », un 3ᵉ bouton **📅 Défi du jour** propose une grille spéciale, **identique pour tout le monde** ce jour-là (calculée à partir de la date, minuit à minuit heure de Paris) :
+
+- Entre **0 et 3 gemmes optionnelles** sont tirées au sort pour la journée (indépendamment de tes propres réglages).
+- **Une seule des deux règles de placement suivantes** s'applique, tirée au sort, à **une gemme au hasard** — sans indiquer laquelle des deux ni quelle gemme est concernée :
+  - soit elle touche une autre gemme par un côté (au lieu du contact coin-à-coin habituel) ;
+  - soit elle dépasse partiellement de la grille (en gardant au moins une case pleine dedans).
+
+  Dans tous les cas, deux gemmes ne se chevauchent jamais.
+- **Une seule tentative par navigateur** : une fois jouée (victoire ou défaite), le défi du jour redevient inaccessible jusqu'au lendemain.
+- **Les échecs sont aussi enregistrés** dans le classement du jour, avec la mention « Échec », toujours classés après les réussites.
+- Le classement du jour reste consultable (verrouillé) jusqu'au lendemain 23h59, puis remplacé par celui du jour suivant — accessible depuis le classement (🏆), avec une entrée « Défi du jour » et, tant qu'il existe, « Défi d'hier ».
+- Le bouton de partage indique **« Défi du jour (AAAA-MM-JJ) »** à la place d'un identifiant de grille.
+
+**⚠️ Limite technique importante :** cette application est un site statique (aucun serveur, aucune base de données). Le classement du défi du jour — comme tous les autres classements — est stocké dans le `localStorage` du navigateur, donc **propre à chaque appareil/navigateur**, pas réellement partagé entre tous les joueurs, même si la grille elle-même est bien identique pour tout le monde. Pour un classement *vraiment* global et synchronisé entre tous les joueurs, il faudrait connecter un service externe (ex. Firebase Realtime Database, gratuit) qui stocke les scores quelque part en ligne — possible en complément, mais ça demande de créer un compte sur ce service et de me fournir les identifiants de connexion à intégrer dans le code.
+
 ## Rejouer une grille précise
 
 Le bouton **🧩 Jouer en solo** propose un choix : **🎲 Aléatoire** (comme avant) ou **🔑 Par identifiant** — ressaisir un identifiant régénère exactement la même grille secrète, pratique pour défier quelqu'un d'autre sur la même disposition, ou reprendre un identifiant noté depuis le classement. Une partie lancée ainsi **ne compte pas pour le classement** (avertissement affiché avant de lancer). Annuler la saisie de l'identifiant (ou entrer un identifiant invalide) ne ferme pas l'écran de choix, tu peux réessayer ou choisir Aléatoire à la place.
