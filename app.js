@@ -85,6 +85,8 @@ let state = {
   gridId:null,
   gridRanked:true,
   finalTimeMs:null,
+  isDaily:false,
+  dailyDate:null,
   history:[],
   labelColor:{ top:{}, bottom:{}, left:{}, right:{} },
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
@@ -138,11 +140,19 @@ function formatScoreLine(e){
 }
 function formatShareText(e){
   const d = new Date(e.date).toLocaleDateString('fr-FR');
-  const decoded = e.gridId ? decodeGridId(e.gridId) : null;
-  const gems = decoded
-    ? gemFlagsEmojiLine(decoded.includeGray, decoded.includeOnyx, decoded.includeSapphire)
-    : gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
-  return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ID: ${e.gridId||'?'}`;
+  let gems, idPart;
+  if(e.isDaily){
+    const dailyGen = generateDailyLayout(e.dailyDate);
+    gems = dailyGen ? gemFlagsEmojiLine(dailyGen.flags.gray, dailyGen.flags.onyx, dailyGen.flags.sapphire) : gemFlagsEmojiLine(state.includeGray,state.includeOnyx,state.includeSapphire);
+    idPart = `Défi du jour (${e.dailyDate})${e.success===false?' — Échec':''}`;
+  } else {
+    const decoded = e.gridId ? decodeGridId(e.gridId) : null;
+    gems = decoded
+      ? gemFlagsEmojiLine(decoded.includeGray, decoded.includeOnyx, decoded.includeSapphire)
+      : gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
+    idPart = `ID: ${e.gridId||'?'}`;
+  }
+  return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}`;
 }
 function recordScore(name, elapsedMsOverride){
   const key = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
@@ -162,6 +172,47 @@ function recordScore(name, elapsedMsOverride){
   saveRankings(rankings);
   const rank = rankings[key].indexOf(entry) + 1;
   return { key, entry, rank, madeList: rank>0 };
+}
+
+// ---------------------------------------------------------------------
+// DÉFI DU JOUR — tentative unique (par navigateur) + classement journalier.
+// Le classement est stocké localement (voir le README pour la limite : sans
+// backend externe, il n'est pas synchronisé entre navigateurs différents).
+// ---------------------------------------------------------------------
+const DAILY_ATTEMPT_KEY = 'orapaMineDailyAttemptV1';
+const DAILY_RANKINGS_KEY = 'orapaMineDailyRankingsV1';
+function loadDailyAttempt(){
+  try{ const raw = localStorage.getItem(DAILY_ATTEMPT_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+function saveDailyAttempt(a){ try{ localStorage.setItem(DAILY_ATTEMPT_KEY, JSON.stringify(a)); }catch(e){} }
+function loadDailyBoards(){
+  try{ const raw = localStorage.getItem(DAILY_RANKINGS_KEY); return raw ? JSON.parse(raw) : {}; }catch(e){ return {}; }
+}
+function saveDailyBoards(b){ try{ localStorage.setItem(DAILY_RANKINGS_KEY, JSON.stringify(b)); }catch(e){} }
+// Ne garde que le défi d'aujourd'hui et celui d'hier (verrouillé, visible jusqu'à ce soir 23h59).
+function pruneDailyBoards(boards){
+  const todayKey = parisDateKey();
+  const yesterdayKey = parisDateKey(new Date(Date.now()-24*3600*1000));
+  Object.keys(boards).forEach(k=>{ if(k!==todayKey && k!==yesterdayKey) delete boards[k]; });
+  return boards;
+}
+function recordDailyScore(name, dateKey, success, elapsedMsOverride){
+  const boards = pruneDailyBoards(loadDailyBoards());
+  if(!boards[dateKey]) boards[dateKey] = [];
+  const elapsedMs = elapsedMsOverride!=null ? elapsedMsOverride : (state.firstActionTime ? (Date.now() - state.firstActionTime) : 0);
+  const entry = {
+    name: (name||'').trim().slice(0,24) || 'Anonyme',
+    cost: state.moveCost||0, timeMs: elapsedMs,
+    rayCount: state.rayCount||0, coordCount: state.coordCount||0,
+    success: !!success,
+    isDaily: true, dailyDate: dateKey,
+    date: Date.now()
+  };
+  boards[dateKey].push(entry);
+  boards[dateKey].sort((a,b)=> (b.success-a.success) || (a.cost-b.cost) || (a.timeMs-b.timeMs));
+  saveDailyBoards(boards);
+  const rank = boards[dateKey].indexOf(entry) + 1;
+  return { entry, rank, board: boards[dateKey] };
 }
 
 function piecesEditable(){
@@ -208,6 +259,8 @@ function loadState(){
     if(state.coordCount === undefined) state.coordCount = 0;
     if(state.gridId === undefined) state.gridId = null;
     if(state.finalTimeMs === undefined) state.finalTimeMs = null;
+    if(state.isDaily === undefined) state.isDaily = false;
+    if(state.dailyDate === undefined) state.dailyDate = null;
     if(state.gridRanked === undefined) state.gridRanked = true;
     if(state.soloShowGuess === undefined) state.soloShowGuess = true;
     if(state.soloShowSecret === undefined) state.soloShowSecret = true;
@@ -231,6 +284,7 @@ function resetAll(){
   state = { mode:'gm', started:false, includeGray:g, includeOnyx:o, includeSapphire:s2, pieces:[], secretPieces:[],
             soloAttempts:0, soloOver:false, soloResult:null, soloShowGuess:true, soloShowSecret:true, history:[],
             gridId:null, gridRanked:true, moveCost:0, firstActionTime:null, finalTimeMs:null, rayCount:0, coordCount:0,
+            isDaily:false, dailyDate:null,
             labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
             labelPair:{top:{},bottom:{},left:{},right:{}},
             labelPartner:{top:{},bottom:{},left:{},right:{}},
@@ -293,19 +347,45 @@ function gemFlagsEmojiLine(g,o,s){
 }
 
 const ROTATIONS = [0,90,180,270];
-function tryRandomLayout(){
-  const types = allTypes().slice().sort(()=> Math.random()-0.5);
+
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function seedFromString(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++) h = Math.imul(31,h) + str.charCodeAt(i) | 0;
+  return h>>>0;
+}
+// Fisher-Yates : contrairement à sort(()=>rng()-0.5), le résultat est garanti identique
+// quel que soit le moteur JS (le tri natif n'est pas spécifié pour un comparateur "aléatoire").
+function seededShuffle(arr, rngFn){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(rngFn()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function tryRandomLayout(rngFn){
+  rngFn = rngFn || Math.random;
+  const types = seededShuffle(allTypes(), rngFn);
   const placed = [];
   for(const type of types){
     let ok = false;
     for(let tries=0; tries<250 && !ok; tries++){
-      const rotation = ROTATIONS[Math.floor(Math.random()*4)];
-      const flipped = Math.random() < 0.5;
+      const rotation = ROTATIONS[Math.floor(rngFn()*4)];
+      const flipped = rngFn() < 0.5;
       const probe = { id:'r_'+type, type, center:{x:COLS/2,y:ROWS/2}, rotation, flipped };
       const {hw,hh} = boundingHalfExtents(probe);
       if(hw*2>COLS || hh*2>ROWS) break; // ne rentre pas, inutile d'insister sur cette rotation
-      const rawX = hw + Math.random()*(COLS-2*hw);
-      const rawY = hh + Math.random()*(ROWS-2*hh);
+      const rawX = hw + rngFn()*(COLS-2*hw);
+      const rawY = hh + rngFn()*(ROWS-2*hh);
       let cx = snapCoord(rawX,hw), cy = snapCoord(rawY,hh);
       cx = Math.min(COLS-hw, Math.max(hw,cx));
       cy = Math.min(ROWS-hh, Math.max(hh,cy));
@@ -328,6 +408,133 @@ function generateRandomLayout(maxAttempts){
   }
   return null;
 }
+// ---------------------------------------------------------------------
+// DÉFI DU JOUR — grille déterministe (même graine = même grille partout),
+// avec 0 à 3 gemmes optionnelles tirées au sort et UNE exception de placement
+// (contact par un côté OU dépassement partiel) appliquée à une gemme au hasard.
+// ---------------------------------------------------------------------
+function parisDateKey(d){
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone:'Europe/Paris', year:'numeric', month:'2-digit', day:'2-digit' });
+  return fmt.format(d || new Date()); // "AAAA-MM-JJ"
+}
+function dailyTypesForFlags(gray,onyx,sapphire){
+  const t = ['red','yellow','blue','white','rhombus'];
+  if(gray) t.push('gray');
+  if(onyx) t.push('onyx');
+  if(sapphire) t.push('sapphire');
+  return t;
+}
+// Cherche une position qui colle EXCEPTIONNELLEMENT la pièce contre un voisin par un côté.
+function findForcedSideTouch(type, placed, rngFn){
+  for(const rotation of seededShuffle(ROTATIONS, rngFn)){
+    for(const flipped of [false,true]){
+      const probe = { id:'ex', type, center:{x:0,y:0}, rotation, flipped };
+      const {hw,hh} = boundingHalfExtents(probe);
+      const neighbors = seededShuffle(placed, rngFn);
+      for(const nb of neighbors){
+        const {hw:nhw, hh:nhh} = boundingHalfExtents(nb);
+        const candidates = [
+          {x:nb.center.x+nhw+hw, y:nb.center.y}, {x:nb.center.x-nhw-hw, y:nb.center.y},
+          {x:nb.center.x, y:nb.center.y+nhh+hh}, {x:nb.center.x, y:nb.center.y-nhh-hh}
+        ];
+        for(const c of candidates){
+          let cx = snapCoord(c.x,hw), cy = snapCoord(c.y,hh);
+          cx = Math.min(COLS-hw, Math.max(hw,cx));
+          cy = Math.min(ROWS-hh, Math.max(hh,cy));
+          const candidate = { id:'ex', type, center:{x:cx,y:cy}, rotation, flipped };
+          let overlap=false, sideTouch=false;
+          for(const other of placed){
+            const kind = edgeContactKind(pieceVertices(candidate), pieceVertices(other));
+            if(kind==='overlap'){ overlap=true; break; }
+            if(kind==='sideTouch') sideTouch=true;
+          }
+          if(!overlap && sideTouch) return candidate;
+        }
+      }
+    }
+  }
+  return null;
+}
+// Cherche une position qui dépasse EXCEPTIONNELLEMENT du plateau (en gardant >=1 case occupée).
+function findForcedPartialOut(type, placed, rngFn){
+  for(let tries=0; tries<400; tries++){
+    const rotation = ROTATIONS[Math.floor(rngFn()*4)];
+    const flipped = rngFn()<0.5;
+    const probe = { id:'ex', type, center:{x:0,y:0}, rotation, flipped };
+    const {hw,hh} = boundingHalfExtents(probe);
+    const rawX = -hw + rngFn()*(COLS+2*hw);
+    const rawY = -hh + rngFn()*(ROWS+2*hh);
+    const cx = snapCoord(rawX,hw), cy = snapCoord(rawY,hh);
+    const candidate = { id:'ex', type, center:{x:cx,y:cy}, rotation, flipped };
+    const outOfBounds = (cx-hw < -1e-6 || cx+hw > COLS+1e-6 || cy-hh < -1e-6 || cy+hh > ROWS+1e-6);
+    if(!outOfBounds) continue;
+    let overlap = false;
+    for(const other of placed){
+      if(edgeContactKind(pieceVertices(candidate), pieceVertices(other))==='overlap'){ overlap=true; break; }
+    }
+    if(overlap) continue;
+    let hasCell = false;
+    for(let r=0;r<ROWS && !hasCell;r++){
+      for(let c=0;c<COLS;c++){
+        const cellPoly=[{x:c,y:r},{x:c+1,y:r},{x:c+1,y:r+1},{x:c,y:r+1}];
+        const inter = clipPolygon(ensureCCW(pieceVertices(candidate)), cellPoly);
+        if(inter.length>0 && polyArea(inter) > 0.3){ hasCell = true; break; }
+      }
+    }
+    if(hasCell) return candidate;
+  }
+  return null;
+}
+function tryDailyLayout(rngFn){
+  const flags = { gray: rngFn()<0.5, onyx: rngFn()<0.5, sapphire: rngFn()<0.5 };
+  const types = seededShuffle(dailyTypesForFlags(flags.gray, flags.onyx, flags.sapphire), rngFn);
+  const exceptionRule = rngFn()<0.5 ? 'sideTouch' : 'partialOut';
+  const exceptionType = types[Math.floor(rngFn()*types.length)];
+  const placed = [];
+  for(const type of types){
+    if(type===exceptionType){
+      const forced = exceptionRule==='sideTouch'
+        ? findForcedSideTouch(type, placed, rngFn)
+        : findForcedPartialOut(type, placed, rngFn);
+      if(!forced) return null;
+      placed.push(forced);
+      continue;
+    }
+    let ok = false;
+    for(let tries=0; tries<250 && !ok; tries++){
+      const rotation = ROTATIONS[Math.floor(rngFn()*4)];
+      const flipped = rngFn() < 0.5;
+      const probe = { id:'r_'+type, type, center:{x:COLS/2,y:ROWS/2}, rotation, flipped };
+      const {hw,hh} = boundingHalfExtents(probe);
+      if(hw*2>COLS || hh*2>ROWS) break;
+      const rawX = hw + rngFn()*(COLS-2*hw);
+      const rawY = hh + rngFn()*(ROWS-2*hh);
+      let cx = snapCoord(rawX,hw), cy = snapCoord(rawY,hh);
+      cx = Math.min(COLS-hw, Math.max(hw,cx));
+      cy = Math.min(ROWS-hh, Math.max(hh,cy));
+      const candidate = { id:'r_'+type, type, center:{x:cx,y:cy}, rotation, flipped };
+      if(placementValid(candidate, null, placed)){
+        placed.push(candidate);
+        ok = true;
+      }
+    }
+    if(!ok) return null;
+  }
+  if(unreachablePieces(placed).length > 0) return null;
+  return {
+    pieces: placed.map(p=> ({ id:'p'+(pieceIdSeq++), type:p.type, center:p.center, rotation:p.rotation, flipped:p.flipped })),
+    flags, exceptionRule, exceptionType
+  };
+}
+function generateDailyLayout(dateKey){
+  const rngFn = mulberry32(seedFromString('DAILY-'+dateKey));
+  for(let attempt=0; attempt<200; attempt++){
+    const result = tryDailyLayout(rngFn);
+    if(result) return result;
+  }
+  return null;
+}
+
 function randomizePlacement(){
   const layout = generateRandomLayout();
   if(layout){
@@ -395,6 +602,60 @@ function startSoloGame(explicitId){
   state.rayCount = 0;
   state.coordCount = 0;
   lastScoreResult = null;
+  state.isDaily = false;
+  state.dailyDate = null;
+  state.history = [];
+  state.labelColor = {top:{},bottom:{},left:{},right:{}};
+  state.labelBounce = {top:{},bottom:{},left:{},right:{}};
+  state.labelPair = {top:{},bottom:{},left:{},right:{}};
+  state.labelPartner = {top:{},bottom:{},left:{},right:{}};
+  state.cellUsed = {};
+  state.traces = [];
+  state.emptyMarks = [];
+  state.coordDots = [];
+  saveState();
+  renderAll();
+}
+
+function dailyStatusToday(){
+  const dateKey = parisDateKey();
+  const attempt = loadDailyAttempt();
+  return { dateKey, alreadyPlayed: !!(attempt && attempt.date===dateKey), attempt: (attempt && attempt.date===dateKey) ? attempt : null };
+}
+function startDailyChallenge(){
+  const { dateKey, alreadyPlayed, attempt } = dailyStatusToday();
+  if(alreadyPlayed){
+    alert(`Tu as déjà joué le défi du jour (${attempt.result==='win'?'réussi 🏆':'raté 💥'}). Reviens demain pour un nouveau défi !`);
+    return;
+  }
+  const daily = generateDailyLayout(dateKey);
+  if(!daily){
+    setTimeout(()=> alert("Je n'ai pas réussi à générer le défi du jour, réessaie plus tard."), 60);
+    return;
+  }
+  setHintMode(false);
+  state.includeGray = daily.flags.gray;
+  state.includeOnyx = daily.flags.onyx;
+  state.includeSapphire = daily.flags.sapphire;
+  state.mode = 'solo';
+  state.started = false;
+  state.secretPieces = daily.pieces;
+  state.pieces = freshPieceSet();
+  state.gridId = null;
+  state.gridRanked = false;
+  state.isDaily = true;
+  state.dailyDate = dateKey;
+  state.soloAttempts = 0;
+  state.soloOver = false;
+  state.soloResult = null;
+  state.soloShowGuess = true;
+  state.soloShowSecret = true;
+  state.moveCost = 0;
+  state.firstActionTime = null;
+  state.finalTimeMs = null;
+  state.rayCount = 0;
+  state.coordCount = 0;
+  lastScoreResult = null;
   state.history = [];
   state.labelColor = {top:{},bottom:{},left:{},right:{}};
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
@@ -440,6 +701,9 @@ function currentEntryForDisplay(){
     rayCount: state.rayCount||0,
     coordCount: state.coordCount||0,
     gridId: state.gridId,
+    isDaily: state.isDaily,
+    dailyDate: state.dailyDate,
+    success: state.soloResult==='win',
     date: (lastScoreResult && lastScoreResult.entry.date) || Date.now()
   };
 }
@@ -448,8 +712,8 @@ function openVictoryModal(){
   $('#victoryScoreLine').textContent = formatScoreLine(entry);
   $('#victoryRankLine').textContent = lastScoreResult && lastScoreResult.madeList
     ? `Classé #${lastScoreResult.rank} dans « ${lastScoreResult.key} »`
-    : (state.gridRanked ? '' : 'Grille chargée par identifiant — non comptabilisée au classement');
-  $('#victoryGridId').textContent = state.gridId || '';
+    : (state.isDaily ? '' : (state.gridRanked ? '' : 'Grille chargée par identifiant — non comptabilisée au classement'));
+  $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${state.dailyDate})` : (state.gridId || '');
   $('#victoryModal').classList.add('open');
 }
 function proposeSolution(){
@@ -460,7 +724,12 @@ function proposeSolution(){
     state.soloResult = 'win';
     const elapsedMs = state.firstActionTime ? (Date.now() - state.firstActionTime) : 0;
     state.finalTimeMs = elapsedMs;
-    if(state.gridRanked){
+    if(state.isDaily){
+      const name = (prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement du jour :', '') || '').trim();
+      const daily = recordDailyScore(name, state.dailyDate, true, elapsedMs);
+      lastScoreResult = { key:'Défi du jour', entry:{...daily.entry, gridId:null, isDaily:true, dailyDate:state.dailyDate}, rank:daily.rank, madeList:true };
+      saveDailyAttempt({ date: state.dailyDate, result:'win' });
+    } else if(state.gridRanked){
       const name = (prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement :', '') || '').trim();
       lastScoreResult = recordScore(name, elapsedMs);
     } else {
@@ -475,6 +744,13 @@ function proposeSolution(){
   if(state.soloAttempts >= 2){
     state.soloOver = true;
     state.soloResult = 'lose';
+    const elapsedMs = state.firstActionTime ? (Date.now() - state.firstActionTime) : 0;
+    state.finalTimeMs = elapsedMs;
+    if(state.isDaily){
+      const name = (prompt("💥 C'est encore faux — défi du jour terminé.\nEntre ton nom pour le classement du jour :", '') || '').trim();
+      recordDailyScore(name, state.dailyDate, false, elapsedMs);
+      saveDailyAttempt({ date: state.dailyDate, result:'lose' });
+    }
     saveState();
     renderAll();
     setTimeout(()=> alert("💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour)."), 60);
@@ -592,6 +868,14 @@ function touchesBySide(polyA, polyB){
   if(polyArea(inter) > 1e-4) return true;   // chevauchement réel
   if(maxExtent(inter) > 1e-3) return true;  // contact le long d'une arête
   return false;                              // simple contact ponctuel (coin) -> autorisé
+}
+function edgeContactKind(polyA, polyB){
+  const A = ensureCCW(polyA), B = ensureCCW(polyB);
+  const inter = clipPolygon(A, B);
+  if(inter.length===0) return 'none';
+  if(polyArea(inter) > 1e-4) return 'overlap';
+  if(maxExtent(inter) > 1e-3) return 'sideTouch';
+  return 'corner';
 }
 function placementValid(candidate, excludeId, piecesList){
   piecesList = piecesList || state.pieces;
@@ -1441,10 +1725,24 @@ $('#btnReset').addEventListener('click', ()=>{
   resetAll();
 });
 
-function openSoloChoiceModal(){ $('#soloChoiceModal').classList.add('open'); }
+function openSoloChoiceModal(){
+  const { alreadyPlayed, attempt } = dailyStatusToday();
+  const line = $('#dailyStatusLine');
+  if(alreadyPlayed){
+    line.textContent = `Défi du jour déjà joué aujourd'hui (${attempt.result==='win'?'réussi 🏆':'raté 💥'}) — reviens demain.`;
+    line.style.display = 'block';
+  } else {
+    line.style.display = 'none';
+  }
+  $('#soloChoiceModal').classList.add('open');
+}
 function closeSoloChoiceModal(){ $('#soloChoiceModal').classList.remove('open'); }
 $('#soloChoiceCancel').addEventListener('click', closeSoloChoiceModal);
 $('#soloChoiceModal').addEventListener('click', e=>{ if(e.target.id==='soloChoiceModal') closeSoloChoiceModal(); });
+$('#soloChoiceDaily').addEventListener('click', ()=>{
+  closeSoloChoiceModal();
+  startDailyChallenge();
+});
 $('#soloChoiceRandom').addEventListener('click', ()=>{ closeSoloChoiceModal(); openSoloSetupModal(); });
 $('#soloChoiceById').addEventListener('click', ()=> promptLoadGridById());
 function promptLoadGridById(){
@@ -1491,6 +1789,11 @@ $('#closeHelp').addEventListener('click', ()=> $('#helpModal').classList.remove(
 $('#closeVictory').addEventListener('click', ()=> $('#victoryModal').classList.remove('open'));
 $('#victoryModal').addEventListener('click', e=>{ if(e.target.id==='victoryModal') $('#victoryModal').classList.remove('open'); });
 $('#btnVictoryCopyId').addEventListener('click', ()=>{
+  if(state.isDaily){
+    const text = `Défi du jour (${state.dailyDate})`;
+    if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=> showToast('Copié : '+text));
+    return;
+  }
   if(!state.gridId) return;
   if(navigator.clipboard) navigator.clipboard.writeText(state.gridId).then(()=> showToast('Identifiant copié : '+state.gridId));
 });
@@ -1502,7 +1805,12 @@ $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('
 
 function buildRankingConfigOptions(){
   const select = $('#rankingConfigSelect');
-  select.innerHTML = RANKING_COMBOS.map(([g,o,s])=>{
+  const boards = pruneDailyBoards(loadDailyBoards());
+  const todayKey = parisDateKey();
+  const yesterdayKey = parisDateKey(new Date(Date.now()-24*3600*1000));
+  let extra = `<option value="DAILY:${todayKey}">📅 Défi du jour (${todayKey})</option>`;
+  if(boards[yesterdayKey]) extra += `<option value="DAILY:${yesterdayKey}">📅 Défi d'hier (${yesterdayKey})</option>`;
+  select.innerHTML = extra + RANKING_COMBOS.map(([g,o,s])=>{
     const key = configKey(g,o,s);
     return `<option value="${key}">${key}</option>`;
   }).join('');
@@ -1510,29 +1818,30 @@ function buildRankingConfigOptions(){
 let expandedScores = new Set();
 function renderRankingList(){
   const key = $('#rankingConfigSelect').value;
-  const rankings = loadRankings();
-  const list = rankings[key] || [];
+  const isDailyKey = key.startsWith('DAILY:');
+  const list = isDailyKey ? (pruneDailyBoards(loadDailyBoards())[key.slice(6)] || []) : (loadRankings()[key] || []);
   const el = $('#rankingList');
   if(list.length===0){
-    el.innerHTML = '<div class="history-empty">Aucun score enregistré pour cette configuration.</div>';
+    el.innerHTML = `<div class="history-empty">Aucun score enregistré ${isDailyKey?'pour ce défi':'pour cette configuration'}.</div>`;
     return;
   }
   el.innerHTML = list.map((e,i)=>{
     const d = new Date(e.date).toLocaleDateString('fr-FR');
     const expanded = expandedScores.has(e.date);
+    const failTag = (isDailyKey && e.success===false) ? ' <span style="color:#e59c8c;">— Échec</span>' : '';
     const detailHtml = expanded ? `
       <div class="ranking-row-detail">
         ${e.rayCount||0} rayon${e.rayCount===1?'':'s'} 🔦 + ${e.coordCount||0} coordonnée${e.coordCount===1?'':'s'} 📍 · ${formatDuration(e.timeMs)}
       </div>
       ${e.gridId ? `<div class="ranking-row-id">Grille : <b>${escapeHtml(e.gridId)}</b></div>` : ''}
       <div class="controls" style="justify-content:flex-start;gap:8px;margin:8px 0 2px 34px;">
-        <button class="ranking-copy-id" data-idx="${i}">📋 Copier ID</button>
+        ${isDailyKey ? '' : `<button class="ranking-copy-id" data-idx="${i}">📋 Copier ID</button>`}
         <button class="ranking-copy-summary" data-idx="${i}">📋 Copier le résumé</button>
       </div>` : '';
     return `<div class="ranking-row${expanded?' expanded':''}" data-date="${e.date}">
       <div class="ranking-row-top">
         <span class="ranking-rank${i===0?' top1':''}">#${i+1}</span>
-        <span class="ranking-name">${escapeHtml(e.name||'Anonyme')}</span>
+        <span class="ranking-name">${escapeHtml(e.name||'Anonyme')}${failTag}</span>
         <span class="ranking-points">${e.cost} pts</span>
         <span class="ranking-date">${d}</span>
       </div>${detailHtml}
