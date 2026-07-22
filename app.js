@@ -1813,7 +1813,10 @@ function syncOptionalPiece(type, include, flagName){
   else if(!include) state.pieces = state.pieces.filter(p=>p.type!==type);
   saveState(); renderPalette(); renderPieces();
 }
-$('#helpFab').addEventListener('click', ()=> $('#helpModal').classList.add('open'));
+$('#helpFab').addEventListener('click', ()=>{
+  buildMixBoard();
+  $('#helpModal').classList.add('open');
+});
 $('#closeHelp').addEventListener('click', ()=> $('#helpModal').classList.remove('open'));
 $('#closeVictory').addEventListener('click', ()=> $('#victoryModal').classList.remove('open'));
 $('#victoryModal').addEventListener('click', e=>{ if(e.target.id==='victoryModal') $('#victoryModal').classList.remove('open'); });
