@@ -152,7 +152,7 @@ function formatShareText(e){
       : gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
     idPart = `ID: ${e.gridId||'?'}`;
   }
-  return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}`;
+  return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}\n\nhttps://argone57.github.io/Orapa-Mine/`;
 }
 function recordScore(name, elapsedMsOverride){
   const key = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
