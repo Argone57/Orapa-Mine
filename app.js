@@ -741,19 +741,19 @@ function proposeSolution(){
     return;
   }
   state.soloAttempts++;
-  if(state.soloAttempts >= 2){
+  if(state.isDaily || state.soloAttempts >= 2){
     state.soloOver = true;
     state.soloResult = 'lose';
     const elapsedMs = state.firstActionTime ? (Date.now() - state.firstActionTime) : 0;
     state.finalTimeMs = elapsedMs;
     if(state.isDaily){
-      const name = (prompt("💥 C'est encore faux — défi du jour terminé.\nEntre ton nom pour le classement du jour :", '') || '').trim();
+      const name = (prompt("💥 Solution incorrecte — défi du jour terminé.\nEntre ton nom pour le classement du jour :", '') || '').trim();
       recordDailyScore(name, state.dailyDate, false, elapsedMs);
       saveDailyAttempt({ date: state.dailyDate, result:'lose' });
     }
     saveState();
     renderAll();
-    setTimeout(()=> alert("💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour)."), 60);
+    setTimeout(()=> alert(state.isDaily ? "💥 Solution incorrecte — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour)." : "💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour)."), 60);
   } else {
     saveState();
     setTimeout(()=> alert("C'est faux ! Il te reste un essai avant l'échec."), 60);
@@ -799,8 +799,13 @@ function resnapAfterTransform(piece){
   if(!piece.center) return;
   const {hw,hh} = boundingHalfExtents(piece);
   let cx = snapCoord(piece.center.x, hw), cy = snapCoord(piece.center.y, hh);
-  cx = Math.min(COLS-hw, Math.max(hw, cx));
-  cy = Math.min(ROWS-hh, Math.max(hh, cy));
+  if(!state.isDaily){
+    cx = Math.min(COLS-hw, Math.max(hw, cx));
+    cy = Math.min(ROWS-hh, Math.max(hh, cy));
+  } else {
+    cx = Math.min(COLS+hw-0.5, Math.max(-hw+0.5, cx));
+    cy = Math.min(ROWS+hh-0.5, Math.max(-hh+0.5, cy));
+  }
   piece.center = {x:cx, y:cy};
 }
 function pointInPolygon(pt, poly){
@@ -1404,6 +1409,7 @@ function renderControls(){
     $('#btnCopyGridId').textContent = state.mode==='gm' ? '📋 Copier le défi' : '📋 Copier';
   }
   $('#btnReplayVictory').style.display = (state.mode==='solo' && state.soloOver && state.soloResult==='win') ? '' : 'none';
+  $('#btnReset').style.display = state.isDaily ? 'none' : '';
 }
 function renderAll(){
   renderModePill();
@@ -1563,9 +1569,16 @@ function onPieceDown(ev, piece, el){
       const rawY = (e.clientY - rect.top) / cellsz;
       const {hw,hh} = boundingHalfExtents(piece);
       let cx = snapCoord(rawX, hw), cy = snapCoord(rawY, hh);
-      cx = Math.min(COLS-hw, Math.max(hw, cx));
-      cy = Math.min(ROWS-hh, Math.max(hh, cy));
-      const withinBoard = e.clientX>=rect.left && e.clientX<=rect.right && e.clientY>=rect.top && e.clientY<=rect.bottom;
+      if(state.isDaily){
+        cx = Math.min(COLS+hw-0.5, Math.max(-hw+0.5, cx));
+        cy = Math.min(ROWS+hh-0.5, Math.max(-hh+0.5, cy));
+      } else {
+        cx = Math.min(COLS-hw, Math.max(hw, cx));
+        cy = Math.min(ROWS-hh, Math.max(hh, cy));
+      }
+      const marginX = state.isDaily ? hw*cellsz : 0;
+      const marginY = state.isDaily ? hh*cellsz : 0;
+      const withinBoard = e.clientX>=rect.left-marginX && e.clientX<=rect.right+marginX && e.clientY>=rect.top-marginY && e.clientY<=rect.bottom+marginY;
       piece.center = withinBoard ? {x:cx,y:cy} : null;
       ghost.remove();
       el.classList.remove('dragging');
@@ -1740,8 +1753,27 @@ function closeSoloChoiceModal(){ $('#soloChoiceModal').classList.remove('open');
 $('#soloChoiceCancel').addEventListener('click', closeSoloChoiceModal);
 $('#soloChoiceModal').addEventListener('click', e=>{ if(e.target.id==='soloChoiceModal') closeSoloChoiceModal(); });
 $('#soloChoiceDaily').addEventListener('click', ()=>{
+  const { alreadyPlayed } = dailyStatusToday();
+  if(alreadyPlayed){
+    startDailyChallenge();
+    return;
+  }
   closeSoloChoiceModal();
+  $('#dailyRulesModal').classList.add('open');
+});
+$('#dailyRulesCancel').addEventListener('click', ()=>{
+  $('#dailyRulesModal').classList.remove('open');
+  openSoloChoiceModal();
+});
+$('#dailyRulesStart').addEventListener('click', ()=>{
+  $('#dailyRulesModal').classList.remove('open');
   startDailyChallenge();
+});
+$('#dailyRulesModal').addEventListener('click', e=>{
+  if(e.target.id==='dailyRulesModal'){
+    $('#dailyRulesModal').classList.remove('open');
+    openSoloChoiceModal();
+  }
 });
 $('#soloChoiceRandom').addEventListener('click', ()=>{ closeSoloChoiceModal(); openSoloSetupModal(); });
 $('#soloChoiceById').addEventListener('click', ()=> promptLoadGridById());
@@ -1765,8 +1797,8 @@ function openSoloSetupModal(){
   $('#soloSetupModal').classList.add('open');
 }
 function closeSoloSetupModal(){ $('#soloSetupModal').classList.remove('open'); }
-$('#soloSetupCancel').addEventListener('click', closeSoloSetupModal);
-$('#soloSetupModal').addEventListener('click', e=>{ if(e.target.id==='soloSetupModal') closeSoloSetupModal(); });
+$('#soloSetupCancel').addEventListener('click', ()=>{ closeSoloSetupModal(); openSoloChoiceModal(); });
+$('#soloSetupModal').addEventListener('click', e=>{ if(e.target.id==='soloSetupModal'){ closeSoloSetupModal(); openSoloChoiceModal(); } });
 $('#soloSetupConfirm').addEventListener('click', ()=>{
   state.includeGray = $('#soloOptGray').checked;
   state.includeOnyx = $('#soloOptOnyx').checked;
@@ -1803,24 +1835,40 @@ $('#btnVictoryCopySummary').addEventListener('click', ()=>{
 });
 $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('#helpModal').classList.remove('open'); });
 
+let rankingView = 'solo';
 function buildRankingConfigOptions(){
   const select = $('#rankingConfigSelect');
-  const boards = pruneDailyBoards(loadDailyBoards());
-  const todayKey = parisDateKey();
-  const yesterdayKey = parisDateKey(new Date(Date.now()-24*3600*1000));
-  let extra = `<option value="DAILY:${todayKey}">📅 Défi du jour (${todayKey})</option>`;
-  if(boards[yesterdayKey]) extra += `<option value="DAILY:${yesterdayKey}">📅 Défi d'hier (${yesterdayKey})</option>`;
-  select.innerHTML = extra + RANKING_COMBOS.map(([g,o,s])=>{
-    const key = configKey(g,o,s);
-    return `<option value="${key}">${key}</option>`;
-  }).join('');
+  if(rankingView==='daily'){
+    const boards = pruneDailyBoards(loadDailyBoards());
+    const todayKey = parisDateKey();
+    const yesterdayKey = parisDateKey(new Date(Date.now()-24*3600*1000));
+    let options = `<option value="DAILY:${todayKey}">Défi du jour (${todayKey})</option>`;
+    if(boards[yesterdayKey]) options += `<option value="DAILY:${yesterdayKey}">Défi d'hier (${yesterdayKey})</option>`;
+    select.innerHTML = options;
+  } else {
+    select.innerHTML = RANKING_COMBOS.map(([g,o,s])=>{
+      const key = configKey(g,o,s);
+      return `<option value="${key}">${key}</option>`;
+    }).join('');
+  }
+}
+function setRankingView(view){
+  rankingView = view;
+  $('#rankingTabSolo').classList.toggle('active', view==='solo');
+  $('#rankingTabDaily').classList.toggle('active', view==='daily');
+  $('#rankingSoloIntro').style.display = view==='solo' ? '' : 'none';
+  $('#rankingDailyIntro').style.display = view==='daily' ? '' : 'none';
+  buildRankingConfigOptions();
+  if(view==='solo') $('#rankingConfigSelect').value = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
+  renderRankingList();
 }
 let expandedScores = new Set();
 function renderRankingList(){
-  const key = $('#rankingConfigSelect').value;
+  const key = $('#rankingConfigSelect').value || '';
   const isDailyKey = key.startsWith('DAILY:');
   const list = isDailyKey ? (pruneDailyBoards(loadDailyBoards())[key.slice(6)] || []) : (loadRankings()[key] || []);
   const el = $('#rankingList');
+  $('#btnResetRanking').style.display = isDailyKey ? 'none' : '';
   if(list.length===0){
     el.innerHTML = `<div class="history-empty">Aucun score enregistré ${isDailyKey?'pour ce défi':'pour cette configuration'}.</div>`;
     return;
@@ -1871,10 +1919,10 @@ function renderRankingList(){
     });
   });
 }
+$('#rankingTabSolo').addEventListener('click', ()=> setRankingView('solo'));
+$('#rankingTabDaily').addEventListener('click', ()=> setRankingView('daily'));
 $('#rankingsFab').addEventListener('click', ()=>{
-  buildRankingConfigOptions();
-  $('#rankingConfigSelect').value = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
-  renderRankingList();
+  setRankingView(state.isDaily ? 'daily' : 'solo');
   $('#rankingsModal').classList.add('open');
 });
 $('#closeRankings').addEventListener('click', ()=> $('#rankingsModal').classList.remove('open'));
@@ -1882,6 +1930,7 @@ $('#rankingsModal').addEventListener('click', e=>{ if(e.target.id==='rankingsMod
 $('#rankingConfigSelect').addEventListener('change', renderRankingList);
 $('#btnResetRanking').addEventListener('click', ()=>{
   const key = $('#rankingConfigSelect').value;
+  if(key.startsWith('DAILY:')) return;
   if(!confirm(`Réinitialiser le classement « ${key} » ? Cette action est irréversible.`)) return;
   const rankings = loadRankings();
   rankings[key] = [];

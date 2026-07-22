@@ -91,6 +91,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .cellhit.used-empty,.cellhit.used-occupied{cursor:default;}
 @keyframes flashCell{0%{background:rgba(255,255,255,.55)}100%{background:transparent}}
 .overlaysvg{position:absolute;inset:0;pointer-events:none;}
+#pieceSvg{overflow:visible;}
 .piece-poly{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));touch-action:none;}
 .piece-poly.interactive{pointer-events:auto;}
 .piece-poly.dragging{opacity:.35;}
@@ -125,6 +126,9 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .mix-name{color:var(--text);font-weight:600;}
 .help-fab{position:fixed;bottom:18px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);font-family:'Cinzel',serif;font-weight:700;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:1.15rem;line-height:1;padding:0;}
 .rankings-fab{left:18px;right:auto;}
+.ranking-tabs{display:flex;gap:8px;margin:12px 0;}
+.ranking-tabs button{flex:1;}
+.ranking-tabs button.active{background:linear-gradient(180deg,#3a2c17,#2a1f10);border-color:var(--gold);color:var(--gold-bright);}
 .ranking-select{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--vein);border-radius:8px;padding:8px 10px;font-family:'Space Grotesk',sans-serif;font-size:.85rem;margin:10px 0;}
 .ranking-row{padding:8px 10px;border-radius:6px;font-size:.83rem;border-bottom:1px solid rgba(91,70,48,.3);cursor:pointer;}
 .ranking-row:last-child{border-bottom:none;}
@@ -231,9 +235,18 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 <div class="modal-backdrop" id="rankingsModal">
   <div class="modal">
     <button class="close-x" id="closeRankings">×</button>
-    <h2>🏆 Classements solo</h2>
-    <p>Moins de points, c'est mieux : un rayon vaut <b>1 point</b>, une coordonnée révélée <b>3 points</b>. À points égaux, c'est le temps le plus court qui gagne (chronométré depuis ta toute première recherche jusqu'à la victoire). Les 10 meilleurs scores sont gardés pour chaque combinaison d'extensions.</p>
-    <p>Clique une ligne pour voir le détail et l'identifiant de la grille.</p>
+    <h2>🏆 Classements</h2>
+    <div class="ranking-tabs">
+      <button id="rankingTabSolo" class="ghost active">Parties solo</button>
+      <button id="rankingTabDaily" class="ghost">Défis du jour</button>
+    </div>
+    <div id="rankingSoloIntro">
+      <p>Moins de points, c'est mieux : un rayon vaut <b>1 point</b>, une coordonnée révélée <b>3 points</b>. À points égaux, le temps le plus court gagne. Les 10 meilleurs scores sont gardés pour chaque combinaison d'extensions.</p>
+      <p>Clique une ligne pour voir le détail et l'identifiant de la grille.</p>
+    </div>
+    <div id="rankingDailyIntro" style="display:none;">
+      <p>Classements dédiés aux défis quotidiens. Les réussites sont classées avant les échecs, puis par score et par temps.</p>
+    </div>
     <select id="rankingConfigSelect" class="ranking-select"></select>
     <div id="rankingList" class="history-panel" style="max-height:320px;"></div>
     <div class="controls" style="justify-content:flex-end;margin-top:14px;">
@@ -278,6 +291,22 @@ button:disabled{opacity:.35;cursor:not-allowed;}
     <div class="controls" style="justify-content:flex-end;">
       <button id="soloSetupCancel" class="ghost">Annuler</button>
       <button id="soloSetupConfirm" class="primary">Lancer le défi</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="dailyRulesModal">
+  <div class="modal">
+    <h2>📅 Défi du jour</h2>
+    <p>Le défi est identique pour tous les joueurs pendant la journée.</p>
+    <ul>
+      <li>Les gemmes optionnelles sont tirées aléatoirement pour aujourd’hui.</li>
+      <li>Une gemme spéciale est soit partiellement en dehors de la grille, soit placée contre le côté d’une autre gemme.</li>
+      <li>Tu ne disposes que d’une seule tentative pour proposer ta solution.</li>
+    </ul>
+    <div class="controls" style="justify-content:flex-end;margin-top:16px;">
+      <button id="dailyRulesCancel" class="ghost">Annuler</button>
+      <button id="dailyRulesStart" class="primary">Commencer</button>
     </div>
   </div>
 </div>

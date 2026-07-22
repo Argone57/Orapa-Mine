@@ -92,7 +92,7 @@ Le mode maître du jeu (placement manuel, bouton Aléatoire, Démarrer la partie
 
 ## Classements solo
 
-Le bouton flottant **🏆** (en bas à gauche, visible partout) ouvre les classements. Un classement séparé existe pour chacune des 8 combinaisons d'extensions possibles (aucune, Diamant seul, Corps noir seul, Saphir seul, et toutes leurs combinaisons), avec les **10 meilleurs scores** de chacun.
+Le bouton flottant **🏆** (en bas à gauche, visible partout) ouvre les classements. Un sous-menu sépare les **parties solo** des **défis du jour**. Pour les parties solo, un classement séparé existe pour chacune des 8 combinaisons d'extensions possibles (aucune, Diamant seul, Corps noir seul, Saphir seul, et toutes leurs combinaisons), avec les **10 meilleurs scores** de chacun.
 
 - Le score privilégie le **coût** : chaque rayon lancé coûte **1 point**, chaque coordonnée révélée coûte **3 points** (les coordonnées sont plus « chères » qu'un simple rayon). Le détail (nombre de rayons 🔦 et de coordonnées 📍) est affiché à côté du score pour rester lisible en un coup d'œil, ex. `5 pts (2🔦 + 1📍) · 12s`.
 - À coté égal, le **temps** départage — chronométré entre le tout premier indice demandé (rayon ou coordonnée, peu importe lequel vient en premier) et la victoire.
@@ -108,11 +108,12 @@ Depuis le choix « 🧩 Jouer en solo », un 3ᵉ bouton **📅 Défi du jour** 
 
 - Entre **0 et 3 gemmes optionnelles** sont tirées au sort pour la journée (indépendamment de tes propres réglages).
 - **Une seule des deux règles de placement suivantes** s'applique, tirée au sort, à **une gemme au hasard** — sans indiquer laquelle des deux ni quelle gemme est concernée :
+  - Dans ta grille de réponse, les gemmes peuvent donc être placées partiellement hors du plateau afin de reproduire cette exception.
   - soit elle touche une autre gemme par un côté (au lieu du contact coin-à-coin habituel) ;
   - soit elle dépasse partiellement de la grille (en gardant au moins une case pleine dedans).
 
   Dans tous les cas, deux gemmes ne se chevauchent jamais.
-- **Une seule tentative par navigateur** : une fois jouée (victoire ou défaite), le défi du jour redevient inaccessible jusqu'au lendemain.
+- **Une seule proposition de solution** : la première réponse incorrecte termine immédiatement le défi. Une fois joué (victoire ou défaite), le défi du jour redevient inaccessible jusqu'au lendemain sur ce navigateur.
 - **Les échecs sont aussi enregistrés** dans le classement du jour, avec la mention « Échec », toujours classés après les réussites.
 - Le classement du jour reste consultable (verrouillé) jusqu'au lendemain 23h59, puis remplacé par celui du jour suivant — accessible depuis le classement (🏆), avec une entrée « Défi du jour » et, tant qu'il existe, « Défi d'hier ».
 - Le bouton de partage indique **« Défi du jour (AAAA-MM-JJ) »** à la place d'un identifiant de grille.
