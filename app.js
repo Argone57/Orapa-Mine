@@ -1811,7 +1811,10 @@ function syncOptionalPiece(type, include, flagName){
   const existing = state.pieces.filter(p=>p.type===type);
   if(include && existing.length===0) state.pieces.push(newPiece(type));
   else if(!include) state.pieces = state.pieces.filter(p=>p.type!==type);
-  saveState(); renderPalette(); renderPieces();
+  saveState();
+  renderPalette();
+  renderPieces();
+  buildMixBoard();
 }
 $('#helpFab').addEventListener('click', ()=>{
   buildMixBoard();
