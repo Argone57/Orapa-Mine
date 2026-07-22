@@ -140,18 +140,15 @@ function formatScoreLine(e){
 }
 function formatShareText(e){
   const d = new Date(e.date).toLocaleDateString('fr-FR');
-  let gems, idPart;
   if(e.isDaily){
-    const dailyGen = generateDailyLayout(e.dailyDate);
-    gems = dailyGen ? gemFlagsEmojiLine(dailyGen.flags.gray, dailyGen.flags.onyx, dailyGen.flags.sapphire) : gemFlagsEmojiLine(state.includeGray,state.includeOnyx,state.includeSapphire);
-    idPart = `Défi du jour (${e.dailyDate})${e.success===false?' — Échec':''}`;
-  } else {
-    const decoded = e.gridId ? decodeGridId(e.gridId) : null;
-    gems = decoded
-      ? gemFlagsEmojiLine(decoded.includeGray, decoded.includeOnyx, decoded.includeSapphire)
-      : gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
-    idPart = `ID: ${e.gridId||'?'}`;
+    const failPart = e.success===false ? ' — Échec' : '';
+    return `Orapa Mine · Défi du jour · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍)${failPart}\nhttps://argone57.github.io/Orapa-Mine/`;
   }
+  const decoded = e.gridId ? decodeGridId(e.gridId) : null;
+  const gems = decoded
+    ? gemFlagsEmojiLine(decoded.includeGray, decoded.includeOnyx, decoded.includeSapphire)
+    : gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
+  const idPart = `ID: ${e.gridId||'?'}`;
   return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}\nhttps://argone57.github.io/Orapa-Mine/`;
 }
 function recordScore(name, elapsedMsOverride){
@@ -1866,7 +1863,10 @@ let expandedScores = new Set();
 function renderRankingList(){
   const key = $('#rankingConfigSelect').value || '';
   const isDailyKey = key.startsWith('DAILY:');
-  const list = isDailyKey ? (pruneDailyBoards(loadDailyBoards())[key.slice(6)] || []) : (loadRankings()[key] || []);
+  const dailyDateKey = isDailyKey ? key.slice(6) : null;
+  const list = isDailyKey ? (pruneDailyBoards(loadDailyBoards())[dailyDateKey] || []) : (loadRankings()[key] || []);
+  const dailyLayout = isDailyKey ? generateDailyLayout(dailyDateKey) : null;
+  const dailyGems = dailyLayout ? gemFlagsEmojiLine(dailyLayout.flags.gray, dailyLayout.flags.onyx, dailyLayout.flags.sapphire) : '';
   const el = $('#rankingList');
   $('#btnResetRanking').style.display = isDailyKey ? 'none' : '';
   if(list.length===0){
@@ -1890,6 +1890,7 @@ function renderRankingList(){
       <div class="ranking-row-top">
         <span class="ranking-rank${i===0?' top1':''}">#${i+1}</span>
         <span class="ranking-name">${escapeHtml(e.name||'Anonyme')}${failTag}</span>
+        ${isDailyKey ? `<span class="ranking-gems">${dailyGems}</span>` : ''}
         <span class="ranking-points">${e.cost} pts</span>
         <span class="ranking-date">${d}</span>
       </div>${detailHtml}
