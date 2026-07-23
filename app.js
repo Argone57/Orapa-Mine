@@ -212,6 +212,72 @@ function recordDailyScore(name, dateKey, success, elapsedMsOverride){
   return { entry, rank, board: boards[dateKey] };
 }
 
+// ---------------------------------------------------------------------
+// CLASSEMENT GLOBAL DU DÉFI DU JOUR — Supabase
+// ---------------------------------------------------------------------
+const SUPABASE_URL = 'https://itiegzwnjlllhtwhfnxs.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_dbom16g7Bts5GvJTq6n3nw_O0nIVvw5';
+const GLOBAL_SCORE_IDS_KEY = 'orapaMineGlobalScoreIdsV1';
+let globalRankingLoading = false;
+let globalRankingCache = {};
+
+function loadGlobalScoreIds(){
+  try{ return JSON.parse(localStorage.getItem(GLOBAL_SCORE_IDS_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+function rememberGlobalScoreId(dateKey, id){
+  if(id==null) return;
+  const ids = loadGlobalScoreIds();
+  ids[dateKey] = id;
+  try{ localStorage.setItem(GLOBAL_SCORE_IDS_KEY, JSON.stringify(ids)); }catch(e){}
+}
+function supabaseHeaders(extra={}){
+  return { apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, ...extra };
+}
+async function submitGlobalDailyScore(entry){
+  if(!entry || !entry.dailyDate) return null;
+  const payload = {
+    daily_date: entry.dailyDate,
+    player_name: (entry.name||'Anonyme').slice(0,24),
+    success: !!entry.success,
+    cost: Number(entry.cost)||0,
+    ray_count: Number(entry.rayCount)||0,
+    coord_count: Number(entry.coordCount)||0,
+    time_ms: Math.max(0, Math.round(Number(entry.timeMs)||0))
+  };
+  try{
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/daily_scores`, {
+      method:'POST',
+      headers:supabaseHeaders({'Content-Type':'application/json','Prefer':'return=representation'}),
+      body:JSON.stringify(payload)
+    });
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const rows = await response.json();
+    if(rows[0] && rows[0].id!=null) rememberGlobalScoreId(entry.dailyDate, rows[0].id);
+    delete globalRankingCache[entry.dailyDate];
+    showToast('🌍 Score ajouté au classement global');
+    return rows[0] || null;
+  }catch(err){
+    console.error('Envoi du score global impossible :', err);
+    showToast('⚠️ Score local enregistré, mais envoi global impossible');
+    return null;
+  }
+}
+async function fetchGlobalDailyScores(dateKey, force=false){
+  if(!force && globalRankingCache[dateKey]) return globalRankingCache[dateKey];
+  const query = new URLSearchParams({
+    select:'id,daily_date,player_name,success,cost,ray_count,coord_count,time_ms,created_at',
+    daily_date:`eq.${dateKey}`,
+    order:'success.desc,cost.asc,time_ms.asc,created_at.asc',
+    limit:'100'
+  });
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/daily_scores?${query}`, {headers:supabaseHeaders()});
+  if(!response.ok) throw new Error(`HTTP ${response.status}`);
+  const rows = await response.json();
+  globalRankingCache[dateKey] = rows;
+  return rows;
+}
+
 function piecesEditable(){
   if(state.mode==='solo') return !state.soloOver;
   return !state.started;
@@ -724,6 +790,7 @@ function proposeSolution(){
     if(state.isDaily){
       const name = (prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement du jour :', '') || '').trim();
       const daily = recordDailyScore(name, state.dailyDate, true, elapsedMs);
+      submitGlobalDailyScore(daily.entry);
       lastScoreResult = { key:'Défi du jour', entry:{...daily.entry, gridId:null, isDaily:true, dailyDate:state.dailyDate}, rank:daily.rank, madeList:true };
       saveDailyAttempt({ date: state.dailyDate, result:'win' });
     } else if(state.gridRanked){
@@ -745,7 +812,8 @@ function proposeSolution(){
     state.finalTimeMs = elapsedMs;
     if(state.isDaily){
       const name = (prompt("💥 Solution incorrecte — défi du jour terminé.\nEntre ton nom pour le classement du jour :", '') || '').trim();
-      recordDailyScore(name, state.dailyDate, false, elapsedMs);
+      const daily = recordDailyScore(name, state.dailyDate, false, elapsedMs);
+      submitGlobalDailyScore(daily.entry);
       saveDailyAttempt({ date: state.dailyDate, result:'lose' });
     }
     saveState();
@@ -1877,12 +1945,14 @@ $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('
 let rankingView = 'solo';
 function buildRankingConfigOptions(){
   const select = $('#rankingConfigSelect');
-  if(rankingView==='daily'){
-    const boards = pruneDailyBoards(loadDailyBoards());
+  if(rankingView==='daily' || rankingView==='global'){
     const todayKey = parisDateKey();
     const yesterdayKey = parisDateKey(new Date(Date.now()-24*3600*1000));
-    let options = `<option value="DAILY:${todayKey}">Défi du jour (${todayKey})</option>`;
-    if(boards[yesterdayKey]) options += `<option value="DAILY:${yesterdayKey}">Défi d'hier (${yesterdayKey})</option>`;
+    const prefix = rankingView==='global' ? 'GLOBAL:' : 'DAILY:';
+    let options = `<option value="${prefix}${todayKey}">Défi du jour (${todayKey})</option>`;
+    if(rankingView==='global' || pruneDailyBoards(loadDailyBoards())[yesterdayKey]){
+      options += `<option value="${prefix}${yesterdayKey}">Défi d'hier (${yesterdayKey})</option>`;
+    }
     select.innerHTML = options;
   } else {
     select.innerHTML = RANKING_COMBOS.map(([g,o,s])=>{
@@ -1895,15 +1965,72 @@ function setRankingView(view){
   rankingView = view;
   $('#rankingTabSolo').classList.toggle('active', view==='solo');
   $('#rankingTabDaily').classList.toggle('active', view==='daily');
+  $('#rankingTabGlobal').classList.toggle('active', view==='global');
   $('#rankingSoloIntro').style.display = view==='solo' ? '' : 'none';
   $('#rankingDailyIntro').style.display = view==='daily' ? '' : 'none';
+  $('#rankingGlobalIntro').style.display = view==='global' ? '' : 'none';
+  $('#btnRefreshGlobal').style.display = view==='global' ? '' : 'none';
   buildRankingConfigOptions();
   if(view==='solo') $('#rankingConfigSelect').value = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
   renderRankingList();
 }
 let expandedScores = new Set();
+function rankingMedal(i){ return ['🥇','🥈','🥉'][i] || `#${i+1}`; }
+function globalEntryToLocal(e){
+  return {
+    id:e.id, name:e.player_name, success:e.success, cost:e.cost,
+    rayCount:e.ray_count, coordCount:e.coord_count, timeMs:e.time_ms,
+    date:new Date(e.created_at).getTime(), dailyDate:e.daily_date, isDaily:true
+  };
+}
+async function renderGlobalRanking(dateKey, force=false){
+  const el = $('#rankingList');
+  const token = `${dateKey}:${Date.now()}`;
+  el.dataset.renderToken = token;
+  globalRankingLoading = true;
+  el.innerHTML = '<div class="history-empty">🌍 Chargement du classement global…</div>';
+  try{
+    const rows = await fetchGlobalDailyScores(dateKey, force);
+    if(el.dataset.renderToken!==token || rankingView!=='global') return;
+    const myId = loadGlobalScoreIds()[dateKey];
+    const layout = generateDailyLayout(dateKey);
+    const gems = layout ? gemFlagsEmojiLine(layout.flags.gray, layout.flags.onyx, layout.flags.sapphire) : '';
+    if(rows.length===0){
+      el.innerHTML = '<div class="history-empty">Aucun score global enregistré pour ce défi.</div>';
+      return;
+    }
+    const wins = rows.filter(r=>r.success).length;
+    el.innerHTML = `<div class="global-ranking-summary"><b>${rows.length}</b> participant${rows.length>1?'s':''} · <b>${wins}</b> réussite${wins>1?'s':''}<span>${gems}</span></div>` + rows.map((raw,i)=>{
+      const e=globalEntryToLocal(raw);
+      const expanded=expandedScores.has(`g${e.id}`);
+      const mine=String(e.id)===String(myId);
+      const failTag=e.success ? '' : '<span class="ranking-fail">Échec</span>';
+      const detail=expanded ? `<div class="ranking-row-detail">${e.rayCount} rayon${e.rayCount===1?'':'s'} 🔦 + ${e.coordCount} coordonnée${e.coordCount===1?'':'s'} 📍 · ${formatDuration(e.timeMs)}</div><div class="controls" style="justify-content:flex-start;gap:8px;margin:8px 0 2px 34px;"><button class="ranking-copy-summary" data-global-idx="${i}">📋 Copier le résumé</button></div>` : '';
+      return `<div class="ranking-row global-row${expanded?' expanded':''}${mine?' ranking-mine':''}" data-global-id="${e.id}"><div class="ranking-row-top"><span class="ranking-rank${i===0?' top1':''}">${rankingMedal(i)}</span><span class="ranking-name">${escapeHtml(e.name||'Anonyme')} ${mine?'<span class="ranking-you">Vous</span>':''}</span>${failTag}<span class="ranking-points">${e.cost} pts</span><span class="ranking-time">${formatDuration(e.timeMs)}</span></div>${detail}</div>`;
+    }).join('');
+    el.querySelectorAll('.global-row').forEach(row=>row.addEventListener('click',ev=>{
+      if(ev.target.closest('.ranking-copy-summary')) return;
+      const k=`g${row.dataset.globalId}`;
+      if(expandedScores.has(k)) expandedScores.delete(k); else expandedScores.add(k);
+      renderGlobalRanking(dateKey);
+    }));
+    el.querySelectorAll('[data-global-idx]').forEach(btn=>btn.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const entry=globalEntryToLocal(rows[Number(btn.dataset.globalIdx)]);
+      navigator.clipboard?.writeText(formatShareText(entry)).then(()=>showToast('Résumé copié !'));
+    }));
+  }catch(err){
+    console.error('Chargement du classement global impossible :',err);
+    if(el.dataset.renderToken===token) el.innerHTML='<div class="history-empty">⚠️ Impossible de joindre le classement global.<br><small>Vérifie la connexion puis utilise « Actualiser ».</small></div>';
+  }finally{ globalRankingLoading=false; }
+}
 function renderRankingList(){
   const key = $('#rankingConfigSelect').value || '';
+  if(key.startsWith('GLOBAL:')){
+    $('#btnResetRanking').style.display='none';
+    renderGlobalRanking(key.slice(7));
+    return;
+  }
   const isDailyKey = key.startsWith('DAILY:');
   const dailyDateKey = isDailyKey ? key.slice(6) : null;
   const list = isDailyKey ? (pruneDailyBoards(loadDailyBoards())[dailyDateKey] || []) : (loadRankings()[key] || []);
@@ -1919,51 +2046,23 @@ function renderRankingList(){
     const d = new Date(e.date).toLocaleDateString('fr-FR');
     const expanded = expandedScores.has(e.date);
     const failTag = (isDailyKey && e.success===false) ? ' <span style="color:#e59c8c;">— Échec</span>' : '';
-    const detailHtml = expanded ? `
-      <div class="ranking-row-detail">
-        ${e.rayCount||0} rayon${e.rayCount===1?'':'s'} 🔦 + ${e.coordCount||0} coordonnée${e.coordCount===1?'':'s'} 📍 · ${formatDuration(e.timeMs)}
-      </div>
-      ${e.gridId ? `<div class="ranking-row-id">Grille : <b>${escapeHtml(e.gridId)}</b></div>` : ''}
-      <div class="controls" style="justify-content:flex-start;gap:8px;margin:8px 0 2px 34px;">
-        ${isDailyKey ? '' : `<button class="ranking-copy-id" data-idx="${i}">📋 Copier ID</button>`}
-        <button class="ranking-copy-summary" data-idx="${i}">📋 Copier le résumé</button>
-      </div>` : '';
-    return `<div class="ranking-row${expanded?' expanded':''}" data-date="${e.date}">
-      <div class="ranking-row-top">
-        <span class="ranking-rank${i===0?' top1':''}">#${i+1}</span>
-        <span class="ranking-name">${escapeHtml(e.name||'Anonyme')}${failTag}</span>
-        ${isDailyKey ? `<span class="ranking-gems">${dailyGems}</span>` : ''}
-        <span class="ranking-points">${e.cost} pts</span>
-        <span class="ranking-date">${d}</span>
-      </div>${detailHtml}
-    </div>`;
+    const detailHtml = expanded ? `<div class="ranking-row-detail">${e.rayCount||0} rayon${e.rayCount===1?'':'s'} 🔦 + ${e.coordCount||0} coordonnée${e.coordCount===1?'':'s'} 📍 · ${formatDuration(e.timeMs)}</div>${e.gridId ? `<div class="ranking-row-id">Grille : <b>${escapeHtml(e.gridId)}</b></div>` : ''}<div class="controls" style="justify-content:flex-start;gap:8px;margin:8px 0 2px 34px;">${isDailyKey ? '' : `<button class="ranking-copy-id" data-idx="${i}">📋 Copier ID</button>`}<button class="ranking-copy-summary" data-idx="${i}">📋 Copier le résumé</button></div>` : '';
+    return `<div class="ranking-row${expanded?' expanded':''}" data-date="${e.date}"><div class="ranking-row-top"><span class="ranking-rank${i===0?' top1':''}">${rankingMedal(i)}</span><span class="ranking-name">${escapeHtml(e.name||'Anonyme')}${failTag}</span>${isDailyKey ? `<span class="ranking-gems">${dailyGems}</span>` : ''}<span class="ranking-points">${e.cost} pts</span><span class="ranking-date">${d}</span></div>${detailHtml}</div>`;
   }).join('');
-  el.querySelectorAll('.ranking-row').forEach(row=>{
-    row.addEventListener('click', ev=>{
-      if(ev.target.closest('.ranking-copy-id') || ev.target.closest('.ranking-copy-summary')) return;
-      const date = Number(row.dataset.date);
-      if(expandedScores.has(date)) expandedScores.delete(date); else expandedScores.add(date);
-      renderRankingList();
-    });
-  });
-  el.querySelectorAll('.ranking-copy-id').forEach(btn=>{
-    btn.addEventListener('click', ev=>{
-      ev.stopPropagation();
-      const entry = list[Number(btn.dataset.idx)];
-      if(navigator.clipboard) navigator.clipboard.writeText(entry.gridId||'').then(()=> showToast('Identifiant copié : '+entry.gridId));
-    });
-  });
-  el.querySelectorAll('.ranking-copy-summary').forEach(btn=>{
-    btn.addEventListener('click', ev=>{
-      ev.stopPropagation();
-      const entry = list[Number(btn.dataset.idx)];
-      const text = formatShareText(entry);
-      if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=> showToast('Résumé copié !'));
-    });
-  });
+  el.querySelectorAll('.ranking-row').forEach(row=>row.addEventListener('click',ev=>{
+    if(ev.target.closest('.ranking-copy-id') || ev.target.closest('.ranking-copy-summary')) return;
+    const date=Number(row.dataset.date); if(expandedScores.has(date)) expandedScores.delete(date); else expandedScores.add(date); renderRankingList();
+  }));
+  el.querySelectorAll('.ranking-copy-id').forEach(btn=>btn.addEventListener('click',ev=>{ev.stopPropagation();const entry=list[Number(btn.dataset.idx)];navigator.clipboard?.writeText(entry.gridId||'').then(()=>showToast('Identifiant copié : '+entry.gridId));}));
+  el.querySelectorAll('.ranking-copy-summary').forEach(btn=>btn.addEventListener('click',ev=>{ev.stopPropagation();const entry=list[Number(btn.dataset.idx)];navigator.clipboard?.writeText(formatShareText(entry)).then(()=>showToast('Résumé copié !'));}));
 }
 $('#rankingTabSolo').addEventListener('click', ()=> setRankingView('solo'));
 $('#rankingTabDaily').addEventListener('click', ()=> setRankingView('daily'));
+$('#rankingTabGlobal').addEventListener('click', ()=> setRankingView('global'));
+$('#btnRefreshGlobal').addEventListener('click', ()=>{
+  const key=$('#rankingConfigSelect').value;
+  if(key.startsWith('GLOBAL:')) renderGlobalRanking(key.slice(7),true);
+});
 $('#rankingsFab').addEventListener('click', ()=>{
   setRankingView(state.isDaily ? 'daily' : 'solo');
   $('#rankingsModal').classList.add('open');
@@ -1973,12 +2072,9 @@ $('#rankingsModal').addEventListener('click', e=>{ if(e.target.id==='rankingsMod
 $('#rankingConfigSelect').addEventListener('change', renderRankingList);
 $('#btnResetRanking').addEventListener('click', ()=>{
   const key = $('#rankingConfigSelect').value;
-  if(key.startsWith('DAILY:')) return;
+  if(key.startsWith('DAILY:') || key.startsWith('GLOBAL:')) return;
   if(!confirm(`Réinitialiser le classement « ${key} » ? Cette action est irréversible.`)) return;
-  const rankings = loadRankings();
-  rankings[key] = [];
-  saveRankings(rankings);
-  renderRankingList();
+  const rankings = loadRankings(); rankings[key]=[]; saveRankings(rankings); renderRankingList();
 });
 window.addEventListener('resize', ()=>{ renderBgGrid(); renderPieces(); renderTraces(); });
 

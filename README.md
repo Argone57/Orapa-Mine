@@ -144,3 +144,7 @@ Que ce soit dans le classement (ligne dépliée) ou dans le popup de victoire (r
 - `index.html` — structure et styles.
 - `app.js` — toute la logique (état, formes, rendu, glisser-déposer, calcul géométrique des rayons).
 - `manifest.json`, `favicon.ico`, `icon-*.png` — icône de l'app (recadrée depuis la boîte du jeu) pour l'écran d'accueil iPhone et l'onglet du navigateur.
+
+
+## Classement global Supabase
+Un troisième onglet **Global** affiche les scores partagés du défi du jour et de la veille. Le score est envoyé automatiquement après une victoire ou un échec. Le classement affiche les médailles, le nombre de participants, les réussites, le temps et met en évidence le score envoyé depuis ce navigateur.

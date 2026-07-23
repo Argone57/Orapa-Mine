@@ -142,6 +142,15 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .ranking-row-detail{margin-top:6px;margin-left:34px;font-size:.74rem;color:var(--text-dim);}
 .ranking-row-id{margin-top:5px;margin-left:34px;display:flex;align-items:center;gap:8px;font-size:.74rem;color:var(--text-dim);}
 .ranking-copy-id, .ranking-copy-summary{background:none;border:1px solid var(--vein);border-radius:5px;padding:4px 9px;font-size:.68rem;color:var(--gold-bright);cursor:pointer;white-space:nowrap;}
+.ranking-time{font-size:.7rem;color:var(--text-dim);white-space:nowrap;min-width:58px;text-align:right;}
+.ranking-fail{font-size:.62rem;font-weight:700;color:#e59c8c;border:1px solid rgba(229,156,140,.45);border-radius:10px;padding:2px 6px;white-space:nowrap;}
+.ranking-you{font-size:.58rem;color:var(--gold-bright);border:1px solid var(--gold);border-radius:9px;padding:1px 5px;margin-left:5px;vertical-align:1px;}
+.ranking-mine{background:rgba(230,194,122,.11);box-shadow:inset 3px 0 0 var(--gold);}
+.global-ranking-summary{display:flex;align-items:center;gap:5px;padding:8px 10px;margin-bottom:4px;border-bottom:1px solid var(--vein);font-size:.73rem;color:var(--text-dim);}
+.global-ranking-summary span{margin-left:auto;font-size:.9rem;}
+#btnRefreshGlobal{white-space:nowrap;}
+@media(max-width:600px){.ranking-time{display:none}.ranking-tabs{gap:5px}.ranking-tabs button{font-size:.72rem;padding-left:5px;padding-right:5px}.ranking-gems{font-size:.72rem}}
+
 .toast-msg{
   position:fixed; left:50%; bottom:80px; transform:translateX(-50%) translateY(20px);
   background:#2a1712; border:1px solid var(--danger); color:#f5b8ae;
@@ -239,17 +248,22 @@ button:disabled{opacity:.35;cursor:not-allowed;}
     <div class="ranking-tabs">
       <button id="rankingTabSolo" class="ghost active">Parties solo</button>
       <button id="rankingTabDaily" class="ghost">Défis du jour</button>
+      <button id="rankingTabGlobal" class="ghost">🌍 Global</button>
     </div>
     <div id="rankingSoloIntro">
       <p>Moins de points, c'est mieux : un rayon vaut <b>1 point</b>, une coordonnée révélée <b>3 points</b>. À points égaux, le temps le plus court gagne. Les 10 meilleurs scores sont gardés pour chaque combinaison d'extensions.</p>
       <p>Clique une ligne pour voir le détail et l'identifiant de la grille.</p>
     </div>
     <div id="rankingDailyIntro" style="display:none;">
-      <p>Classements dédiés aux défis quotidiens. Les réussites sont classées avant les échecs, puis par score et par temps.</p>
+      <p>Classements locaux de ce navigateur pour les défis quotidiens. Les réussites sont classées avant les échecs, puis par score et par temps.</p>
+    </div>
+    <div id="rankingGlobalIntro" style="display:none;">
+      <p>Classement partagé entre tous les joueurs. Les réussites passent avant les échecs, puis le score et le temps départagent les joueurs. Les 100 premières participations sont affichées.</p>
     </div>
     <select id="rankingConfigSelect" class="ranking-select"></select>
     <div id="rankingList" class="history-panel" style="max-height:320px;"></div>
     <div class="controls" style="justify-content:flex-end;margin-top:14px;">
+      <button id="btnRefreshGlobal" class="ghost" style="display:none;">↻ Actualiser</button>
       <button id="btnResetRanking" class="danger">Réinitialiser ce classement</button>
     </div>
   </div>
