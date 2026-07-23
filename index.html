@@ -300,10 +300,14 @@ button:disabled{opacity:.35;cursor:not-allowed;}
     <h2>📅 Défi du jour</h2>
     <p>Le défi est identique pour tous les joueurs pendant la journée.</p>
     <ul>
+      <li><b>Tu ne disposes que d’une seule tentative</b> pour proposer ta solution.</li>
       <li>Les gemmes optionnelles sont tirées aléatoirement pour aujourd’hui.</li>
       <li>Une gemme spéciale est soit partiellement en dehors de la grille, soit placée contre le côté d’une autre gemme.</li>
-      <li>Tu ne disposes que d’une seule tentative pour proposer ta solution.</li>
     </ul>
+    <div style="display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:10px 0 4px;">
+      <img src="daily-example-outside.png" alt="Exemple de gemme partiellement hors de la grille" style="max-width:145px;width:42%;height:auto;border-radius:6px;border:1px solid var(--vein);">
+      <img src="daily-example-touching.png" alt="Exemple de deux gemmes placées côte à côte" style="max-width:145px;width:42%;height:auto;border-radius:6px;border:1px solid var(--vein);">
+    </div>
     <div class="controls" style="justify-content:flex-end;margin-top:16px;">
       <button id="dailyRulesCancel" class="ghost">Annuler</button>
       <button id="dailyRulesStart" class="primary">Commencer</button>

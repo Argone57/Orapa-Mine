@@ -383,7 +383,7 @@ function tryRandomLayout(rngFn){
       if(hw*2>COLS || hh*2>ROWS) break; // ne rentre pas, inutile d'insister sur cette rotation
       const rawX = hw + rngFn()*(COLS-2*hw);
       const rawY = hh + rngFn()*(ROWS-2*hh);
-      let cx = snapCoord(rawX,hw), cy = snapCoord(rawY,hh);
+      let {x:cx,y:cy} = snapPieceCenter(rawX, rawY, probe);
       cx = Math.min(COLS-hw, Math.max(hw,cx));
       cy = Math.min(ROWS-hh, Math.max(hh,cy));
       const candidate = { id:'r_'+type, type, center:{x:cx,y:cy}, rotation, flipped };
@@ -435,7 +435,7 @@ function findForcedSideTouch(type, placed, rngFn){
           {x:nb.center.x, y:nb.center.y+nhh+hh}, {x:nb.center.x, y:nb.center.y-nhh-hh}
         ];
         for(const c of candidates){
-          let cx = snapCoord(c.x,hw), cy = snapCoord(c.y,hh);
+          let {x:cx,y:cy} = snapPieceCenter(c.x, c.y, probe);
           cx = Math.min(COLS-hw, Math.max(hw,cx));
           cy = Math.min(ROWS-hh, Math.max(hh,cy));
           const candidate = { id:'ex', type, center:{x:cx,y:cy}, rotation, flipped };
@@ -461,7 +461,7 @@ function findForcedPartialOut(type, placed, rngFn){
     const {hw,hh} = boundingHalfExtents(probe);
     const rawX = -hw + rngFn()*(COLS+2*hw);
     const rawY = -hh + rngFn()*(ROWS+2*hh);
-    const cx = snapCoord(rawX,hw), cy = snapCoord(rawY,hh);
+    const {x:cx,y:cy} = snapPieceCenter(rawX, rawY, probe);
     const candidate = { id:'ex', type, center:{x:cx,y:cy}, rotation, flipped };
     const outOfBounds = (cx-hw < -1e-6 || cx+hw > COLS+1e-6 || cy-hh < -1e-6 || cy+hh > ROWS+1e-6);
     if(!outOfBounds) continue;
@@ -506,7 +506,7 @@ function tryDailyLayout(rngFn){
       if(hw*2>COLS || hh*2>ROWS) break;
       const rawX = hw + rngFn()*(COLS-2*hw);
       const rawY = hh + rngFn()*(ROWS-2*hh);
-      let cx = snapCoord(rawX,hw), cy = snapCoord(rawY,hh);
+      let {x:cx,y:cy} = snapPieceCenter(rawX, rawY, probe);
       cx = Math.min(COLS-hw, Math.max(hw,cx));
       cy = Math.min(ROWS-hh, Math.max(hh,cy));
       const candidate = { id:'r_'+type, type, center:{x:cx,y:cy}, rotation, flipped };
@@ -782,6 +782,17 @@ function pieceEdges(piece){
   for(let i=0;i<v.length;i++) edges.push([v[i], v[(i+1)%v.length]]);
   return edges;
 }
+// Pour une gemme qui dépasse du plateau, seule sa partie visible participe au rayon.
+// Le contour créé par la limite du plateau devient donc une paroi droite : un rayon
+// qui entre exactement à cet endroit repart par sa propre entrée (N→N, O→O, etc.).
+function beamEdges(piece){
+  const boardPoly = ensureCCW([{x:0,y:0},{x:COLS,y:0},{x:COLS,y:ROWS},{x:0,y:ROWS}]);
+  const clipped = clipPolygon(ensureCCW(pieceVertices(piece)), boardPoly);
+  if(clipped.length < 2) return [];
+  const edges = [];
+  for(let i=0;i<clipped.length;i++) edges.push([clipped[i], clipped[(i+1)%clipped.length]]);
+  return edges;
+}
 function boundingHalfExtents(piece){
   const shape = SHAPES[piece.type];
   const pts = shape.pts.map(v=> transformVertex(v, piece.flipped, piece.rotation, {x:0,y:0}));
@@ -792,10 +803,22 @@ function snapCoord(raw, halfExtent){
   const frac = ((halfExtent % 1) + 1) % 1;
   return Math.round(raw - frac) + frac;
 }
+// Aligne les SOMMETS de la gemme sur les intersections de la grille.
+// C'est plus fiable que l'alignement basé uniquement sur sa largeur/hauteur,
+// notamment pour les triangles et les pièces partiellement hors plateau.
+function snapPieceCenter(rawX, rawY, piece){
+  const local = SHAPES[piece.type].pts.map(v=> transformVertex(v, piece.flipped, piece.rotation, {x:0,y:0}));
+  const fracX = ((-local[0].x % 1) + 1) % 1;
+  const fracY = ((-local[0].y % 1) + 1) % 1;
+  return {
+    x: Math.round(rawX - fracX) + fracX,
+    y: Math.round(rawY - fracY) + fracY
+  };
+}
 function resnapAfterTransform(piece){
   if(!piece.center) return;
   const {hw,hh} = boundingHalfExtents(piece);
-  let cx = snapCoord(piece.center.x, hw), cy = snapCoord(piece.center.y, hh);
+  let {x:cx,y:cy} = snapPieceCenter(piece.center.x, piece.center.y, piece);
   if(!state.isDaily){
     cx = Math.min(COLS-hw, Math.max(hw, cx));
     cy = Math.min(ROWS-hh, Math.max(hh, cy));
@@ -904,7 +927,7 @@ function firstHitPieceId(side, index, piecesList){
   let best = { ...intersectBoundary(pos,dir), kind:'boundary' };
   for(const piece of piecesList){
     if(!piece.center) continue;
-    for(const [A,B] of pieceEdges(piece)){
+    for(const [A,B] of beamEdges(piece)){
       const hit = intersectRaySegment(pos,dir,A,B);
       if(hit && hit.t < best.t - EPS) best = { t:hit.t, kind:'edge', pieceId:piece.id };
     }
@@ -1025,7 +1048,7 @@ function simulateBeam(side,index,piecesList){
     if(guard>400){ absorbed='loop'; break; }
     let best = { ...intersectBoundary(pos,dir), kind:'boundary' };
     for(const piece of placed){
-      const edges = pieceEdges(piece);
+      const edges = beamEdges(piece);
       for(let ei=0; ei<edges.length; ei++){
         if(piece.id===skipPieceId && ei===skipEdgeIdx) continue;
         const [A,B] = edges[ei];
@@ -1565,7 +1588,7 @@ function onPieceDown(ev, piece, el){
       const rawX = (e.clientX - rect.left) / cellsz;
       const rawY = (e.clientY - rect.top) / cellsz;
       const {hw,hh} = boundingHalfExtents(piece);
-      let cx = snapCoord(rawX, hw), cy = snapCoord(rawY, hh);
+      let {x:cx,y:cy} = snapPieceCenter(rawX, rawY, piece);
       if(state.isDaily){
         cx = Math.min(COLS+hw-0.5, Math.max(-hw+0.5, cx));
         cy = Math.min(ROWS+hh-0.5, Math.max(-hh+0.5, cy));
@@ -1723,7 +1746,10 @@ $('#btnCopyGridId').addEventListener('click', ()=>{
   }
 });
 $('#btnBackToGM').addEventListener('click', ()=>{
-  if(!confirm('Quitter le mode solo et revenir à la console maître du jeu ? La partie solo en cours sera perdue.')) return;
+  const message = state.soloOver
+    ? 'Voulez-vous quitter le mode solo et revenir à la console maître du jeu ?'
+    : 'Quitter le mode solo et revenir à la console maître du jeu ? La partie solo en cours sera perdue.';
+  if(!confirm(message)) return;
   resetAll();
 });
 $('#btnReset').addEventListener('click', ()=>{
@@ -1811,10 +1837,7 @@ function syncOptionalPiece(type, include, flagName){
   const existing = state.pieces.filter(p=>p.type===type);
   if(include && existing.length===0) state.pieces.push(newPiece(type));
   else if(!include) state.pieces = state.pieces.filter(p=>p.type!==type);
-  saveState();
-  renderPalette();
-  renderPieces();
-  buildMixBoard();
+  saveState(); renderPalette(); renderPieces();
 }
 $('#helpFab').addEventListener('click', ()=>{
   buildMixBoard();
