@@ -806,27 +806,43 @@ function snapCoord(raw, halfExtent){
 // Aligne les SOMMETS de la gemme sur les intersections de la grille.
 // C'est plus fiable que l'alignement basé uniquement sur sa largeur/hauteur,
 // notamment pour les triangles et les pièces partiellement hors plateau.
-function snapPieceCenter(rawX, rawY, piece){
+function pieceSnapFractions(piece){
   const local = SHAPES[piece.type].pts.map(v=> transformVertex(v, piece.flipped, piece.rotation, {x:0,y:0}));
-  const fracX = ((-local[0].x % 1) + 1) % 1;
-  const fracY = ((-local[0].y % 1) + 1) % 1;
   return {
-    x: Math.round(rawX - fracX) + fracX,
-    y: Math.round(rawY - fracY) + fracY
+    fracX: ((-local[0].x % 1) + 1) % 1,
+    fracY: ((-local[0].y % 1) + 1) % 1
+  };
+}
+function snapOnLattice(raw, frac){
+  return Math.round(raw - frac) + frac;
+}
+function clampOnLattice(value, min, max, frac){
+  const latticeMin = Math.ceil(min - frac - 1e-9) + frac;
+  const latticeMax = Math.floor(max - frac + 1e-9) + frac;
+  return Math.min(latticeMax, Math.max(latticeMin, snapOnLattice(value, frac)));
+}
+function snapPieceCenter(rawX, rawY, piece){
+  const {fracX,fracY} = pieceSnapFractions(piece);
+  return {
+    x: snapOnLattice(rawX, fracX),
+    y: snapOnLattice(rawY, fracY)
+  };
+}
+function snapPieceCenterWithinBounds(rawX, rawY, piece){
+  const {hw,hh} = boundingHalfExtents(piece);
+  const {fracX,fracY} = pieceSnapFractions(piece);
+  const minX = state.isDaily ? -hw+0.5 : hw;
+  const maxX = state.isDaily ? COLS+hw-0.5 : COLS-hw;
+  const minY = state.isDaily ? -hh+0.5 : hh;
+  const maxY = state.isDaily ? ROWS+hh-0.5 : ROWS-hh;
+  return {
+    x: clampOnLattice(rawX, minX, maxX, fracX),
+    y: clampOnLattice(rawY, minY, maxY, fracY)
   };
 }
 function resnapAfterTransform(piece){
   if(!piece.center) return;
-  const {hw,hh} = boundingHalfExtents(piece);
-  let {x:cx,y:cy} = snapPieceCenter(piece.center.x, piece.center.y, piece);
-  if(!state.isDaily){
-    cx = Math.min(COLS-hw, Math.max(hw, cx));
-    cy = Math.min(ROWS-hh, Math.max(hh, cy));
-  } else {
-    cx = Math.min(COLS+hw-0.5, Math.max(-hw+0.5, cx));
-    cy = Math.min(ROWS+hh-0.5, Math.max(-hh+0.5, cy));
-  }
-  piece.center = {x:cx, y:cy};
+  piece.center = snapPieceCenterWithinBounds(piece.center.x, piece.center.y, piece);
 }
 function pointInPolygon(pt, poly){
   let inside = false;
@@ -1385,10 +1401,14 @@ function renderModePill(){
   let text, cls;
   if(state.mode==='solo'){
     if(state.soloOver){
-      text = state.soloResult==='win' ? '🏆 Victoire !' : '💥 Défaite';
+      if(state.isDaily){
+        text = state.soloResult==='win' ? '📅 Défi du jour — Victoire !' : '📅 Défi du jour — Défaite';
+      } else {
+        text = state.soloResult==='win' ? '🏆 Victoire !' : '💥 Défaite';
+      }
       cls = state.soloResult==='win' ? 'win' : 'lose';
     } else {
-      text = 'Mode solo — devine la grille';
+      text = state.isDaily ? '📅 Défi du jour — devine la grille' : 'Mode solo — devine la grille';
       cls = 'live';
     }
   } else {
@@ -1588,14 +1608,7 @@ function onPieceDown(ev, piece, el){
       const rawX = (e.clientX - rect.left) / cellsz;
       const rawY = (e.clientY - rect.top) / cellsz;
       const {hw,hh} = boundingHalfExtents(piece);
-      let {x:cx,y:cy} = snapPieceCenter(rawX, rawY, piece);
-      if(state.isDaily){
-        cx = Math.min(COLS+hw-0.5, Math.max(-hw+0.5, cx));
-        cy = Math.min(ROWS+hh-0.5, Math.max(-hh+0.5, cy));
-      } else {
-        cx = Math.min(COLS-hw, Math.max(hw, cx));
-        cy = Math.min(ROWS-hh, Math.max(hh, cy));
-      }
+      const {x:cx,y:cy} = snapPieceCenterWithinBounds(rawX, rawY, piece);
       const marginX = state.isDaily ? hw*cellsz : 0;
       const marginY = state.isDaily ? hh*cellsz : 0;
       const withinBoard = e.clientX>=rect.left-marginX && e.clientX<=rect.right+marginX && e.clientY>=rect.top-marginY && e.clientY<=rect.bottom+marginY;
