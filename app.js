@@ -1263,7 +1263,7 @@ function showLabelBubble(el, text){
     document.body.appendChild(bubble);
   }
   bubble.textContent = text;
-  bubble.style.whiteSpace = 'pre-line';
+  bubble.style.whiteSpace = 'pre';
   bubble.classList.add('show');
   const rect = el.getBoundingClientRect();
   const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
@@ -1737,7 +1737,7 @@ function onLabelClick(side,index){
       state.labelPartner[side][index] = { side, index };
     } else {
       state.labelPair[side][index] = `Sort en ${exitLabel}`;
-      state.labelPair[result.exitSide][result.exitIndex] = state.mode==='solo' ? `Sort en ${entryLabelTxt}` : `Entré par ${entryLabelTxt}`;
+      state.labelPair[result.exitSide][result.exitIndex] = `Sort en ${entryLabelTxt}`;
       state.labelPartner[side][index] = { side: result.exitSide, index: result.exitIndex };
       state.labelPartner[result.exitSide][result.exitIndex] = { side, index };
     }

@@ -162,12 +162,13 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .label-bubble{
   position:fixed; transform:translate(-50%,-100%) translateY(-8px);
   background:#241c13; border:1px solid var(--gold); color:var(--gold-bright);
-  padding:6px 10px; border-radius:7px; font-size:.72rem; font-weight:700; white-space:nowrap;
-  max-width:calc(100vw - 20px); box-shadow:0 6px 16px rgba(0,0,0,.5); opacity:0; pointer-events:none;
+  padding:6px 10px; border-radius:7px; font-size:.72rem; font-weight:700; white-space:pre; width:max-content;
+  max-width:calc(100vw - 16px); box-shadow:0 6px 16px rgba(0,0,0,.5); opacity:0; pointer-events:none;
   transition:opacity .15s ease; z-index:310;
 }
 .label-bubble.below{ transform:translate(-50%,0) translateY(8px); }
 .label-bubble.show{ opacity:1; }
+@media(max-width:600px){.label-bubble{font-size:.68rem;padding:6px 8px;}}
 .label.pulse{ animation: labelCellPulse 1s ease; }
 @keyframes labelCellPulse{
   0%{ box-shadow:0 0 0 0 rgba(230,194,122,.9); transform:scale(1); }
