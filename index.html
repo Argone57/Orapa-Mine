@@ -156,7 +156,9 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .stats-details div{display:flex;justify-content:space-between;gap:12px;padding:6px 3px;font-size:.77rem;}.stats-details span{color:var(--text-dim);}.stats-details b{color:var(--text);white-space:nowrap;}
 .stats-week{display:flex;flex-direction:column;gap:4px;}.stats-day{display:grid;grid-template-columns:1fr auto 46px;align-items:center;gap:10px;padding:7px 9px;border-radius:6px;font-size:.75rem;background:rgba(255,255,255,.02);}.stats-day.selected{background:rgba(230,194,122,.1);box-shadow:inset 3px 0 0 var(--gold);}.stats-day b{font-size:.72rem;color:var(--text);}.stats-day em{font-style:normal;text-align:right;color:var(--gold-bright);}
 .stats-week-total{margin-top:9px;text-align:right;font-size:.72rem;color:var(--text-dim);}.stats-note{font-size:.68rem;color:var(--text-faint);margin-top:13px;}
-@media(max-width:600px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+.stats-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:2px 0 14px}.stats-toolbar select{flex:1;min-width:190px}.stats-mode-tabs{display:flex;gap:6px}.stats-mode-tabs button.active{border-color:var(--gold);color:var(--gold-bright);background:rgba(230,194,122,.1)}
+.stats-player-list{display:flex;flex-direction:column;gap:5px;max-height:220px;overflow:auto;margin-top:8px}.stats-player{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;width:100%;padding:8px 10px;text-align:left;border:1px solid var(--vein);border-radius:7px;background:rgba(255,255,255,.02);color:var(--text);font-family:inherit;cursor:pointer}.stats-player:hover{background:rgba(230,194,122,.08)}.stats-player span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.stats-player b{color:var(--gold-bright)}.stats-player em{font-style:normal;color:var(--text-dim);font-size:.7rem}.stats-back{margin-bottom:10px}.stats-subtitle{font-size:.72rem;color:var(--text-dim);margin:-5px 0 12px}.stats-section-title{display:flex;justify-content:space-between;align-items:end;gap:8px}.stats-section-title small{font-size:.65rem;color:var(--text-faint);font-weight:normal}
+@media(max-width:600px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stats-toolbar{align-items:stretch}.stats-mode-tabs{width:100%}.stats-mode-tabs button{flex:1}.stats-player{grid-template-columns:1fr auto}.stats-player em{grid-column:1/-1}}
 @media(max-width:600px){.ranking-time{display:none}.ranking-tabs{gap:5px}.ranking-tabs button{font-size:.72rem;padding-left:5px;padding-right:5px}.ranking-gems{font-size:.72rem}}
 
 .toast-msg{
@@ -285,6 +287,13 @@ button:disabled{opacity:.35;cursor:not-allowed;}
   <div class="modal">
     <button class="close-x" id="closeGlobalStats">×</button>
     <h2>📊 Statistiques globales</h2>
+    <div class="stats-toolbar" id="globalStatsToolbar">
+      <div class="stats-mode-tabs">
+        <button id="statsModeDaily" class="ghost active">Par défi</button>
+        <button id="statsModeAll" class="ghost">Depuis le début</button>
+      </div>
+      <select id="globalStatsDateSelect" class="ranking-select"></select>
+    </div>
     <div id="globalStatsContent"></div>
   </div>
 </div>

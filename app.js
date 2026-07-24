@@ -255,6 +255,7 @@ async function submitGlobalDailyScore(entry){
     const rows = await response.json();
     if(rows[0] && rows[0].id!=null) rememberGlobalScoreId(entry.dailyDate, rows[0].id);
     delete globalRankingCache[entry.dailyDate];
+    globalAllScoresCache = null;
     showToast('🌍 Score ajouté au classement global');
     return rows[0] || null;
   }catch(err){
@@ -276,6 +277,27 @@ async function fetchGlobalDailyScores(dateKey, force=false){
   const rows = await response.json();
   globalRankingCache[dateKey] = rows;
   return rows;
+}
+let globalAllScoresCache = null;
+async function fetchAllGlobalScores(force=false){
+  if(!force && globalAllScoresCache) return globalAllScoresCache;
+  const all=[];
+  const pageSize=1000;
+  for(let start=0;;start+=pageSize){
+    const query=new URLSearchParams({
+      select:'id,daily_date,player_name,success,cost,ray_count,coord_count,time_ms,created_at',
+      order:'daily_date.desc,created_at.asc'
+    });
+    const response=await fetch(`${SUPABASE_URL}/rest/v1/daily_scores?${query}`,{
+      headers:supabaseHeaders({Range:`${start}-${start+pageSize-1}`})
+    });
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const rows=await response.json();
+    all.push(...rows);
+    if(rows.length<pageSize) break;
+  }
+  globalAllScoresCache=all;
+  return all;
 }
 
 function piecesEditable(){
@@ -2066,51 +2088,114 @@ function formatStatsDate(dateKey){
   const [year,month,day]=dateKey.split('-');
   return `${day}/${month}/${year}`;
 }
-async function openGlobalStats(){
-  const selected = $('#rankingConfigSelect').value || '';
-  if(!selected.startsWith('GLOBAL:')) return;
-  const selectedDate = selected.slice(7);
-  const modal = $('#globalStatsModal');
-  const content = $('#globalStatsContent');
-  modal.classList.add('open');
-  content.innerHTML = '<div class="history-empty">📊 Calcul des statistiques…</div>';
+let globalStatsMode = 'daily';
+let globalStatsRows = [];
+
+function statsPlayerKey(name){ return (name||'Anonyme').trim().toLocaleLowerCase('fr-FR'); }
+function statsDateOptions(selectedDate){
+  const dates=Array.from({length:7},(_,index)=>shiftDateKey(parisDateKey(),-index));
+  return dates.map((dateKey,index)=>`<option value="${dateKey}"${dateKey===selectedDate?' selected':''}>${globalDateLabel(dateKey,index)}</option>`).join('');
+}
+function statsSummaryCards(rows){
+  const successes=rows.filter(row=>row.success);
+  const failures=rows.filter(row=>!row.success);
+  const rate=rows.length ? Math.round(successes.length/rows.length*100) : 0;
+  return `<div class="stats-grid">
+    <div class="stats-card"><b>${rows.length}</b><span>participation${rows.length>1?'s':''}</span></div>
+    <div class="stats-card"><b>${successes.length}</b><span>réussite${successes.length>1?'s':''}</span></div>
+    <div class="stats-card"><b>${failures.length}</b><span>échec${failures.length>1?'s':''}</span></div>
+    <div class="stats-card"><b>${rows.length?rate+' %':'—'}</b><span>de réussite</span></div>
+  </div>`;
+}
+function statsDetails(rows){
+  const successes=rows.filter(row=>row.success);
+  const bestScore=successes.length ? Math.min(...successes.map(row=>Number(row.cost)||0)) : null;
+  const bestTime=successes.length ? Math.min(...successes.map(row=>Number(row.time_ms)||0)) : null;
+  const averageScore=rows.length ? average(rows.map(row=>Number(row.cost)||0)) : null;
+  const averageTime=rows.length ? average(rows.map(row=>Number(row.time_ms)||0)) : null;
+  return `<div class="stats-details">
+    <div><span>Meilleur score réussi</span><b>${bestScore==null?'—':bestScore+' pts'}</b></div>
+    <div><span>Temps record réussi</span><b>${bestTime==null?'—':formatDuration(bestTime)}</b></div>
+    <div><span>Score moyen</span><b>${averageScore==null?'—':formatDecimal(averageScore)+' pts'}</b></div>
+    <div><span>Temps moyen</span><b>${averageTime==null?'—':formatDuration(averageTime)}</b></div>
+  </div>`;
+}
+function aggregatePlayers(rows){
+  const map=new Map();
+  rows.forEach(row=>{
+    const key=statsPlayerKey(row.player_name);
+    if(!map.has(key)) map.set(key,{key,name:(row.player_name||'Anonyme').trim()||'Anonyme',rows:[]});
+    map.get(key).rows.push(row);
+  });
+  return [...map.values()].sort((a,b)=>b.rows.length-a.rows.length || b.rows.filter(r=>r.success).length-a.rows.filter(r=>r.success).length || a.name.localeCompare(b.name,'fr'));
+}
+function statsPlayerButtons(rows, daily=false){
+  const players=aggregatePlayers(rows);
+  if(!players.length) return '';
+  return `<div class="stats-section-title"><h3>${daily?'Joueurs du défi':'Statistiques par pseudo'}</h3><small>Clique un nom</small></div><div class="stats-player-list">${players.map(player=>{
+    const wins=player.rows.filter(r=>r.success).length;
+    const rate=Math.round(wins/player.rows.length*100);
+    return `<button class="stats-player" data-player-key="${escapeHtml(player.key)}"><span>${escapeHtml(player.name)}</span><b>${player.rows.length} partie${player.rows.length>1?'s':''}</b><em>${rate} % de réussite</em></button>`;
+  }).join('')}</div>`;
+}
+function bindStatsPlayerButtons(){
+  $('#globalStatsContent').querySelectorAll('[data-player-key]').forEach(button=>button.addEventListener('click',()=>renderPlayerStats(button.dataset.playerKey)));
+}
+function renderPlayerStats(playerKey){
+  const content=$('#globalStatsContent');
+  const playerRows=globalStatsRows.filter(row=>statsPlayerKey(row.player_name)===playerKey);
+  if(!playerRows.length) return;
+  const name=(playerRows[0].player_name||'Anonyme').trim()||'Anonyme';
+  const dates=playerRows.map(row=>row.daily_date).filter(Boolean).sort();
+  const uniqueDays=new Set(dates).size;
+  content.innerHTML=`<button class="ghost stats-back" id="backToGlobalStats">← Retour aux statistiques</button>
+    <h3>${escapeHtml(name)}</h3><p class="stats-subtitle">Statistiques associées à ce pseudo, sans compte ni vérification d'identité.</p>
+    ${statsSummaryCards(playerRows)}
+    <div class="stats-details">
+      <div><span>Défis différents</span><b>${uniqueDays}</b></div>
+      <div><span>Première participation</span><b>${dates.length?formatStatsDate(dates[0]):'—'}</b></div>
+      <div><span>Dernière participation</span><b>${dates.length?formatStatsDate(dates[dates.length-1]):'—'}</b></div>
+    </div>${statsDetails(playerRows)}`;
+  $('#backToGlobalStats').addEventListener('click',renderGlobalStatsView);
+}
+async function renderGlobalStatsView(force=false){
+  const modal=$('#globalStatsModal');
+  const content=$('#globalStatsContent');
+  const dateSelect=$('#globalStatsDateSelect');
+  $('#statsModeDaily').classList.toggle('active',globalStatsMode==='daily');
+  $('#statsModeAll').classList.toggle('active',globalStatsMode==='all');
+  dateSelect.style.display=globalStatsMode==='daily'?'':'none';
+  content.innerHTML='<div class="history-empty">📊 Calcul des statistiques…</div>';
   try{
-    const dates = Array.from({length:7},(_,index)=>shiftDateKey(parisDateKey(),-index));
-    const boards = await Promise.all(dates.map(dateKey=>fetchGlobalDailyScores(dateKey)));
-    if(!modal.classList.contains('open')) return;
-    const selectedRows = boards[dates.indexOf(selectedDate)] || await fetchGlobalDailyScores(selectedDate);
-    const successes = selectedRows.filter(row=>row.success);
-    const failures = selectedRows.filter(row=>!row.success);
-    const bestScore = successes.length ? Math.min(...successes.map(row=>Number(row.cost)||0)) : null;
-    const bestTime = successes.length ? Math.min(...successes.map(row=>Number(row.time_ms)||0)) : null;
-    const averageScore = selectedRows.length ? average(selectedRows.map(row=>Number(row.cost)||0)) : null;
-    const averageTime = selectedRows.length ? average(selectedRows.map(row=>Number(row.time_ms)||0)) : null;
-    const totalPlayers = boards.reduce((sum,rows)=>sum+rows.length,0);
-    const totalWins = boards.reduce((sum,rows)=>sum+rows.filter(row=>row.success).length,0);
-    const selectedHtml = selectedRows.length ? `
-      <div class="stats-grid">
-        <div class="stats-card"><b>${selectedRows.length}</b><span>participant${selectedRows.length>1?'s':''}</span></div>
-        <div class="stats-card"><b>${successes.length}</b><span>réussite${successes.length>1?'s':''}</span></div>
-        <div class="stats-card"><b>${failures.length}</b><span>échec${failures.length>1?'s':''}</span></div>
-        <div class="stats-card"><b>${Math.round(successes.length/selectedRows.length*100)} %</b><span>de réussite</span></div>
-      </div>
-      <div class="stats-details">
-        <div><span>Meilleur score réussi</span><b>${bestScore==null?'—':bestScore+' pts'}</b></div>
-        <div><span>Temps record réussi</span><b>${bestTime==null?'—':formatDuration(bestTime)}</b></div>
-        <div><span>Score moyen</span><b>${averageScore==null?'—':formatDecimal(averageScore)+' pts'}</b></div>
-        <div><span>Temps moyen</span><b>${averageTime==null?'—':formatDuration(averageTime)}</b></div>
-      </div>` : '<div class="history-empty">Aucune participation pour cette date.</div>';
-    const weeklyRows = dates.map((dateKey,index)=>{
-      const rows=boards[index];
-      const wins=rows.filter(row=>row.success).length;
-      const rate=rows.length ? Math.round(wins/rows.length*100) : 0;
-      return `<div class="stats-day${dateKey===selectedDate?' selected':''}"><span>${index===0?"Aujourd'hui":index===1?'Hier':formatStatsDate(dateKey).slice(0,5)}</span><b>${rows.length} joueur${rows.length>1?'s':''}</b><em>${rows.length?rate+' %':'—'}</em></div>`;
-    }).join('');
-    content.innerHTML = `<h3>Défi du ${formatStatsDate(selectedDate)}</h3>${selectedHtml}<h3>Activité sur 7 jours</h3><div class="stats-week">${weeklyRows}</div><div class="stats-week-total"><b>${totalPlayers}</b> participations · <b>${totalWins}</b> réussites</div><p class="stats-note">Les scores restent conservés dans Supabase ; seuls les sept derniers jours sont proposés dans le classement.</p>`;
+    if(globalStatsMode==='daily'){
+      const dateKey=dateSelect.value || parisDateKey();
+      const rows=await fetchGlobalDailyScores(dateKey,force);
+      if(!modal.classList.contains('open')) return;
+      globalStatsRows=rows;
+      content.innerHTML=`<h3>Défi du ${formatStatsDate(dateKey)}</h3>${rows.length ? statsSummaryCards(rows)+statsDetails(rows)+statsPlayerButtons(rows,true) : '<div class="history-empty">Aucune participation pour cette date.</div>'}`;
+    }else{
+      const rows=await fetchAllGlobalScores(force);
+      if(!modal.classList.contains('open')) return;
+      globalStatsRows=rows;
+      const uniquePlayers=aggregatePlayers(rows).length;
+      const uniqueDays=new Set(rows.map(row=>row.daily_date)).size;
+      const extra=`<div class="stats-details"><div><span>Pseudos différents</span><b>${uniquePlayers}</b></div><div><span>Défis enregistrés</span><b>${uniqueDays}</b></div></div>`;
+      content.innerHTML=`<h3>Depuis le début</h3><p class="stats-subtitle">Toutes les données conservées dans Supabase.</p>${rows.length ? statsSummaryCards(rows)+extra+statsDetails(rows)+statsPlayerButtons(rows,false) : '<div class="history-empty">Aucune participation enregistrée.</div>'}`;
+    }
+    bindStatsPlayerButtons();
   }catch(err){
     console.error('Chargement des statistiques globales impossible :',err);
     content.innerHTML='<div class="history-empty">⚠️ Impossible de charger les statistiques.<br><small>Vérifie la connexion puis réessaie.</small></div>';
   }
+}
+async function openGlobalStats(){
+  const selected=$('#rankingConfigSelect').value||'';
+  const selectedDate=selected.startsWith('GLOBAL:') ? selected.slice(7) : parisDateKey();
+  globalStatsMode='daily';
+  $('#globalStatsDateSelect').innerHTML=statsDateOptions(selectedDate);
+  $('#globalStatsDateSelect').value=selectedDate;
+  $('#globalStatsModal').classList.add('open');
+  await renderGlobalStatsView();
 }
 
 function renderRankingList(){
@@ -2155,6 +2240,9 @@ $('#btnRefreshGlobal').addEventListener('click', ()=>{
 $('#btnStatsGlobal').addEventListener('click', openGlobalStats);
 $('#closeGlobalStats').addEventListener('click', ()=> $('#globalStatsModal').classList.remove('open'));
 $('#globalStatsModal').addEventListener('click', e=>{ if(e.target.id==='globalStatsModal') $('#globalStatsModal').classList.remove('open'); });
+$('#statsModeDaily').addEventListener('click', ()=>{ globalStatsMode='daily'; renderGlobalStatsView(); });
+$('#statsModeAll').addEventListener('click', ()=>{ globalStatsMode='all'; renderGlobalStatsView(); });
+$('#globalStatsDateSelect').addEventListener('change', ()=> renderGlobalStatsView());
 $('#rankingsFab').addEventListener('click', ()=>{
   setRankingView(state.isDaily ? 'daily' : 'solo');
   $('#rankingsModal').classList.add('open');
