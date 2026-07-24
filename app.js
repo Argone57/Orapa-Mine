@@ -1177,6 +1177,13 @@ function contrastText(hex){
   const lum = (0.299*r+0.587*g+0.114*b)/255;
   return lum > 0.58 ? '#14100c' : '#f5f1e8';
 }
+function beamColorName(hex){
+  if(!hex) return '';
+  const normalized = String(hex).toLowerCase();
+  const colors = [...Object.values(CONFIG.MIX), CONFIG.NONE, CONFIG.ABSORBED];
+  const match = colors.find(color => color.hex.toLowerCase() === normalized);
+  return match ? match.name : '';
+}
 
 // ---------------------------------------------------------------------
 // RENDERING
@@ -1224,7 +1231,9 @@ function makeLabel(side,index){
   if(raysEnabled()){
     if(used){
       div.addEventListener('click', ()=>{
-        showLabelBubble(div, state.labelPair[side][index] || '?');
+        const colorName = beamColorName(state.labelColor[side][index]);
+        const pairText = state.labelPair[side][index] || '?';
+        showLabelBubble(div, colorName ? `${pairText}\n${colorName}` : pairText);
         pulseLabelPair(side, index);
       });
     } else {
@@ -1254,6 +1263,7 @@ function showLabelBubble(el, text){
     document.body.appendChild(bubble);
   }
   bubble.textContent = text;
+  bubble.style.whiteSpace = 'pre-line';
   bubble.classList.add('show');
   const rect = el.getBoundingClientRect();
   const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
