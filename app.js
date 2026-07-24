@@ -1232,7 +1232,10 @@ function makeLabel(side,index){
     if(used){
       div.addEventListener('click', ()=>{
         const colorName = beamColorName(state.labelColor[side][index]);
-        const pairText = state.labelPair[side][index] || '?';
+        // Compatibilité avec les parties déjà enregistrées avant la correction :
+        // les anciennes valeurs « Entré par X » sont affichées comme « Sort en X ».
+        const rawPairText = state.labelPair[side][index] || '?';
+        const pairText = rawPairText.replace(/^Entr(?:é|e) par\s+/i, 'Sort en ');
         showLabelBubble(div, colorName ? `${pairText}\n${colorName}` : pairText);
         pulseLabelPair(side, index);
       });
@@ -1953,17 +1956,35 @@ $('#btnVictoryCopySummary').addEventListener('click', ()=>{
 $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('#helpModal').classList.remove('open'); });
 
 let rankingView = 'solo';
+function shiftDateKey(dateKey, days){
+  const [year,month,day] = dateKey.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month-1, day + days));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}-${String(date.getUTCDate()).padStart(2,'0')}`;
+}
+function globalDateLabel(dateKey, index){
+  if(index===0) return `Défi du jour (${dateKey})`;
+  if(index===1) return `Défi d'hier (${dateKey})`;
+  const [year,month,day] = dateKey.split('-').map(Number);
+  const date = new Date(Date.UTC(year,month-1,day));
+  const weekday = new Intl.DateTimeFormat('fr-FR',{weekday:'long',timeZone:'UTC'}).format(date);
+  return `${weekday.charAt(0).toUpperCase()+weekday.slice(1)} ${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}`;
+}
 function buildRankingConfigOptions(){
   const select = $('#rankingConfigSelect');
   if(rankingView==='daily' || rankingView==='global'){
     const todayKey = parisDateKey();
-    const yesterdayKey = parisDateKey(new Date(Date.now()-24*3600*1000));
     const prefix = rankingView==='global' ? 'GLOBAL:' : 'DAILY:';
-    let options = `<option value="${prefix}${todayKey}">Défi du jour (${todayKey})</option>`;
-    if(rankingView==='global' || pruneDailyBoards(loadDailyBoards())[yesterdayKey]){
-      options += `<option value="${prefix}${yesterdayKey}">Défi d'hier (${yesterdayKey})</option>`;
+    if(rankingView==='global'){
+      select.innerHTML = Array.from({length:7},(_,index)=>{
+        const dateKey = shiftDateKey(todayKey,-index);
+        return `<option value="${prefix}${dateKey}">${globalDateLabel(dateKey,index)}</option>`;
+      }).join('');
+    }else{
+      const yesterdayKey = shiftDateKey(todayKey,-1);
+      let options = `<option value="${prefix}${todayKey}">Défi du jour (${todayKey})</option>`;
+      if(pruneDailyBoards(loadDailyBoards())[yesterdayKey]) options += `<option value="${prefix}${yesterdayKey}">Défi d'hier (${yesterdayKey})</option>`;
+      select.innerHTML = options;
     }
-    select.innerHTML = options;
   } else {
     select.innerHTML = RANKING_COMBOS.map(([g,o,s])=>{
       const key = configKey(g,o,s);
@@ -1980,6 +2001,7 @@ function setRankingView(view){
   $('#rankingDailyIntro').style.display = view==='daily' ? '' : 'none';
   $('#rankingGlobalIntro').style.display = view==='global' ? '' : 'none';
   $('#btnRefreshGlobal').style.display = view==='global' ? '' : 'none';
+  $('#btnStatsGlobal').style.display = view==='global' ? '' : 'none';
   buildRankingConfigOptions();
   if(view==='solo') $('#rankingConfigSelect').value = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
   renderRankingList();
@@ -2034,6 +2056,63 @@ async function renderGlobalRanking(dateKey, force=false){
     if(el.dataset.renderToken===token) el.innerHTML='<div class="history-empty">⚠️ Impossible de joindre le classement global.<br><small>Vérifie la connexion puis utilise « Actualiser ».</small></div>';
   }finally{ globalRankingLoading=false; }
 }
+function average(values){
+  return values.length ? values.reduce((sum,value)=>sum+value,0)/values.length : 0;
+}
+function formatDecimal(value){
+  return value.toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1});
+}
+function formatStatsDate(dateKey){
+  const [year,month,day]=dateKey.split('-');
+  return `${day}/${month}/${year}`;
+}
+async function openGlobalStats(){
+  const selected = $('#rankingConfigSelect').value || '';
+  if(!selected.startsWith('GLOBAL:')) return;
+  const selectedDate = selected.slice(7);
+  const modal = $('#globalStatsModal');
+  const content = $('#globalStatsContent');
+  modal.classList.add('open');
+  content.innerHTML = '<div class="history-empty">📊 Calcul des statistiques…</div>';
+  try{
+    const dates = Array.from({length:7},(_,index)=>shiftDateKey(parisDateKey(),-index));
+    const boards = await Promise.all(dates.map(dateKey=>fetchGlobalDailyScores(dateKey)));
+    if(!modal.classList.contains('open')) return;
+    const selectedRows = boards[dates.indexOf(selectedDate)] || await fetchGlobalDailyScores(selectedDate);
+    const successes = selectedRows.filter(row=>row.success);
+    const failures = selectedRows.filter(row=>!row.success);
+    const bestScore = successes.length ? Math.min(...successes.map(row=>Number(row.cost)||0)) : null;
+    const bestTime = successes.length ? Math.min(...successes.map(row=>Number(row.time_ms)||0)) : null;
+    const averageScore = selectedRows.length ? average(selectedRows.map(row=>Number(row.cost)||0)) : null;
+    const averageTime = selectedRows.length ? average(selectedRows.map(row=>Number(row.time_ms)||0)) : null;
+    const totalPlayers = boards.reduce((sum,rows)=>sum+rows.length,0);
+    const totalWins = boards.reduce((sum,rows)=>sum+rows.filter(row=>row.success).length,0);
+    const selectedHtml = selectedRows.length ? `
+      <div class="stats-grid">
+        <div class="stats-card"><b>${selectedRows.length}</b><span>participant${selectedRows.length>1?'s':''}</span></div>
+        <div class="stats-card"><b>${successes.length}</b><span>réussite${successes.length>1?'s':''}</span></div>
+        <div class="stats-card"><b>${failures.length}</b><span>échec${failures.length>1?'s':''}</span></div>
+        <div class="stats-card"><b>${Math.round(successes.length/selectedRows.length*100)} %</b><span>de réussite</span></div>
+      </div>
+      <div class="stats-details">
+        <div><span>Meilleur score réussi</span><b>${bestScore==null?'—':bestScore+' pts'}</b></div>
+        <div><span>Temps record réussi</span><b>${bestTime==null?'—':formatDuration(bestTime)}</b></div>
+        <div><span>Score moyen</span><b>${averageScore==null?'—':formatDecimal(averageScore)+' pts'}</b></div>
+        <div><span>Temps moyen</span><b>${averageTime==null?'—':formatDuration(averageTime)}</b></div>
+      </div>` : '<div class="history-empty">Aucune participation pour cette date.</div>';
+    const weeklyRows = dates.map((dateKey,index)=>{
+      const rows=boards[index];
+      const wins=rows.filter(row=>row.success).length;
+      const rate=rows.length ? Math.round(wins/rows.length*100) : 0;
+      return `<div class="stats-day${dateKey===selectedDate?' selected':''}"><span>${index===0?"Aujourd'hui":index===1?'Hier':formatStatsDate(dateKey).slice(0,5)}</span><b>${rows.length} joueur${rows.length>1?'s':''}</b><em>${rows.length?rate+' %':'—'}</em></div>`;
+    }).join('');
+    content.innerHTML = `<h3>Défi du ${formatStatsDate(selectedDate)}</h3>${selectedHtml}<h3>Activité sur 7 jours</h3><div class="stats-week">${weeklyRows}</div><div class="stats-week-total"><b>${totalPlayers}</b> participations · <b>${totalWins}</b> réussites</div><p class="stats-note">Les scores restent conservés dans Supabase ; seuls les sept derniers jours sont proposés dans le classement.</p>`;
+  }catch(err){
+    console.error('Chargement des statistiques globales impossible :',err);
+    content.innerHTML='<div class="history-empty">⚠️ Impossible de charger les statistiques.<br><small>Vérifie la connexion puis réessaie.</small></div>';
+  }
+}
+
 function renderRankingList(){
   const key = $('#rankingConfigSelect').value || '';
   if(key.startsWith('GLOBAL:')){
@@ -2073,6 +2152,9 @@ $('#btnRefreshGlobal').addEventListener('click', ()=>{
   const key=$('#rankingConfigSelect').value;
   if(key.startsWith('GLOBAL:')) renderGlobalRanking(key.slice(7),true);
 });
+$('#btnStatsGlobal').addEventListener('click', openGlobalStats);
+$('#closeGlobalStats').addEventListener('click', ()=> $('#globalStatsModal').classList.remove('open'));
+$('#globalStatsModal').addEventListener('click', e=>{ if(e.target.id==='globalStatsModal') $('#globalStatsModal').classList.remove('open'); });
 $('#rankingsFab').addEventListener('click', ()=>{
   setRankingView(state.isDaily ? 'daily' : 'solo');
   $('#rankingsModal').classList.add('open');

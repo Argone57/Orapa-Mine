@@ -148,7 +148,15 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .ranking-mine{background:rgba(230,194,122,.11);box-shadow:inset 3px 0 0 var(--gold);}
 .global-ranking-summary{display:flex;align-items:center;gap:5px;padding:8px 10px;margin-bottom:4px;border-bottom:1px solid var(--vein);font-size:.73rem;color:var(--text-dim);}
 .global-ranking-summary span{margin-left:auto;font-size:.9rem;}
-#btnRefreshGlobal{white-space:nowrap;}
+#btnRefreshGlobal,#btnStatsGlobal{white-space:nowrap;}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0 14px;}
+.stats-card{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:62px;padding:8px;border:1px solid var(--vein);border-radius:8px;background:rgba(230,194,122,.04);text-align:center;}
+.stats-card b{font-size:1.05rem;color:var(--gold-bright);}.stats-card span{font-size:.68rem;color:var(--text-dim);}
+.stats-details{border-top:1px solid var(--vein);border-bottom:1px solid var(--vein);padding:5px 0;margin-bottom:16px;}
+.stats-details div{display:flex;justify-content:space-between;gap:12px;padding:6px 3px;font-size:.77rem;}.stats-details span{color:var(--text-dim);}.stats-details b{color:var(--text);white-space:nowrap;}
+.stats-week{display:flex;flex-direction:column;gap:4px;}.stats-day{display:grid;grid-template-columns:1fr auto 46px;align-items:center;gap:10px;padding:7px 9px;border-radius:6px;font-size:.75rem;background:rgba(255,255,255,.02);}.stats-day.selected{background:rgba(230,194,122,.1);box-shadow:inset 3px 0 0 var(--gold);}.stats-day b{font-size:.72rem;color:var(--text);}.stats-day em{font-style:normal;text-align:right;color:var(--gold-bright);}
+.stats-week-total{margin-top:9px;text-align:right;font-size:.72rem;color:var(--text-dim);}.stats-note{font-size:.68rem;color:var(--text-faint);margin-top:13px;}
+@media(max-width:600px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.ranking-time{display:none}.ranking-tabs{gap:5px}.ranking-tabs button{font-size:.72rem;padding-left:5px;padding-right:5px}.ranking-gems{font-size:.72rem}}
 
 .toast-msg{
@@ -263,10 +271,21 @@ button:disabled{opacity:.35;cursor:not-allowed;}
     </div>
     <select id="rankingConfigSelect" class="ranking-select"></select>
     <div id="rankingList" class="history-panel" style="max-height:320px;"></div>
-    <div class="controls" style="justify-content:flex-end;margin-top:14px;">
-      <button id="btnRefreshGlobal" class="ghost" style="display:none;">↻ Actualiser</button>
-      <button id="btnResetRanking" class="danger">Réinitialiser ce classement</button>
+    <div class="controls ranking-bottom-controls" style="justify-content:space-between;margin-top:14px;">
+      <button id="btnStatsGlobal" class="ghost" style="display:none;">📊 Statistiques</button>
+      <div class="controls" style="margin:0;gap:8px;">
+        <button id="btnRefreshGlobal" class="ghost" style="display:none;">↻ Actualiser</button>
+        <button id="btnResetRanking" class="danger">Réinitialiser ce classement</button>
+      </div>
     </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="globalStatsModal">
+  <div class="modal">
+    <button class="close-x" id="closeGlobalStats">×</button>
+    <h2>📊 Statistiques globales</h2>
+    <div id="globalStatsContent"></div>
   </div>
 </div>
 
