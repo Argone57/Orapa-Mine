@@ -218,6 +218,252 @@ function recordDailyScore(name, dateKey, success, elapsedMsOverride){
 const SUPABASE_URL = 'https://itiegzwnjlllhtwhfnxs.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_dbom16g7Bts5GvJTq6n3nw_O0nIVvw5';
 const GLOBAL_SCORE_IDS_KEY = 'orapaMineGlobalScoreIdsV1';
+
+const PLAYER_ACCOUNT_KEY = 'orapaMinePlayerAccountV1';
+const PLAYER_TRUST_KEY = 'orapaMinePlayerTrustV1';
+let currentPlayerAccount = loadPlayerAccount();
+let scoreIdentityResolver = null;
+
+function loadPlayerAccount(){
+  try{ return JSON.parse(localStorage.getItem(PLAYER_ACCOUNT_KEY)||'null'); }catch(e){ return null; }
+}
+function savePlayerAccount(account){
+  currentPlayerAccount=account||null;
+  try{
+    if(account) localStorage.setItem(PLAYER_ACCOUNT_KEY,JSON.stringify(account));
+    else localStorage.removeItem(PLAYER_ACCOUNT_KEY);
+  }catch(e){}
+  updateAccountFab();
+}
+function isTrustedDevice(){ return localStorage.getItem(PLAYER_TRUST_KEY)==='1'; }
+function setTrustedDevice(value){
+  try{ value ? localStorage.setItem(PLAYER_TRUST_KEY,'1') : localStorage.removeItem(PLAYER_TRUST_KEY); }catch(e){}
+}
+function updateAccountFab(){
+  const btn=$('#accountFab'); if(!btn) return;
+  btn.textContent=currentPlayerAccount ? `👤 ${currentPlayerAccount.display_name}` : '👤 Compte';
+  btn.classList.toggle('connected',!!currentPlayerAccount);
+}
+async function supabaseRpc(fn,params={}){
+  const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{
+    method:'POST',headers:supabaseHeaders({'Content-Type':'application/json'}),body:JSON.stringify(params)
+  });
+  let data=null; try{data=await response.json();}catch(e){}
+  if(!response.ok){
+    const msg=data?.message||data?.error||`Erreur HTTP ${response.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+function validPin(pin){ return /^\d{4}$/.test(pin||''); }
+function accountError(id,msg){ const el=$(id); el.textContent=msg||''; el.style.display=msg?'block':'none'; }
+function accountInput(label,id,type='text',extra=''){
+  return `<label>${label}<input id="${id}" type="${type}" ${extra}></label>`;
+}
+async function validateSavedAccount(){
+  if(!currentPlayerAccount?.session_token) return;
+  try{
+    const data=await supabaseRpc('orapa_get_account',{p_session_token:currentPlayerAccount.session_token});
+    savePlayerAccount({...currentPlayerAccount,id:data.id,display_name:data.display_name});
+  }catch(e){ savePlayerAccount(null); setTrustedDevice(false); }
+}
+async function loadMyAccountStats(){
+  if(!currentPlayerAccount) return null;
+  return supabaseRpc('orapa_my_stats',{p_session_token:currentPlayerAccount.session_token});
+}
+function showAccountLogin(){
+  const content=$('#accountContent');
+  content.innerHTML=`<div class="account-status disconnected">⚪ Non connecté</div>
+    <p>Connecte-toi avec ton pseudo unique et ton code à 4 chiffres.</p>
+    <div class="account-form">
+      ${accountInput('Pseudo','accountLoginName','text','maxlength="24" autocomplete="nickname"')}
+      ${accountInput('Code à 4 chiffres','accountLoginPin','password','inputmode="numeric" maxlength="4" autocomplete="off"')}
+      <div class="account-error" id="accountLoginError"></div>
+    </div>
+    <div class="account-main-actions">
+      <button class="primary" id="accountLoginBtn">Se connecter</button>
+      <button class="ghost" id="accountCreateBtn">Créer un compte</button>
+    </div>`;
+  $('#accountLoginBtn').onclick=async()=>{
+    accountError('#accountLoginError','');
+    const name=$('#accountLoginName').value.trim(), pin=$('#accountLoginPin').value;
+    if(!name||!validPin(pin)){accountError('#accountLoginError','Saisis un pseudo et un code de 4 chiffres.');return;}
+    try{
+      const data=await supabaseRpc('orapa_login_profile',{p_name:name,p_pin:pin});
+      savePlayerAccount(data); showToast(`Connecté : ${data.display_name}`); await renderAccountHome();
+    }catch(e){accountError('#accountLoginError',e.message);}
+  };
+  $('#accountCreateBtn').onclick=showAccountCreate;
+}
+function showAccountCreate(){
+  $('#accountContent').innerHTML=`<button class="ghost" id="accountBackLogin">← Retour</button>
+    <h3 style="margin-top:14px;">Créer un compte</h3>
+    <p>Le pseudo sera unique. Aucune adresse mail n’est demandée.</p>
+    <div class="account-form">
+      ${accountInput('Pseudo','accountCreateName','text','maxlength="24" autocomplete="nickname"')}
+      ${accountInput('Code à 4 chiffres','accountCreatePin','password','inputmode="numeric" maxlength="4" autocomplete="off"')}
+      ${accountInput('Confirmer le code','accountCreatePinConfirm','password','inputmode="numeric" maxlength="4" autocomplete="off"')}
+      <div class="account-error" id="accountCreateError"></div>
+    </div>
+    <div class="controls" style="justify-content:flex-end;"><button class="primary" id="accountCreateSave">Créer le compte</button></div>`;
+  $('#accountBackLogin').onclick=showAccountLogin;
+  $('#accountCreateSave').onclick=async()=>{
+    accountError('#accountCreateError','');
+    const name=$('#accountCreateName').value.trim(), pin=$('#accountCreatePin').value, confirmPin=$('#accountCreatePinConfirm').value;
+    if(!name){accountError('#accountCreateError','Saisis un pseudo.');return;}
+    if(!validPin(pin)){accountError('#accountCreateError','Le code doit contenir exactement 4 chiffres.');return;}
+    if(pin!==confirmPin){accountError('#accountCreateError','Les deux codes ne correspondent pas.');return;}
+    try{
+      const data=await supabaseRpc('orapa_create_profile',{p_name:name,p_pin:pin});
+      savePlayerAccount(data); showToast(`Compte créé : ${data.display_name}`); await renderAccountHome();
+    }catch(e){accountError('#accountCreateError',e.message);}
+  };
+}
+async function renderAccountHome(){
+  if(!currentPlayerAccount){ showAccountLogin(); return; }
+  const content=$('#accountContent');
+  content.innerHTML=`<div class="account-status connected">🟢 Connecté</div>
+    <div class="account-card"><strong>${escapeHtml(currentPlayerAccount.display_name)}</strong><div style="color:var(--text-faint);font-size:.76rem;margin-top:4px;">Pseudo unique</div></div>
+    <h3 class="account-section-title">📊 Mes statistiques</h3>
+    <div id="accountStats"><div class="history-empty">Chargement des statistiques…</div></div>
+    <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Ne pas redemander le code sur cet appareil</b><br><small>Si cette option reste décochée, le code sera demandé avant chaque score global.</small></span></label>
+    <div class="account-actions">
+      <button class="ghost" id="accountOpenRankingsBtn">🏆 Classements</button>
+      <button class="ghost" id="accountRenameBtn">✏️ Renommer</button>
+      <button class="ghost" id="accountPinBtn">🔢 Modifier le code</button>
+      <button class="danger" id="accountLogoutBtn">🚪 Se déconnecter</button>
+    </div>`;
+  $('#accountTrustDevice').onchange=e=>setTrustedDevice(e.target.checked);
+  $('#accountOpenRankingsBtn').onclick=()=>{$('#accountModal').classList.remove('open');$('#rankingsModal').classList.add('open');};
+  $('#accountRenameBtn').onclick=showRenameAccount;
+  $('#accountPinBtn').onclick=showChangePin;
+  $('#accountLogoutBtn').onclick=()=>{savePlayerAccount(null);setTrustedDevice(false);showAccountLogin();showToast('Déconnecté');};
+  try{
+    const st=await loadMyAccountStats();
+    const rate=st.participations?Math.round(st.wins/st.participations*100):0;
+    $('#accountStats').innerHTML=`<div class="account-stats-grid">
+      <div class="account-stat"><b>${st.participations||0}</b>défis</div>
+      <div class="account-stat"><b>${st.wins||0}</b>réussites</div>
+      <div class="account-stat"><b>${rate}%</b>réussite</div>
+      <div class="account-stat"><b>${st.best_score==null?'—':st.best_score+' pts'}</b>meilleur score</div>
+    </div>${st.best_time_ms==null?'':`<p>Meilleur temps : <b>${formatDuration(st.best_time_ms)}</b></p>`}`;
+  }catch(e){ $('#accountStats').innerHTML=`<div class="account-error" style="display:block;">${escapeHtml(e.message)}</div>`; }
+}
+function showRenameAccount(){
+  $('#accountContent').innerHTML=`<button class="ghost" id="accountBackHome">← Retour</button><h3 style="margin-top:14px;">Renommer le pseudo</h3>
+    <div class="account-form">${accountInput('Nouveau pseudo','accountNewName','text','maxlength="24"')}${accountInput('Code actuel','accountRenamePin','password','inputmode="numeric" maxlength="4"')}<div class="account-error" id="accountRenameError"></div></div>
+    <div class="controls" style="justify-content:flex-end;"><button class="primary" id="accountRenameSave">Enregistrer</button></div>`;
+  $('#accountNewName').value=currentPlayerAccount.display_name;
+  $('#accountBackHome').onclick=renderAccountHome;
+  $('#accountRenameSave').onclick=async()=>{
+    accountError('#accountRenameError',''); const name=$('#accountNewName').value.trim(),pin=$('#accountRenamePin').value;
+    if(!name||!validPin(pin)){accountError('#accountRenameError','Saisis le nouveau pseudo et ton code actuel.');return;}
+    try{const d=await supabaseRpc('orapa_rename_profile',{p_session_token:currentPlayerAccount.session_token,p_pin:pin,p_new_name:name});savePlayerAccount({...currentPlayerAccount,display_name:d.display_name});globalAllScoresCache=null;globalRankingCache={};showToast('Pseudo modifié');renderAccountHome();}catch(e){accountError('#accountRenameError',e.message);}
+  };
+}
+function showChangePin(){
+  $('#accountContent').innerHTML=`<button class="ghost" id="accountBackHome">← Retour</button><h3 style="margin-top:14px;">Modifier le code</h3>
+    <div class="account-form">${accountInput('Ancien code','accountOldPin','password','inputmode="numeric" maxlength="4"')}${accountInput('Nouveau code','accountNewPin','password','inputmode="numeric" maxlength="4"')}${accountInput('Confirmer le nouveau code','accountConfirmPin','password','inputmode="numeric" maxlength="4"')}<div class="account-error" id="accountPinError"></div></div>
+    <div class="controls" style="justify-content:flex-end;"><button class="primary" id="accountPinSave">Enregistrer</button></div>`;
+  $('#accountBackHome').onclick=renderAccountHome;
+  $('#accountPinSave').onclick=async()=>{
+    accountError('#accountPinError',''); const old=$('#accountOldPin').value,nw=$('#accountNewPin').value,confirmPin=$('#accountConfirmPin').value;
+    if(!validPin(old)||!validPin(nw)){accountError('#accountPinError','Les codes doivent contenir exactement 4 chiffres.');return;}
+    if(nw!==confirmPin){accountError('#accountPinError','Les deux nouveaux codes ne correspondent pas.');return;}
+    if(old===nw){accountError('#accountPinError','Choisis un code différent de l’ancien.');return;}
+    try{await supabaseRpc('orapa_change_pin',{p_session_token:currentPlayerAccount.session_token,p_old_pin:old,p_new_pin:nw});showToast('Code modifié');renderAccountHome();}catch(e){accountError('#accountPinError',e.message);}
+  };
+}
+async function openAccountModal(){
+  $('#accountModal').classList.add('open');
+  await renderAccountHome();
+}
+
+function closeScoreIdentity(result=null){
+  $('#scoreIdentityModal').classList.remove('open');
+  const r=scoreIdentityResolver; scoreIdentityResolver=null; if(r) r(result);
+}
+function renderScoreAccountPrompt(resolve){
+  const content=$('#scoreIdentityContent');
+  accountError('#scoreIdentityError','');
+  if(!currentPlayerAccount){
+    content.innerHTML=`<div class="score-account-summary guest">
+        <strong>👤 Invité</strong>
+        <span>Connecte-toi ou crée un compte pour enregistrer ce score dans le classement global.</span>
+      </div>
+      <div class="account-error" id="scoreIdentityError"></div>
+      <div class="score-identity-actions">
+        <button class="primary" id="scoreLoginBtn">Se connecter</button>
+        <button class="ghost" id="scoreCreateBtn">Créer un compte</button>
+        <button class="ghost full" id="scoreContinueGuestBtn">Continuer sans classement global</button>
+      </div>`;
+    $('#scoreLoginBtn').onclick=()=>renderScoreInlineLogin(resolve,false);
+    $('#scoreCreateBtn').onclick=()=>renderScoreInlineLogin(resolve,true);
+    $('#scoreContinueGuestBtn').onclick=()=>closeScoreIdentity({saveGlobal:false,name:'Invité'});
+    return;
+  }
+  const trusted=isTrustedDevice();
+  content.innerHTML=`<div class="score-account-summary">
+      <span>Le score sera enregistré sous :</span>
+      <strong>👤 ${escapeHtml(currentPlayerAccount.display_name)}</strong>
+    </div>
+    ${trusted?'':`<div class="account-form">${accountInput('Code à 4 chiffres','scoreConnectedPin','password','inputmode="numeric" maxlength="4" autocomplete="off"')}</div>`}
+    <div class="account-error" id="scoreIdentityError"></div>
+    <div class="score-identity-actions">
+      <button class="primary" id="scoreSaveConnectedBtn">Enregistrer</button>
+      <button class="ghost" id="scoreSwitchAccountBtn">Changer de compte</button>
+      <button class="ghost full" id="scoreSkipGlobalBtn">Continuer sans classement global</button>
+    </div>`;
+  $('#scoreSaveConnectedBtn').onclick=async()=>{
+    accountError('#scoreIdentityError','');
+    try{
+      let account=currentPlayerAccount;
+      if(!trusted){
+        const pin=$('#scoreConnectedPin').value;
+        if(!validPin(pin)){accountError('#scoreIdentityError','Saisis ton code à 4 chiffres.');return;}
+        account=await supabaseRpc('orapa_login_profile',{p_name:currentPlayerAccount.display_name,p_pin:pin});
+        savePlayerAccount(account);
+      }
+      closeScoreIdentity({saveGlobal:true,name:account.display_name,pin:'',sessionToken:account.session_token});
+    }catch(e){accountError('#scoreIdentityError',e.message);}
+  };
+  $('#scoreSwitchAccountBtn').onclick=()=>renderScoreInlineLogin(resolve,false,true);
+  $('#scoreSkipGlobalBtn').onclick=()=>closeScoreIdentity({saveGlobal:false,name:currentPlayerAccount.display_name});
+}
+function renderScoreInlineLogin(resolve,create=false,switching=false){
+  const content=$('#scoreIdentityContent');
+  content.innerHTML=`<button class="ghost" id="scoreBackAccount">← Retour</button>
+    <h3 style="margin-top:14px;">${create?'Créer un compte':'Se connecter'}</h3>
+    <div class="account-form">
+      ${accountInput('Pseudo','scoreInlineName','text','maxlength="24" autocomplete="nickname"')}
+      ${accountInput('Code à 4 chiffres','scoreInlinePin','password','inputmode="numeric" maxlength="4" autocomplete="off"')}
+      ${create?accountInput('Confirmer le code','scoreInlinePinConfirm','password','inputmode="numeric" maxlength="4" autocomplete="off"'):''}
+      <div class="account-error" id="scoreIdentityError"></div>
+    </div>
+    <div class="controls" style="justify-content:flex-end;"><button class="primary" id="scoreInlineSubmit">${create?'Créer et enregistrer':'Se connecter et enregistrer'}</button></div>`;
+  $('#scoreBackAccount').onclick=()=>renderScoreAccountPrompt(resolve);
+  $('#scoreInlineSubmit').onclick=async()=>{
+    accountError('#scoreIdentityError','');
+    const name=$('#scoreInlineName').value.trim(),pin=$('#scoreInlinePin').value;
+    if(!name){accountError('#scoreIdentityError','Saisis un pseudo.');return;}
+    if(!validPin(pin)){accountError('#scoreIdentityError','Le code doit contenir exactement 4 chiffres.');return;}
+    if(create && pin!==$('#scoreInlinePinConfirm').value){accountError('#scoreIdentityError','Les deux codes ne correspondent pas.');return;}
+    try{
+      const account=create
+        ? await supabaseRpc('orapa_create_profile',{p_name:name,p_pin:pin})
+        : await supabaseRpc('orapa_login_profile',{p_name:name,p_pin:pin});
+      savePlayerAccount(account);
+      closeScoreIdentity({saveGlobal:true,name:account.display_name,pin:'',sessionToken:account.session_token});
+    }catch(e){accountError('#scoreIdentityError',e.message);}
+  };
+}
+async function requestDailyIdentity(){
+  return new Promise(resolve=>{
+    scoreIdentityResolver=resolve;
+    $('#scoreIdentityModal').classList.add('open');
+    renderScoreAccountPrompt(resolve);
+  });
+}
 let globalRankingLoading = false;
 let globalRankingCache = {};
 
@@ -234,33 +480,27 @@ function rememberGlobalScoreId(dateKey, id){
 function supabaseHeaders(extra={}){
   return { apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, ...extra };
 }
-async function submitGlobalDailyScore(entry){
-  if(!entry || !entry.dailyDate) return null;
-  const payload = {
-    daily_date: entry.dailyDate,
-    player_name: (entry.name||'Anonyme').slice(0,24),
-    success: !!entry.success,
-    cost: Number(entry.cost)||0,
-    ray_count: Number(entry.rayCount)||0,
-    coord_count: Number(entry.coordCount)||0,
-    time_ms: Math.max(0, Math.round(Number(entry.timeMs)||0))
-  };
+async function submitGlobalDailyScore(entry, identity){
+  if(!entry || !entry.dailyDate || !identity) return null;
   try{
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/daily_scores`, {
-      method:'POST',
-      headers:supabaseHeaders({'Content-Type':'application/json','Prefer':'return=representation'}),
-      body:JSON.stringify(payload)
+    const row=await supabaseRpc('orapa_submit_daily_score',{
+      p_name:identity.name,
+      p_pin:identity.pin||'',
+      p_session_token:identity.sessionToken||'',
+      p_daily_date:entry.dailyDate,
+      p_success:!!entry.success,
+      p_cost:Number(entry.cost)||0,
+      p_ray_count:Number(entry.rayCount)||0,
+      p_coord_count:Number(entry.coordCount)||0,
+      p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))
     });
-    if(!response.ok) throw new Error(`HTTP ${response.status}`);
-    const rows = await response.json();
-    if(rows[0] && rows[0].id!=null) rememberGlobalScoreId(entry.dailyDate, rows[0].id);
-    delete globalRankingCache[entry.dailyDate];
-    globalAllScoresCache = null;
+    if(row?.id!=null) rememberGlobalScoreId(entry.dailyDate,row.id);
+    delete globalRankingCache[entry.dailyDate]; globalAllScoresCache=null;
     showToast('🌍 Score ajouté au classement global');
-    return rows[0] || null;
+    return row;
   }catch(err){
-    console.error('Envoi du score global impossible :', err);
-    showToast('⚠️ Score local enregistré, mais envoi global impossible');
+    console.error('Envoi du score global impossible :',err);
+    showToast(`⚠️ Envoi global impossible : ${err.message}`);
     return null;
   }
 }
@@ -801,52 +1041,39 @@ function openVictoryModal(){
   $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${state.dailyDate})` : (state.gridId || '');
   $('#victoryModal').classList.add('open');
 }
-function proposeSolution(){
+async function proposeSolution(){
   if(state.mode!=='solo' || state.soloOver) return;
-  const correct = evaluateGuess();
+  const correct=evaluateGuess();
   if(correct){
-    state.soloOver = true;
-    state.soloResult = 'win';
-    const elapsedMs = state.firstActionTime ? (Date.now() - state.firstActionTime) : 0;
-    state.finalTimeMs = elapsedMs;
+    state.soloOver=true; state.soloResult='win';
+    const elapsedMs=state.firstActionTime?(Date.now()-state.firstActionTime):0; state.finalTimeMs=elapsedMs;
     if(state.isDaily){
-      const name = (prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement du jour :', '') || '').trim();
-      const daily = recordDailyScore(name, state.dailyDate, true, elapsedMs);
-      submitGlobalDailyScore(daily.entry);
-      lastScoreResult = { key:'Défi du jour', entry:{...daily.entry, gridId:null, isDaily:true, dailyDate:state.dailyDate}, rank:daily.rank, madeList:true };
-      saveDailyAttempt({ date: state.dailyDate, result:'win' });
-    } else if(state.gridRanked){
-      const name = (prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement :', '') || '').trim();
-      lastScoreResult = recordScore(name, elapsedMs);
-    } else {
-      lastScoreResult = null;
-    }
-    saveState();
-    renderAll();
-    setTimeout(()=> openVictoryModal(), 60);
-    return;
+      const identity=await requestDailyIdentity();
+      if(!identity){ state.soloOver=false; state.soloResult=null; return; }
+      const daily=recordDailyScore(identity.name||'Invité',state.dailyDate,true,elapsedMs);
+      if(identity.saveGlobal!==false) await submitGlobalDailyScore(daily.entry,identity);
+      lastScoreResult={key:'Défi du jour',entry:{...daily.entry,gridId:null,isDaily:true,dailyDate:state.dailyDate},rank:daily.rank,madeList:true};
+      saveDailyAttempt({date:state.dailyDate,result:'win'});
+    }else if(state.gridRanked){
+      const name=(prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement :',currentPlayerAccount?.display_name||'')||'').trim();
+      lastScoreResult=recordScore(name,elapsedMs);
+    }else lastScoreResult=null;
+    saveState();renderAll();setTimeout(()=>openVictoryModal(),60);return;
   }
   state.soloAttempts++;
-  if(state.isDaily || state.soloAttempts >= 2){
-    state.soloOver = true;
-    state.soloResult = 'lose';
-    const elapsedMs = state.firstActionTime ? (Date.now() - state.firstActionTime) : 0;
-    state.finalTimeMs = elapsedMs;
+  if(state.isDaily||state.soloAttempts>=2){
+    state.soloOver=true;state.soloResult='lose';
+    const elapsedMs=state.firstActionTime?(Date.now()-state.firstActionTime):0;state.finalTimeMs=elapsedMs;
     if(state.isDaily){
-      const name = (prompt("💥 Solution incorrecte — défi du jour terminé.\nEntre ton nom pour le classement du jour :", '') || '').trim();
-      const daily = recordDailyScore(name, state.dailyDate, false, elapsedMs);
-      submitGlobalDailyScore(daily.entry);
-      saveDailyAttempt({ date: state.dailyDate, result:'lose' });
+      const identity=await requestDailyIdentity();
+      if(!identity){ state.soloOver=false;state.soloResult=null;state.soloAttempts--;return; }
+      const daily=recordDailyScore(identity.name||'Invité',state.dailyDate,false,elapsedMs);
+      if(identity.saveGlobal!==false) await submitGlobalDailyScore(daily.entry,identity);
+      saveDailyAttempt({date:state.dailyDate,result:'lose'});
     }
-    saveState();
-    renderAll();
-    setTimeout(()=> alert(state.isDaily ? "💥 Solution incorrecte — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour)." : "💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour)."), 60);
-  } else {
-    saveState();
-    setTimeout(()=> alert("C'est faux ! Il te reste un essai avant l'échec."), 60);
-  }
+    saveState();renderAll();setTimeout(()=>alert(state.isDaily?'💥 Solution incorrecte — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).':"💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour)."),60);
+  }else{saveState();setTimeout(()=>alert("C'est faux ! Il te reste un essai avant l'échec."),60);}
 }
-
 // ---------------------------------------------------------------------
 // GEOMETRY — transform & rendering helpers
 // ---------------------------------------------------------------------
@@ -2256,12 +2483,21 @@ $('#btnResetRanking').addEventListener('click', ()=>{
   if(!confirm(`Réinitialiser le classement « ${key} » ? Cette action est irréversible.`)) return;
   const rankings = loadRankings(); rankings[key]=[]; saveRankings(rankings); renderRankingList();
 });
+
+$('#accountFab').addEventListener('click',openAccountModal);
+$('#closeAccount').addEventListener('click',()=>$('#accountModal').classList.remove('open'));
+$('#accountModal').addEventListener('click',e=>{if(e.target.id==='accountModal')$('#accountModal').classList.remove('open');});
+$('#cancelScoreIdentity').addEventListener('click',()=>closeScoreIdentity(null));
+$('#scoreIdentityModal').addEventListener('click',e=>{if(e.target.id==='scoreIdentityModal')closeScoreIdentity(null);});
+
 window.addEventListener('resize', ()=>{ renderBgGrid(); renderPieces(); renderTraces(); });
 
 // ---------------------------------------------------------------------
 // INIT
 // ---------------------------------------------------------------------
 function init(){
+  updateAccountFab();
+  validateSavedAccount();
   buildMixBoard();
   const restored = loadState();
   if(!restored){ state.pieces = freshPieceSet(); }
