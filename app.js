@@ -410,8 +410,8 @@ function openGridDataShell(title,intro='',returnToAccount=false,returnToVictory=
   $('#gridDataTitle').textContent=title;
   $('#gridDataIntro').innerHTML=intro;
   $('#gridDataContent').innerHTML='<div class="history-empty">Chargement…</div>';
-  $('#gridDataBack').textContent=returnToVictory?'← Retour au résultat':'← Retour au compte';
-  $('#gridDataBack').style.display=(returnToAccount||returnToVictory)?'':'none';
+  $('#gridDataBack').textContent='← Retour au compte';
+  $('#gridDataBack').style.display=returnToAccount?'':'none';
   $('#gridDataModal').classList.add('open');
 }
 function gridRankingRows(rows){
@@ -425,8 +425,9 @@ function gridRankingRows(rows){
 }
 async function openGridRanking(gridId,returnToAccount=false,returnToVictory=false){
   if(!gridId) return;
-  openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls" style="justify-content:flex-start"><button id="copyRankedGridId" class="ghost">📋 Copier l’ID de la grille</button></div>`,returnToAccount,returnToVictory);
+  openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls ranked-grid-actions"><button id="copyRankedGridId" class="ghost">📋 Copier l’ID de la grille</button>${returnToVictory?'<button id="gridResultBack" class="ghost">← Retour au résultat</button>':''}</div>`,returnToAccount,returnToVictory);
   $('#copyRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
+  if(returnToVictory) $('#gridResultBack').onclick=()=>closeGridDataModal(true);
   try{
     const rows=await supabaseRpc('orapa_get_grid_scores',{p_grid_id:gridId});
     const wins=(rows||[]).filter(row=>row.success).length;
@@ -2431,16 +2432,18 @@ $('#btnVictoryCopySummary').addEventListener('click', ()=>{
   if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=> showToast('Résumé copié !'));
 });
 $('#btnVictoryGridRanking').addEventListener('click',()=>openGridRanking(state.gridId,false,true));
-function closeGridDataModal(){
+function closeGridDataModal(returnToOrigin=true){
   $('#gridDataModal').classList.remove('open');
-  if(gridDataReturnsToVictory) openVictoryModal();
-  else if(gridDataReturnsToAccount) openAccountModal();
+  if(returnToOrigin){
+    if(gridDataReturnsToVictory) openVictoryModal();
+    else if(gridDataReturnsToAccount) openAccountModal();
+  }
   gridDataReturnsToAccount=false;
   gridDataReturnsToVictory=false;
 }
-$('#closeGridData').addEventListener('click',closeGridDataModal);
-$('#gridDataBack').addEventListener('click',closeGridDataModal);
-$('#gridDataModal').addEventListener('click',e=>{if(e.target.id==='gridDataModal')closeGridDataModal();});
+$('#closeGridData').addEventListener('click',()=>closeGridDataModal(false));
+$('#gridDataBack').addEventListener('click',()=>closeGridDataModal(true));
+$('#gridDataModal').addEventListener('click',e=>{if(e.target.id==='gridDataModal')closeGridDataModal(false);});
 $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('#helpModal').classList.remove('open'); });
 
 let rankingView = 'solo';
