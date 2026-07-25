@@ -2524,6 +2524,7 @@ async function renderGlobalRanking(dateKey, force=false){
     const rows = await fetchGlobalDailyScores(dateKey, force);
     if(el.dataset.renderToken!==token || rankingView!=='global') return;
     const myId = loadGlobalScoreIds()[dateKey];
+    const myAccountName = currentPlayerAccount?.display_name?.trim().toLocaleLowerCase('fr-FR') || '';
     const layout = generateDailyLayout(dateKey);
     const gems = layout ? gemFlagsEmojiLine(layout.flags.gray, layout.flags.onyx, layout.flags.sapphire) : '';
     if(rows.length===0){
@@ -2534,10 +2535,10 @@ async function renderGlobalRanking(dateKey, force=false){
     el.innerHTML = `<div class="global-ranking-summary"><b>${rows.length}</b> participant${rows.length>1?'s':''} · <b>${wins}</b> réussite${wins>1?'s':''}<span>${gems}</span></div>` + rows.map((raw,i)=>{
       const e=globalEntryToLocal(raw);
       const expanded=expandedScores.has(`g${e.id}`);
-      const mine=String(e.id)===String(myId);
+      const mine=String(e.id)===String(myId) || (!!myAccountName && String(e.name||'').trim().toLocaleLowerCase('fr-FR')===myAccountName);
       const failTag=e.success ? '' : '<span class="ranking-fail">Échec</span>';
       const detail=expanded ? `<div class="ranking-row-detail">${e.rayCount} rayon${e.rayCount===1?'':'s'} 🔦 + ${e.coordCount} coordonnée${e.coordCount===1?'':'s'} 📍 · ${formatDuration(e.timeMs)}</div><div class="controls" style="justify-content:flex-start;gap:8px;margin:8px 0 2px 34px;"><button class="ranking-copy-summary" data-global-idx="${i}">📋 Copier le résumé</button></div>` : '';
-      return `<div class="ranking-row global-row${expanded?' expanded':''}${mine?' ranking-mine':''}" data-global-id="${e.id}"><div class="ranking-row-top"><span class="ranking-rank${i===0?' top1':''}">${rankingMedal(i)}</span><span class="ranking-name">${escapeHtml(e.name||'Anonyme')} ${mine?'<span class="ranking-you">Vous</span>':''}</span>${failTag}<span class="ranking-points">${e.cost} pts</span><span class="ranking-time">${formatDuration(e.timeMs)}</span></div>${detail}</div>`;
+      return `<div class="ranking-row global-row${expanded?' expanded':''}${mine?' ranking-mine':''}" data-global-id="${e.id}"><div class="ranking-row-top"><span class="ranking-rank${i===0?' top1':''}">${rankingMedal(i)}</span><span class="ranking-name">${escapeHtml(e.name||'Anonyme')}</span>${failTag}<span class="ranking-points">${e.cost} pts</span><span class="ranking-time">${formatDuration(e.timeMs)}</span></div>${detail}</div>`;
     }).join('');
     el.querySelectorAll('.global-row').forEach(row=>row.addEventListener('click',ev=>{
       if(ev.target.closest('.ranking-copy-summary')) return;
