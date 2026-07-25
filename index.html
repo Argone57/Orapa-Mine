@@ -132,7 +132,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .ranking-tabs button{flex:1;}
 .ranking-tabs button.active{background:linear-gradient(180deg,#3a2c17,#2a1f10);border-color:var(--gold);color:var(--gold-bright);}
 .ranking-select{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--vein);border-radius:8px;padding:8px 10px;font-family:'Space Grotesk',sans-serif;font-size:.85rem;margin:10px 0;}
-.ranking-date-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center;margin:10px 0}.ranking-date-controls .ranking-select{margin:0}.ranking-date-picker{display:none;width:42px;height:36px;padding:5px;border:1px solid var(--vein);border-radius:8px;background:var(--panel);color:var(--gold-bright);font:inherit;color-scheme:dark;cursor:pointer}.ranking-date-picker::-webkit-datetime-edit{display:none}.ranking-date-picker::-webkit-calendar-picker-indicator{margin:0;cursor:pointer;filter:sepia(1) saturate(.7) brightness(1.25)}
+.ranking-date-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center;margin:10px 0}.ranking-date-controls .ranking-select{margin:0}.ranking-date-picker-wrap{position:relative;display:none;align-items:center;justify-content:center;width:42px;height:36px;border:1px solid var(--vein);border-radius:8px;background:var(--panel);color:var(--gold-bright);font-size:1rem;cursor:pointer;overflow:hidden}.ranking-date-picker{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;-webkit-appearance:none;appearance:none}
 .ranking-row{padding:8px 10px;border-radius:6px;font-size:.83rem;border-bottom:1px solid rgba(91,70,48,.3);cursor:pointer;}
 .solo-global-row{padding:7px 5px}.solo-global-row .ranking-row-top{display:grid;grid-template-columns:minmax(0,32fr) minmax(0,36fr) minmax(0,32fr);gap:6px}.solo-ranking-player,.solo-ranking-score{display:flex;align-items:center;min-width:0;gap:5px}.solo-ranking-player .ranking-rank{width:18px;flex:0 0 18px}.solo-ranking-player .ranking-name{margin-left:0}.solo-ranking-config{display:flex;align-items:center;justify-content:center;min-width:0;white-space:nowrap}.solo-ranking-score{justify-content:flex-end;white-space:nowrap}.solo-global-row .ranking-date{min-width:48px;text-align:right}
 .solo-result-mark{display:inline-flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif!important;font-size:1rem!important;font-weight:900;line-height:1}.solo-result-mark.win{color:#55d884}.solo-result-mark.fail{color:#f05b6f}.solo-global-row .ranking-name.mine{color:#f1ce83;font-weight:800;text-shadow:0 0 10px rgba(230,194,122,.18)}
@@ -154,6 +154,8 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .ranking-mine{background:rgba(230,194,122,.11);box-shadow:inset 3px 0 0 var(--gold);}
 .global-ranking-summary{display:flex;align-items:center;gap:5px;padding:8px 10px;margin-bottom:4px;border-bottom:1px solid var(--vein);font-size:.73rem;color:var(--text-dim);}
 .global-ranking-summary span{margin-left:auto;font-size:.9rem;}
+.daily-ranking-summary{gap:10px}.daily-ranking-summary .summary-stat{display:inline-flex;align-items:center;gap:4px;margin-left:0;font-size:.73rem;white-space:nowrap}.daily-ranking-summary .summary-gems{margin-left:auto;font-size:.9rem;white-space:nowrap}
+@media(max-width:600px){.daily-ranking-summary{padding-left:6px;padding-right:6px;gap:7px}.daily-ranking-summary .summary-gems{font-size:.8rem}}
 #btnRefreshGlobal,#btnStatsGlobal{white-space:nowrap;}
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0 14px;}
 .stats-card{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:62px;padding:8px;border:1px solid var(--vein);border-radius:8px;background:rgba(230,194,122,.04);text-align:center;}
@@ -341,7 +343,7 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
     </div>
     <div class="ranking-date-controls">
       <select id="rankingConfigSelect" class="ranking-select"></select>
-      <input id="rankingDatePicker" class="ranking-date-picker" type="date" aria-label="Choisir une date">
+      <label id="rankingDatePickerWrap" class="ranking-date-picker-wrap" aria-label="Choisir une date"><span aria-hidden="true">📅</span><input id="rankingDatePicker" class="ranking-date-picker" type="date"></label>
     </div>
     <div id="rankingList" class="history-panel" style="max-height:320px;"></div>
     <div class="controls ranking-bottom-controls" style="justify-content:space-between;margin-top:14px;">
@@ -474,6 +476,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-<script src="app.js?v=20260725-0930"></script>
+<script src="app.js?v=20260725-1000"></script>
 </body>
 </html>
