@@ -176,6 +176,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .account-history-row .ranking-row-top,.account-shared-row .ranking-row-top{display:grid;grid-template-columns:58px minmax(0,1fr) 58px;align-items:center;gap:6px}.account-history-row .ranking-gems,.account-shared-row .ranking-gems{text-align:center;white-space:nowrap}.account-shared-row .ranking-rank{width:auto;min-width:0;white-space:nowrap}.account-history-row .ranking-points,.account-shared-row .ranking-points{text-align:right}.account-grid-id{margin:7px 0 0 34px;font-size:.62rem;color:var(--text-faint);overflow-wrap:anywhere}.account-history-row .ranking-row-detail,.account-shared-row .ranking-row-detail{margin-top:3px}
 .account-result-position{display:flex;align-items:center;gap:5px;white-space:nowrap}.account-result-position b{font-size:.72rem;color:var(--gold-bright)}.account-daily-row .ranking-row-top{display:grid;grid-template-columns:54px 55px minmax(0,1fr) 54px;align-items:center;gap:4px}.account-daily-row .ranking-gems{text-align:center;white-space:nowrap}.account-daily-row .ranking-points{text-align:right}.daily-history-actions{grid-template-columns:1fr!important}
 .solo-account-prompt{padding:13px 14px;margin:14px 0 18px;border:1px solid var(--vein);border-radius:9px;background:rgba(230,194,122,.05);color:var(--text-dim)}.solo-account-prompt strong{display:block;margin-bottom:5px;color:var(--text)}.solo-account-prompt small{display:block;margin-top:8px;color:var(--text-faint)}
+.tutorial-modal{max-width:610px}.tutorial-progress{display:flex;gap:5px;margin:12px 0 16px}.tutorial-progress span{height:4px;flex:1;border-radius:99px;background:var(--vein)}.tutorial-progress span.active{background:var(--gold-bright);box-shadow:0 0 8px rgba(230,194,122,.35)}.tutorial-step{display:none}.tutorial-step.active{display:block}.tutorial-step h3{margin-bottom:8px;color:var(--gold-bright);font-size:1.03rem}.tutorial-step>p{margin:6px 0 13px}.tutorial-visual{position:relative;min-height:170px;margin:12px 0;padding:14px;border:1px solid var(--vein);border-radius:12px;background:radial-gradient(circle at 50% 40%,rgba(76,91,111,.18),transparent 60%),#17130f;overflow:hidden}.tutorial-board{position:relative;width:min(100%,300px);aspect-ratio:5/3;margin:auto;border:5px solid #3b3024;border-radius:7px;background-color:#626c7a;background-image:linear-gradient(rgba(25,30,38,.24) 1px,transparent 1px),linear-gradient(90deg,rgba(25,30,38,.24) 1px,transparent 1px);background-size:10% 16.666%}.tutorial-gem{position:absolute;filter:drop-shadow(0 2px 2px rgba(0,0,0,.45))}.tutorial-gem.ruby{left:21%;top:18%;width:28%;height:43%;background:#cf2d46;clip-path:polygon(50% 0,100% 100%,0 100%)}.tutorial-gem.topaz{right:18%;bottom:15%;width:31%;height:28%;background:#d9a62d;transform:rotate(18deg)}.tutorial-gem.diamond{left:46%;top:43%;width:19%;height:31%;background:#e8e5df;transform:rotate(45deg)}.tutorial-hidden .tutorial-gem{background:#3c4653;opacity:.48}.tutorial-hidden::after{content:'?';position:absolute;inset:0;display:grid;place-items:center;font:700 2.2rem 'Cinzel',serif;color:var(--gold-bright);text-shadow:0 2px 8px #000}.tutorial-query-grid,.tutorial-feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}.tutorial-card{padding:12px;border:1px solid var(--vein);border-radius:10px;background:rgba(255,255,255,.025)}.tutorial-card strong{display:block;margin-bottom:5px;color:var(--gold-bright)}.tutorial-card p,.tutorial-card small{margin:0;color:var(--text-dim);font-size:.75rem;line-height:1.45}.tutorial-ray{position:absolute;left:-2%;top:30%;width:0;height:4px;background:#ed5069;box-shadow:0 0 9px #ed5069;transform:rotate(12deg);transform-origin:left center;transition:width .55s ease}.tutorial-ray-demo.active .tutorial-ray{width:107%}.tutorial-ray-result{opacity:0;transform:translateY(5px);margin:10px auto 0;width:max-content;max-width:100%;padding:6px 10px;border-radius:99px;background:#2a1712;color:#f4b4bd;font-size:.73rem;transition:.25s}.tutorial-ray-demo.active .tutorial-ray-result{opacity:1;transform:none}.tutorial-demo-button{display:block;margin:10px auto 0;padding:7px 12px}.tutorial-actions{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;margin-top:17px}.tutorial-counter{text-align:center;color:var(--text-faint);font-size:.7rem}.tutorial-daily-images{display:flex;justify-content:center;gap:9px;margin:12px 0}.tutorial-daily-images figure{width:min(46%,170px);margin:0}.tutorial-daily-images img{display:block;width:100%;border:1px solid var(--vein);border-radius:8px}.tutorial-daily-images figcaption{margin-top:5px;text-align:center;color:var(--text-faint);font-size:.65rem}.tutorial-bullets{padding-left:18px;color:var(--text-dim);font-size:.78rem;line-height:1.5}.tutorial-bullets li+li{margin-top:6px}@media(max-width:520px){.tutorial-modal{padding:17px 15px}.tutorial-query-grid,.tutorial-feature-grid{grid-template-columns:1fr}.tutorial-visual{min-height:145px;padding:10px}.tutorial-actions button{padding:8px 10px;font-size:.75rem}}
 @media(max-width:600px){.ranking-compact-actions{margin-left:0!important}.ranking-row-top .ranking-gems{font-size:.66rem;max-width:94px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.solo-global-row .ranking-row-top{grid-template-columns:minmax(0,29fr) minmax(0,38fr) minmax(0,33fr);gap:4px}.solo-global-row .solo-ranking-config{max-width:none;overflow:visible;text-overflow:clip}.solo-ranking-score{gap:3px}}
 @media(max-width:600px){.account-history-row .ranking-gems,.account-shared-row .ranking-gems,.account-daily-row .ranking-gems{max-width:none!important;overflow:visible!important;text-overflow:clip!important}}
 
@@ -239,6 +240,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .home-action{min-height:76px;display:grid;grid-template-columns:46px 1fr 24px;align-items:center;text-align:left;padding:13px 15px;border-radius:13px;background:rgba(18,14,10,.58)}
 .home-action.primary{background:linear-gradient(135deg,#4a3519,#2a1f10)}
 .home-action .icon{font-size:1.55rem;text-align:center}.home-action strong{display:block;font-family:'Cinzel',serif;font-size:1rem;color:var(--gold-bright)}.home-action small{display:block;margin-top:4px;color:var(--text-dim);font-weight:500}.home-action .arrow{font-size:1.25rem;color:var(--gold)}
+.home-action.learn{min-height:66px}
 .home-note{margin:20px 0 0;color:var(--text-faint);font-size:.72rem;line-height:1.5}
 body.home-view .home-screen{display:flex}
 body.home-view .app>header,body.home-view .app>#setupOptions,body.home-view .app>#setupHint,body.home-view .app>#paletteTitle,body.home-view .app>#palette,body.home-view .app>.section-title,body.home-view .app>.board-scroll,body.home-view .app>.toolbar-row,body.home-view .app>#history{display:none!important}
@@ -259,6 +261,7 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
       <div class="home-actions">
         <button id="homeSolo" class="home-action primary"><span class="icon">🧩</span><span><strong>Jouer en solo</strong><small>Défi du jour, grille aléatoire ou identifiant</small></span><span class="arrow">›</span></button>
         <button id="homeCreate" class="home-action"><span class="icon">🎯</span><span><strong>Créer une grille</strong><small>Préparez une partie autour de la table</small></span><span class="arrow">›</span></button>
+        <button id="homeLearn" class="home-action learn"><span class="icon">📖</span><span><strong>Apprendre à jouer</strong><small>Tutoriel illustré en quelques étapes</small></span><span class="arrow">›</span></button>
       </div>
       <p class="home-note">Vos parties et votre progression restent enregistrées sur cet appareil.</p>
     </div>
@@ -402,6 +405,61 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
+<div class="modal-backdrop" id="tutorialModal">
+  <div class="modal tutorial-modal">
+    <button class="close-x" id="closeTutorial">×</button>
+    <h2>📖 Apprendre à jouer</h2>
+    <div class="tutorial-progress" id="tutorialProgress" aria-hidden="true"></div>
+    <div id="tutorialSteps">
+      <section class="tutorial-step active">
+        <h3>1. Retrouve les gemmes cachées</h3>
+        <p>Une disposition secrète est placée dans la mine. Ton objectif est de retrouver la position, l’orientation et le retournement exacts de toutes les gemmes.</p>
+        <div class="tutorial-visual"><div class="tutorial-board tutorial-hidden"><i class="tutorial-gem ruby"></i><i class="tutorial-gem topaz"></i><i class="tutorial-gem diamond"></i></div></div>
+      </section>
+      <section class="tutorial-step">
+        <h3>2. Enquête avec deux types de questions</h3>
+        <div class="tutorial-query-grid">
+          <div class="tutorial-card"><strong>🔦 Lancer un rayon · 1 point</strong><p>Choisis une entrée sur le bord. Observe sa sortie et la couleur produite par les gemmes traversées.</p></div>
+          <div class="tutorial-card"><strong>📍 Vérifier une case · 3 points</strong><p>Tu sauras immédiatement si une partie de gemme occupe cette case. C’est plus précis, mais plus coûteux.</p></div>
+        </div>
+        <p>Le meilleur score est donc le plus petit : utilise les coordonnées avec parcimonie.</p>
+      </section>
+      <section class="tutorial-step">
+        <h3>3. Suis le rayon et sa couleur</h3>
+        <p>Les gemmes dévient le rayon. Sa couleur révèle celles qu’il a rencontrées ; le corps noir l’absorbe et le diamant le dévie sans le colorer.</p>
+        <div class="tutorial-visual tutorial-ray-demo" id="tutorialRayDemo"><div class="tutorial-board"><i class="tutorial-gem ruby"></i><i class="tutorial-gem topaz"></i><i class="tutorial-gem diamond"></i><span class="tutorial-ray"></span></div><div class="tutorial-ray-result">Entrée A → sortie 7 · mélange coloré</div><button class="ghost tutorial-demo-button" id="tutorialRayButton">▶ Lancer le rayon</button></div>
+      </section>
+      <section class="tutorial-step">
+        <h3>4. Construis puis propose ta solution</h3>
+        <ul class="tutorial-bullets">
+          <li>Glisse les gemmes sur les cases supposées.</li>
+          <li>Tape une gemme pour la faire pivoter de 90°.</li>
+          <li>Maintiens-la pour la retourner en miroir.</li>
+          <li>Quand tout concorde, utilise <b>Proposer une solution</b>.</li>
+        </ul>
+        <div class="tutorial-visual"><div class="tutorial-board"><i class="tutorial-gem ruby"></i><i class="tutorial-gem topaz"></i><i class="tutorial-gem diamond"></i></div></div>
+      </section>
+      <section class="tutorial-step">
+        <h3>5. Le défi du jour ajoute une contrainte</h3>
+        <p>La même grille est proposée à tout le monde. Une gemme spéciale dépasse partiellement de la mine ou touche une autre gemme par un côté.</p>
+        <div class="tutorial-daily-images"><figure><img src="daily-example-outside.png" alt="Une gemme dépasse partiellement de la mine"><figcaption>Partiellement dehors</figcaption></figure><figure><img src="daily-example-touching.png" alt="Deux gemmes se touchent par un côté"><figcaption>Deux gemmes voisines</figcaption></figure></div>
+      </section>
+      <section class="tutorial-step">
+        <h3>6. Tout ce que tu peux faire</h3>
+        <div class="tutorial-feature-grid">
+          <div class="tutorial-card"><strong>🧩 Parties solo</strong><small>Grille aléatoire, défi quotidien ou grille reçue par identifiant.</small></div>
+          <div class="tutorial-card"><strong>🎯 Création</strong><small>Compose une grille pour une partie autour de la table, puis partage son identifiant.</small></div>
+          <div class="tutorial-card"><strong>🏆 Classements</strong><small>Compare les scores quotidiens, les parties solo et les résultats d’une même grille.</small></div>
+          <div class="tutorial-card"><strong>👤 Compte joueur</strong><small>Retrouve scores, historiques et grilles partagées depuis n’importe quel navigateur.</small></div>
+        </div>
+      </section>
+    </div>
+    <div class="tutorial-actions">
+      <button id="tutorialPrev" class="ghost">← Précédent</button><span id="tutorialCounter" class="tutorial-counter"></span><button id="tutorialNext" class="primary">Suivant →</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="gridDataModal">
   <div class="modal">
     <button class="close-x" id="closeGridData">×</button>
@@ -498,6 +556,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-<script src="app.js?v=20260725-1330"></script>
+<script src="app.js?v=20260725-1400"></script>
 </body>
 </html>

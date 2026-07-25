@@ -2302,6 +2302,22 @@ async function enterSolo(){
   openSoloChoiceModal();
 }
 $('#homeSolo').addEventListener('click', enterSolo);
+let tutorialStep=0;
+function renderTutorial(){
+  const steps=[...document.querySelectorAll('.tutorial-step')];
+  steps.forEach((step,i)=>step.classList.toggle('active',i===tutorialStep));
+  $('#tutorialProgress').innerHTML=steps.map((_,i)=>`<span class="${i<=tutorialStep?'active':''}"></span>`).join('');
+  $('#tutorialCounter').textContent=`${tutorialStep+1} / ${steps.length}`;
+  $('#tutorialPrev').disabled=tutorialStep===0;
+  $('#tutorialNext').textContent=tutorialStep===steps.length-1?'Terminer':'Suivant →';
+}
+function closeTutorial(){ $('#tutorialModal').classList.remove('open'); }
+$('#homeLearn').addEventListener('click',()=>{tutorialStep=0;$('#tutorialRayDemo').classList.remove('active');$('#tutorialRayButton').textContent='▶ Lancer le rayon';renderTutorial();$('#tutorialModal').classList.add('open');});
+$('#closeTutorial').addEventListener('click',closeTutorial);
+$('#tutorialModal').addEventListener('click',e=>{if(e.target.id==='tutorialModal')closeTutorial();});
+$('#tutorialPrev').addEventListener('click',()=>{if(tutorialStep>0){tutorialStep--;renderTutorial();}});
+$('#tutorialNext').addEventListener('click',()=>{const count=document.querySelectorAll('.tutorial-step').length;if(tutorialStep<count-1){tutorialStep++;renderTutorial();}else closeTutorial();});
+$('#tutorialRayButton').addEventListener('click',()=>{$('#tutorialRayDemo').classList.toggle('active');$('#tutorialRayButton').textContent=$('#tutorialRayDemo').classList.contains('active')?'↺ Rejouer':'▶ Lancer le rayon';});
 $('#closeSoloAccountPrompt').addEventListener('click',()=>$('#soloAccountPromptModal').classList.remove('open'));
 $('#soloAccountPromptModal').addEventListener('click',e=>{if(e.target.id==='soloAccountPromptModal')$('#soloAccountPromptModal').classList.remove('open');});
 $('#soloPromptLogin').addEventListener('click',async()=>{$('#soloAccountPromptModal').classList.remove('open');await openAccountModal();});
