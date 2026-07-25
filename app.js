@@ -413,7 +413,7 @@ function openGridDataShell(title,intro='',returnToAccount=false,returnToVictory=
   $('#gridDataIntro').innerHTML=intro;
   $('#gridDataContent').innerHTML='<div class="history-empty">Chargement…</div>';
   $('#gridDataBack').textContent='← Retour au compte';
-  $('#gridDataBack').style.display=returnToAccount?'':'none';
+  $('#gridDataBack').style.display='none';
   $('#gridDataModal').classList.add('open');
 }
 function gridRankingRows(rows){
