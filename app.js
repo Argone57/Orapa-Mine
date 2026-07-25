@@ -2295,14 +2295,17 @@ function showGame(){
 }
 async function enterSolo(){
   if(!currentPlayerAccount){
-    alert('Connectez-vous pour jouer en solo et participer aux classements. Aucune adresse mail n’est nécessaire.');
-    await openAccountModal();
+    $('#soloAccountPromptModal').classList.add('open');
     return;
   }
   if(state.mode==='solo' && !state.soloOver){ showGame(); return; }
   openSoloChoiceModal();
 }
 $('#homeSolo').addEventListener('click', enterSolo);
+$('#closeSoloAccountPrompt').addEventListener('click',()=>$('#soloAccountPromptModal').classList.remove('open'));
+$('#soloAccountPromptModal').addEventListener('click',e=>{if(e.target.id==='soloAccountPromptModal')$('#soloAccountPromptModal').classList.remove('open');});
+$('#soloPromptLogin').addEventListener('click',async()=>{$('#soloAccountPromptModal').classList.remove('open');await openAccountModal();});
+$('#soloPromptRegister').addEventListener('click',async()=>{$('#soloAccountPromptModal').classList.remove('open');await openAccountModal();showAccountCreate();});
 $('#homeCreate').addEventListener('click', ()=>{
   if(state.mode==='solo'){
     if(!state.soloOver && !confirm("Quitter la partie solo en cours ? Elle sera effacée.")) return;

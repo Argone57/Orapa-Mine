@@ -175,6 +175,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .solo-load-more{display:block;width:calc(100% - 10px);margin:10px 5px 4px;padding:8px}
 .account-history-row .ranking-row-top,.account-shared-row .ranking-row-top{display:grid;grid-template-columns:58px minmax(0,1fr) 58px;align-items:center;gap:6px}.account-history-row .ranking-gems,.account-shared-row .ranking-gems{text-align:center;white-space:nowrap}.account-shared-row .ranking-rank{width:auto;min-width:0;white-space:nowrap}.account-history-row .ranking-points,.account-shared-row .ranking-points{text-align:right}.account-grid-id{margin:7px 0 0 34px;font-size:.62rem;color:var(--text-faint);overflow-wrap:anywhere}.account-history-row .ranking-row-detail,.account-shared-row .ranking-row-detail{margin-top:3px}
 .account-result-position{display:flex;align-items:center;gap:5px;white-space:nowrap}.account-result-position b{font-size:.72rem;color:var(--gold-bright)}.account-daily-row .ranking-row-top{display:grid;grid-template-columns:54px 55px minmax(0,1fr) 54px;align-items:center;gap:4px}.account-daily-row .ranking-gems{text-align:center;white-space:nowrap}.account-daily-row .ranking-points{text-align:right}.daily-history-actions{grid-template-columns:1fr!important}
+.solo-account-prompt{padding:13px 14px;margin:14px 0 18px;border:1px solid var(--vein);border-radius:9px;background:rgba(230,194,122,.05);color:var(--text-dim)}.solo-account-prompt strong{display:block;margin-bottom:5px;color:var(--text)}.solo-account-prompt small{display:block;margin-top:8px;color:var(--text-faint)}
 @media(max-width:600px){.ranking-compact-actions{margin-left:0!important}.ranking-row-top .ranking-gems{font-size:.66rem;max-width:94px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.solo-global-row .ranking-row-top{grid-template-columns:minmax(0,29fr) minmax(0,38fr) minmax(0,33fr);gap:4px}.solo-global-row .solo-ranking-config{max-width:none;overflow:visible;text-overflow:clip}.solo-ranking-score{gap:3px}}
 @media(max-width:600px){.account-history-row .ranking-gems,.account-shared-row .ranking-gems,.account-daily-row .ranking-gems{max-width:none!important;overflow:visible!important;text-overflow:clip!important}}
 
@@ -385,6 +386,22 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
+<div class="modal-backdrop" id="soloAccountPromptModal">
+  <div class="modal">
+    <button class="close-x" id="closeSoloAccountPrompt">×</button>
+    <h2>👤 Jouer en solo</h2>
+    <div class="solo-account-prompt">
+      <strong>Inscris-toi ou connecte-toi pour jouer et participer aux classements.</strong>
+      Il suffit de choisir un pseudo et un code à 4 chiffres.
+      <small>Aucune adresse e-mail n’est demandée.</small>
+    </div>
+    <div class="controls" style="justify-content:flex-end;">
+      <button id="soloPromptLogin" class="ghost">Se connecter</button>
+      <button id="soloPromptRegister" class="primary">S’inscrire</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="gridDataModal">
   <div class="modal">
     <button class="close-x" id="closeGridData">×</button>
@@ -481,6 +498,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-<script src="app.js?v=20260725-1300"></script>
+<script src="app.js?v=20260725-1330"></script>
 </body>
 </html>
