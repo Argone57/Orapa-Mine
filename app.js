@@ -1051,6 +1051,8 @@ async function startSoloGame(explicitId){
   state.emptyMarks = [];
   state.coordDots = [];
   saveState();
+  document.body.classList.remove('solo-menu-open');
+  showGame();
   renderAll();
   if(unrankedReason==='creator_protected') setTimeout(()=>alert('Vous avez créé cette grille récemment. Vous pouvez jouer normalement, mais votre score ne sera pas ajouté au classement pour le moment.'),60);
   else if(unrankedReason==='already_played') setTimeout(()=>alert('Cette grille a déjà été jouée avec ce profil. Vous pouvez rejouer, mais le résultat ne sera pas classé.'),60);
@@ -1105,6 +1107,8 @@ function startDailyChallenge(){
   state.emptyMarks = [];
   state.coordDots = [];
   saveState();
+  document.body.classList.remove('solo-menu-open');
+  showGame();
   renderAll();
 }
 function polygonsMatch(pA, pB, tol){
@@ -2209,8 +2213,7 @@ async function enterSolo(){
     await openAccountModal();
     return;
   }
-  showGame();
-  if(state.mode==='solo' && !state.soloOver) return;
+  if(state.mode==='solo' && !state.soloOver){ showGame(); return; }
   openSoloChoiceModal();
 }
 $('#homeSolo').addEventListener('click', enterSolo);
@@ -2295,6 +2298,7 @@ $('#btnReset').addEventListener('click', ()=>{
 });
 
 function openSoloChoiceModal(){
+  document.body.classList.add('solo-menu-open');
   const { alreadyPlayed, attempt } = dailyStatusToday();
   const line = $('#dailyStatusLine');
   if(alreadyPlayed){
@@ -2305,7 +2309,7 @@ function openSoloChoiceModal(){
   }
   $('#soloChoiceModal').classList.add('open');
 }
-function closeSoloChoiceModal(){ $('#soloChoiceModal').classList.remove('open'); }
+function closeSoloChoiceModal(){ $('#soloChoiceModal').classList.remove('open'); document.body.classList.remove('solo-menu-open'); }
 $('#soloChoiceCancel').addEventListener('click', closeSoloChoiceModal);
 $('#soloChoiceModal').addEventListener('click', e=>{ if(e.target.id==='soloChoiceModal') closeSoloChoiceModal(); });
 $('#soloChoiceDaily').addEventListener('click', ()=>{
@@ -2315,19 +2319,23 @@ $('#soloChoiceDaily').addEventListener('click', ()=>{
     return;
   }
   closeSoloChoiceModal();
+  document.body.classList.add('solo-menu-open');
   $('#dailyRulesModal').classList.add('open');
 });
 $('#dailyRulesCancel').addEventListener('click', ()=>{
   $('#dailyRulesModal').classList.remove('open');
+  document.body.classList.remove('solo-menu-open');
   openSoloChoiceModal();
 });
 $('#dailyRulesStart').addEventListener('click', ()=>{
   $('#dailyRulesModal').classList.remove('open');
+  document.body.classList.remove('solo-menu-open');
   startDailyChallenge();
 });
 $('#dailyRulesModal').addEventListener('click', e=>{
   if(e.target.id==='dailyRulesModal'){
     $('#dailyRulesModal').classList.remove('open');
+    document.body.classList.remove('solo-menu-open');
     openSoloChoiceModal();
   }
 });
@@ -2347,12 +2355,13 @@ function promptLoadGridById(){
 }
 
 function openSoloSetupModal(){
+  document.body.classList.add('solo-menu-open');
   $('#soloOptGray').checked = state.includeGray;
   $('#soloOptOnyx').checked = state.includeOnyx;
   $('#soloOptSapphire').checked = state.includeSapphire;
   $('#soloSetupModal').classList.add('open');
 }
-function closeSoloSetupModal(){ $('#soloSetupModal').classList.remove('open'); }
+function closeSoloSetupModal(){ $('#soloSetupModal').classList.remove('open'); document.body.classList.remove('solo-menu-open'); }
 $('#soloSetupCancel').addEventListener('click', ()=>{ closeSoloSetupModal(); openSoloChoiceModal(); });
 $('#soloSetupModal').addEventListener('click', e=>{ if(e.target.id==='soloSetupModal'){ closeSoloSetupModal(); openSoloChoiceModal(); } });
 $('#soloSetupConfirm').addEventListener('click', ()=>{

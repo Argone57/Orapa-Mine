@@ -225,6 +225,8 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 body.home-view .home-screen{display:flex}
 body.home-view .app>header,body.home-view .app>#setupOptions,body.home-view .app>#setupHint,body.home-view .app>#paletteTitle,body.home-view .app>#palette,body.home-view .app>.section-title,body.home-view .app>.board-scroll,body.home-view .app>.toolbar-row,body.home-view .app>#history{display:none!important}
 body.home-view #helpFab{display:none}
+body.solo-menu-open .app,body.solo-menu-open .account-fab,body.solo-menu-open .help-fab{visibility:hidden}
+body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120e0a 58%,#090704 100%)}
 @media(max-width:520px){.account-fab{right:8px;top:8px;padding:7px 10px}.account-actions,.account-main-actions,.score-identity-actions{grid-template-columns:1fr}.score-identity-actions .full{grid-column:auto}.account-stats-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -458,6 +460,6 @@ body.home-view #helpFab{display:none}
   </div>
 </div>
 
-<script src="app.js?v=20260725-0400"></script>
+<script src="app.js?v=20260725-0450"></script>
 </body>
 </html>
