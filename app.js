@@ -401,14 +401,17 @@ async function openAccountModal(){
 }
 
 let gridDataReturnsToAccount=false;
-function openGridDataShell(title,intro='',returnToAccount=false){
+let gridDataReturnsToVictory=false;
+function openGridDataShell(title,intro='',returnToAccount=false,returnToVictory=false){
   gridDataReturnsToAccount=returnToAccount;
+  gridDataReturnsToVictory=returnToVictory;
   $('#accountModal').classList.remove('open');
   $('#victoryModal').classList.remove('open');
   $('#gridDataTitle').textContent=title;
   $('#gridDataIntro').innerHTML=intro;
   $('#gridDataContent').innerHTML='<div class="history-empty">Chargement…</div>';
-  $('#gridDataBack').style.display=returnToAccount?'':'none';
+  $('#gridDataBack').textContent=returnToVictory?'← Retour au résultat':'← Retour au compte';
+  $('#gridDataBack').style.display=(returnToAccount||returnToVictory)?'':'none';
   $('#gridDataModal').classList.add('open');
 }
 function gridRankingRows(rows){
@@ -420,9 +423,9 @@ function gridRankingRows(rows){
     <span class="ranking-time">${formatDuration(row.time_ms)}</span>
   </div><div class="ranking-row-detail">${row.ray_count||0} rayon${row.ray_count===1?'':'s'} 🔦 + ${row.coord_count||0} coordonnée${row.coord_count===1?'':'s'} 📍</div></div>`).join('');
 }
-async function openGridRanking(gridId,returnToAccount=false){
+async function openGridRanking(gridId,returnToAccount=false,returnToVictory=false){
   if(!gridId) return;
-  openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls" style="justify-content:flex-start"><button id="copyRankedGridId" class="ghost">📋 Copier l’ID de la grille</button></div>`,returnToAccount);
+  openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls" style="justify-content:flex-start"><button id="copyRankedGridId" class="ghost">📋 Copier l’ID de la grille</button></div>`,returnToAccount,returnToVictory);
   $('#copyRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
   try{
     const rows=await supabaseRpc('orapa_get_grid_scores',{p_grid_id:gridId});
@@ -2427,11 +2430,13 @@ $('#btnVictoryCopySummary').addEventListener('click', ()=>{
   const text = formatShareText(currentEntryForDisplay());
   if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=> showToast('Résumé copié !'));
 });
-$('#btnVictoryGridRanking').addEventListener('click',()=>openGridRanking(state.gridId));
+$('#btnVictoryGridRanking').addEventListener('click',()=>openGridRanking(state.gridId,false,true));
 function closeGridDataModal(){
   $('#gridDataModal').classList.remove('open');
-  if(gridDataReturnsToAccount) openAccountModal();
+  if(gridDataReturnsToVictory) openVictoryModal();
+  else if(gridDataReturnsToAccount) openAccountModal();
   gridDataReturnsToAccount=false;
+  gridDataReturnsToVictory=false;
 }
 $('#closeGridData').addEventListener('click',closeGridDataModal);
 $('#gridDataBack').addEventListener('click',closeGridDataModal);
