@@ -2532,7 +2532,7 @@ async function renderGlobalRanking(dateKey, force=false){
       return;
     }
     const wins = rows.filter(r=>r.success).length;
-    el.innerHTML = `<div class="global-ranking-summary daily-ranking-summary"><span class="summary-stat" title="Participants">👥 <b>${rows.length}</b></span><span class="summary-stat"><b>${wins}</b> réussite${wins>1?'s':''}</span><span class="summary-gems">${gems}</span></div>` + rows.map((raw,i)=>{
+    el.innerHTML = `<div class="global-ranking-summary daily-ranking-summary"><span class="summary-stat" title="Participants"><b>${rows.length}</b> 👥</span><span class="summary-separator">·</span><span class="summary-stat"><b>${wins}</b> réussite${wins>1?'s':''}</span><span class="summary-gems">${gems}</span></div>` + rows.map((raw,i)=>{
       const e=globalEntryToLocal(raw);
       const expanded=expandedScores.has(`g${e.id}`);
       const mine=String(e.id)===String(myId) || (!!myAccountName && String(e.name||'').trim().toLocaleLowerCase('fr-FR')===myAccountName);
