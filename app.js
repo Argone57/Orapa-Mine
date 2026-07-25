@@ -330,7 +330,7 @@ async function renderAccountHome(){
   if(!currentPlayerAccount){ showAccountLogin(); return; }
   const content=$('#accountContent');
   content.innerHTML=`<div class="account-card account-profile-row"><strong>👤 ${escapeHtml(currentPlayerAccount.display_name)}</strong><span class="account-status connected">● Connecté</span></div>
-    <h3 class="account-section-title">📊 Mes statistiques</h3>
+    <h3 class="account-section-title">📅 Défis du jour</h3>
     <div id="accountStats"><div class="history-empty">Chargement des statistiques…</div></div>
     <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Enregistrer mes scores sans redemander le code sur cet appareil</b></span></label>
     <div class="account-actions">
@@ -358,7 +358,7 @@ async function renderAccountHome(){
       <div class="account-stat"><b>${rate}%</b>réussite</div>
       <div class="account-stat"><b>${st.best_score==null?'—':st.best_score+' pts'}</b>meilleur score</div>
     </div>${st.best_time_ms==null?'':`<p>Meilleur temps : <b>${formatDuration(st.best_time_ms)}</b></p>`}
-    ${gridStats?`<h3 class="account-section-title">🧩 Grilles partagées</h3><div class="account-stats-grid">
+    ${gridStats?`<h3 class="account-section-title">🧩 Grilles et parties Solo</h3><div class="account-stats-grid">
       <div class="account-stat"><b>${gridStats.played||0}</b>jouées</div>
       <div class="account-stat"><b>${gridStats.played?Math.round((gridStats.wins||0)/gridStats.played*100):0}%</b>réussite</div>
       <div class="account-stat"><b>${gridStats.created||0}</b>créées</div>
