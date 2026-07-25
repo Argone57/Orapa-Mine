@@ -332,7 +332,7 @@ async function renderAccountHome(){
   content.innerHTML=`<div class="account-card account-profile-row"><strong>👤 ${escapeHtml(currentPlayerAccount.display_name)}</strong><span class="account-status connected">● Connecté</span></div>
     <h3 class="account-section-title">📊 Mes statistiques</h3>
     <div id="accountStats"><div class="history-empty">Chargement des statistiques…</div></div>
-    <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Ne pas redemander le code pour les scores sur cet appareil</b><br><small>Cette préférence s’applique aux parties Solo et aux Défis du jour enregistrés dans Supabase.</small></span></label>
+    <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Enregistrer mes scores sans redemander le code sur cet appareil</b></span></label>
     <div class="account-actions">
       <button class="ghost" id="accountGridHistoryBtn">🕘 Historique des grilles</button>
       <button class="ghost" id="accountSharedGridsBtn">📤 Mes grilles partagées</button>
@@ -2647,7 +2647,7 @@ async function renderGlobalStatsView(force=false){
       const uniquePlayers=aggregatePlayers(rows).length;
       const uniqueDays=new Set(rows.map(row=>row.daily_date)).size;
       const extra=`<div class="stats-details"><div><span>Pseudos différents</span><b>${uniquePlayers}</b></div><div><span>Défis enregistrés</span><b>${uniqueDays}</b></div></div>`;
-      content.innerHTML=`<h3>Depuis le début</h3><p class="stats-subtitle">Toutes les données conservées dans Supabase.</p>${rows.length ? statsSummaryCards(rows)+extra+statsDetails(rows)+statsPlayerButtons(rows,false) : '<div class="history-empty">Aucune participation enregistrée.</div>'}`;
+      content.innerHTML=`<h3>Depuis le début</h3><p class="stats-subtitle">Toutes les participations enregistrées.</p>${rows.length ? statsSummaryCards(rows)+extra+statsDetails(rows)+statsPlayerButtons(rows,false) : '<div class="history-empty">Aucune participation enregistrée.</div>'}`;
     }
     bindStatsPlayerButtons();
   }catch(err){
