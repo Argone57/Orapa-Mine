@@ -2108,7 +2108,7 @@ function showToast(msg){
 }
 function onPieceDown(ev, piece, el){
   if(!piecesEditable()) return;
-  if(tutorialActive&&(tutorialStage!==7||piece.id!==tutorialWrongPieceId)){showToast('Utilise uniquement l’élément mis en évidence.');return;}
+  if(tutorialActive&&!((tutorialStage===7&&piece.id===tutorialWrongPieceId)||([11,12].includes(tutorialStage)&&piece.id===tutorialPlacementPieceId))){showToast('Utilise uniquement l’élément mis en évidence.');return;}
   ev.preventDefault();
   const startX=ev.clientX, startY=ev.clientY;
   let moved=false, longPressed=false, dragging=false;
@@ -2179,6 +2179,7 @@ function onPieceDown(ev, piece, el){
       saveState();
       renderPalette();
       renderPieces();
+      tutorialAfterPiecePlacement(piece);
     } else if(!longPressed){
       piece.rotation = (piece.rotation + 90) % 360;
       resnapAfterTransform(piece);
@@ -2310,7 +2311,7 @@ async function enterSolo(){
   openSoloChoiceModal();
 }
 $('#homeSolo').addEventListener('click', enterSolo);
-let tutorialActive=false,tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0;
+let tutorialActive=false,tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null;
 function tutorialClearTargets(){ document.querySelectorAll('.tutorial-target').forEach(el=>el.classList.remove('tutorial-target')); }
 function tutorialCoach(title,text,actionLabel=''){
   tutorialClearTargets();
@@ -2318,7 +2319,7 @@ function tutorialCoach(title,text,actionLabel=''){
   $('#tutorialCoachText').innerHTML=text;
   $('#tutorialCoachStep').textContent=(tutorialStage===1||tutorialStage===2)
     ? `Rayon ${tutorialRayIndex+1} sur ${tutorialRayExamples.length}`
-    : ['Introduction','Rayons','Rayons','Couleurs','Mode indice','Coordonn\u00e9e','R\u00e9sultat','Manipulation','Validation','Gemmes optionnelles','Fin'][tutorialStage]||'Tutoriel';
+    : ((tutorialStage===11||tutorialStage===12)?`Placement ${tutorialPlacementIndex+1} sur 2`:['Introduction','Rayons','Rayons','Couleurs','Mode indice','Coordonn\u00e9e','R\u00e9sultat','Manipulation','Validation','Gemmes optionnelles','Fin'][tutorialStage]||'Tutoriel');
   $('#tutorialCoachAction').textContent=actionLabel;
   $('#tutorialCoachAction').style.display=actionLabel?'':'none';
   setTimeout(tutorialHighlightTarget,40);
@@ -2332,6 +2333,9 @@ function tutorialHighlightTarget(){
     target=document.querySelector(`.cellhit[data-row="${tutorialTargetCell.r}"][data-col="${tutorialTargetCell.c}"]`);
   }else if(tutorialStage===7&&tutorialWrongPieceId){
     target=document.querySelector(`#pieceSvg .piece-poly[data-id="${tutorialWrongPieceId}"]`);
+  }else if((tutorialStage===11||tutorialStage===12)&&tutorialPlacementPieceId){
+    target=document.querySelector(`#palette [data-id="${tutorialPlacementPieceId}"]`);
+    tutorialDrawPlacementTarget();
   }else if(tutorialStage===8) target=$('#btnPropose');
   if(target){target.classList.add('tutorial-target');target.scrollIntoView({behavior:'smooth',block:'center'});}
 }
@@ -2392,24 +2396,53 @@ function tutorialSelectRayExamples(pieces){
   pick(ray=>ray.same&&!ray.colored);
   pick(ray=>!ray.same&&!ray.result.absorbed&&ray.colored);
   pick(ray=>ray.same&&ray.colored);
-  pick(ray=>ray.result.absorbed);
   pick(ray=>!ray.same&&!ray.result.absorbed);
-  while(picked.length<5&&pick(()=>true)){}
+  while(picked.length<6&&pick(ray=>!ray.result.absorbed)){}
   return picked;
 }
 function tutorialChooseLayout(){
-  const fixed=decodeGridId('HFHG-JQGL-LDSG-FQLB-QDFJ-FEHB-B');
-  let pieces=fixed?fixed.pieces:null;
-  for(let attempt=0;attempt<14;attempt++){
+  let pieces=null;
+  for(let attempt=0;attempt<20;attempt++){
+    pieces=generateRandomLayout(35);
     const examples=pieces?tutorialSelectRayExamples(pieces):[];
     const hasColoredReturn=examples.some(ray=>ray.same&&ray.colored);
     const hasReturn=examples.some(ray=>ray.same);
-    const hasAbsorbed=examples.some(ray=>ray.result.absorbed);
     const deflected=examples.filter(ray=>!ray.same&&!ray.result.absorbed).length;
-    if(examples.length>=5&&hasColoredReturn&&hasReturn&&hasAbsorbed&&deflected>=2)return {pieces,examples};
-    pieces=generateRandomLayout(30);
+    if(examples.length>=6&&hasColoredReturn&&hasReturn&&deflected>=3)return {pieces,examples};
   }
-  return {pieces,examples:tutorialSelectRayExamples(pieces||fixed.pieces)};
+  return {pieces,examples:tutorialSelectRayExamples(pieces||[])};
+}
+function tutorialPlacementType(){return ['red','yellow'][tutorialPlacementIndex]||'red';}
+function tutorialPreparePlacement(stage){
+  const type=tutorialPlacementType();
+  const piece=state.pieces.find(p=>p.type===type);
+  if(!piece)return;
+  piece.center=null;piece.rotation=0;piece.flipped=false;
+  tutorialPlacementPieceId=piece.id;tutorialStage=stage;
+  renderPalette();renderPieces();renderTraces();tutorialShowStage();
+}
+function tutorialDrawPlacementTarget(){
+  if(!(tutorialStage===11||tutorialStage===12))return;
+  const secret=state.secretPieces.find(p=>p.type===tutorialPlacementType());
+  if(!secret)return;
+  const poly=document.createElementNS(SVGNS,'polygon');
+  poly.setAttribute('points',polyPointsAttr(pieceVertices(secret)));
+  poly.setAttribute('class','tutorial-placement-target');
+  traceSvg.appendChild(poly);
+}
+function tutorialAfterPiecePlacement(piece){
+  if(!tutorialActive||![11,12].includes(tutorialStage)||piece.id!==tutorialPlacementPieceId)return;
+  const secret=state.secretPieces.find(p=>p.type===piece.type);
+  if(!secret||!piece.center)return;
+  const close=Math.hypot(piece.center.x-secret.center.x,piece.center.y-secret.center.y)<1.1;
+  if(!close){piece.center=null;showToast('Place la gemme dans la zone mise en \u00e9vidence.');renderPalette();renderPieces();tutorialHighlightTarget();return;}
+  piece.center={...secret.center};piece.rotation=secret.rotation;piece.flipped=secret.flipped;
+  tutorialPlacementIndex++;
+  tutorialPlacementPieceId=null;
+  renderPalette();renderPieces();renderTraces();
+  tutorialRayIndex++;
+  const ray=tutorialRayExamples[tutorialRayIndex];
+  tutorialTargetLabel={side:ray.side,index:ray.index};tutorialStage=1;tutorialShowStage();
 }
 function tutorialResultText(result){
   if(result.absorbed) return `Le rayon a rencontr&eacute; le <b>corps noir</b> et a &eacute;t&eacute; absorb&eacute; : il n&rsquo;a donc aucune sortie.`;
@@ -2452,6 +2485,21 @@ function tutorialShowStage(){
   else if(tutorialStage===9) tutorialCoach('Les gemmes optionnelles','Certaines grilles ajoutent jusqu&rsquo;&agrave; trois gemmes :<br><br>💎 <b>Diamant</b> : d&eacute;vie le rayon sans ajouter de couleur.<br>⬛ <b>Corps noir</b> : absorbe le rayon, qui ne ressort pas.<br>🟦 <b>Saphir bleu ciel</b> : ajoute simultan&eacute;ment le bleu et le blanc au r&eacute;sultat.<br><br>Les classements s&eacute;parent les diff&eacute;rentes configurations.','Terminer');
   else tutorialCoach('Tutoriel termin\u00e9 !','Tu as effectu&eacute; les principales actions d&rsquo;une partie et observ&eacute; plusieurs comportements possibles des rayons.<br><br><b>Sur l&rsquo;accueil :</b> joue une grille al&eacute;atoire, le d&eacute;fi du jour ou un identifiant partag&eacute; ; cr&eacute;e tes propres grilles ; consulte tes historiques et les classements depuis ton compte.','Retour \u00e0 l\u2019accueil');
 }
+function tutorialShowStage(){
+  if(!tutorialActive)return;
+  if(tutorialStage===0) tutorialCoach('Bienvenue dans le tutoriel','Nous avons re&ccedil;u la mission de localiser les gemmes de la mine d&rsquo;Orapa. En envoyant des ondes supersoniques &agrave; travers le sol et en interpr&eacute;tant correctement les signaux qui nous reviennent, nous devons &ecirc;tre capables de d&eacute;terminer la position et l&rsquo;&eacute;tat des gemmes recherch&eacute;es&hellip;','Commencer');
+  else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);tutorialCoach('Envoie une onde',`Touche l&rsquo;entr&eacute;e <b>${name}</b>, mise en &eacute;vidence. La sortie du rayon sera r&eacute;v&eacute;l&eacute;e, ainsi que la couleur obtenue.`);}
+  else if(tutorialStage===2){const more=tutorialRayIndex<tutorialRayExamples.length-1;tutorialCoach('R\u00e9sultat',tutorialResultText(tutorialLastResult),more?'Continuer':'Voir l\u2019aide des couleurs');}
+  else if(tutorialStage===3) tutorialCoach('Les couleurs obtenues','Apr&egrave;s plusieurs d&eacute;viations, un rayon peut avoir rencontr&eacute; diff&eacute;rentes gemmes. L&rsquo;aide r&eacute;capitule les couleurs et leurs m&eacute;langes possibles.','Afficher l\u2019aide des couleurs');
+  else if(tutorialStage===4) tutorialCoach('Le mode indice','Les rayons pr&eacute;c&eacute;dents sont des exemples : dans une partie, poursuis l&rsquo;enqu&ecirc;te jusqu&rsquo;&agrave; avoir suffisamment d&rsquo;informations.<br><br>Pour v&eacute;rifier une case, touche d&rsquo;abord <b>Demander un indice</b>. Le tutoriel active ce mode pour toi.','Activer le mode indice');
+  else if(tutorialStage===5){const coord=LEFT_LABELS[tutorialTargetCell.r]+(tutorialTargetCell.c+1);tutorialCoach('V\u00e9rifie une coordonn\u00e9e',`Touche la case <b>${coord}</b>, mise en &eacute;vidence. Son contenu sera r&eacute;v&eacute;l&eacute; pour un co&ucirc;t de <b>3 points</b>.`);}
+  else if(tutorialStage===6) tutorialCoach('R\u00e9sultat de l\u2019indice','La case est maintenant marqu&eacute;e sur le plateau et son contenu figure dans l&rsquo;historique. Une coordonn&eacute;e confirme une hypoth&egrave;se, mais co&ucirc;te trois fois plus qu&rsquo;un rayon.','Voir la solution guid\u00e9e');
+  else if(tutorialStage===7) tutorialCoach('Corrige une orientation','Le tutoriel a maintenant compl&eacute;t&eacute; le reste de la solution et laiss&eacute; volontairement une orientation incorrecte.<br><br><b>Touche une fois la gemme mise en &eacute;vidence</b> pour la faire pivoter de 90&deg;.');
+  else if(tutorialStage===8) tutorialCoach('Propose cette solution','Dans une partie solo, tu peux proposer une solution <b>deux fois au maximum</b> : tu peux donc te tromper une seule fois. Apr&egrave;s une premi&egrave;re erreur, corrige ta disposition avant la derni&egrave;re proposition.<br><br>Ici, touche <b>Proposer une solution</b>.');
+  else if(tutorialStage===9) tutorialCoach('Les gemmes optionnelles','Cette grille de tutoriel utilise uniquement les gemmes de base. D&rsquo;autres parties peuvent ajouter :<br><br>&#128142; <b>Diamant</b> : d&eacute;vie le rayon sans ajouter de couleur.<br>&#11035; <b>Corps noir</b> : absorbe le rayon, qui ne ressort pas.<br>&#128998; <b>Saphir bleu ciel</b> : ajoute simultan&eacute;ment le bleu et le blanc au r&eacute;sultat.<br><br>Les classements s&eacute;parent les diff&eacute;rentes configurations.','Terminer');
+  else if(tutorialStage===11||tutorialStage===12){const name=CONFIG.PIECES[tutorialPlacementType()].label;const order=tutorialPlacementIndex===0?'une premi&egrave;re':'une seconde';tutorialCoach(`Place la gemme ${tutorialPlacementIndex+1} sur 2`,`En recoupant les r&eacute;sultats obtenus, tu peux maintenant placer ${order} gemme.<br><br>Fais glisser <b>${name}</b>, mise en &eacute;vidence dans la palette, jusqu&rsquo;&agrave; la forme pointill&eacute;e sur le plateau.`);}
+  else tutorialCoach('Tutoriel termin\u00e9 !','Tu as observ&eacute; plusieurs comportements de rayons, plac&eacute; deux gemmes, utilis&eacute; un indice et valid&eacute; une proposition.<br><br><b>Sur l&rsquo;accueil :</b> joue une grille al&eacute;atoire, le d&eacute;fi du jour ou un identifiant partag&eacute; ; cr&eacute;e tes propres grilles ; consulte tes historiques et les classements depuis ton compte.','Retour \u00e0 l\u2019accueil');
+}
 function tutorialPrepareSolution(){
   state.pieces=state.secretPieces.map(p=>({...p,id:'p'+(pieceIdSeq++),center:{...p.center}}));
   const wrong=state.pieces.find(p=>p.type==='red')||state.pieces[0];
@@ -2461,10 +2509,10 @@ function tutorialPrepareSolution(){
 }
 function startInteractiveTutorial(){
   if(state.mode==='solo'&&!state.soloOver&&!confirm('Quitter la partie solo en cours pour lancer le tutoriel ?')) return;
-  state.includeGray=true;state.includeOnyx=true;state.includeSapphire=true;
+  state.includeGray=false;state.includeOnyx=false;state.includeSapphire=false;
   const lesson=tutorialChooseLayout();
-  if(!lesson.pieces||!lesson.examples.length){showToast('Le tutoriel est momentanément indisponible.');return;}
-  tutorialRayExamples=lesson.examples;tutorialRayIndex=0;
+  if(!lesson.pieces||lesson.examples.length<5){showToast('Le tutoriel est momentan\u00e9ment indisponible.');return;}
+  tutorialRayExamples=lesson.examples;tutorialRayIndex=0;tutorialPlacementIndex=0;tutorialPlacementPieceId=null;
   tutorialActive=true;tutorialStage=0;tutorialTargetLabel={side:tutorialRayExamples[0].side,index:tutorialRayExamples[0].index};tutorialTargetCell=null;tutorialWrongPieceId=null;tutorialLastResult=null;
   document.body.classList.add('tutorial-active');
   state.mode='solo';state.started=false;state.secretPieces=lesson.pieces.map(p=>({...p,id:'p'+(pieceIdSeq++),center:{...p.center}}));state.pieces=freshPieceSet();
@@ -2480,8 +2528,8 @@ function tutorialAfterPieceAction(piece){
   if(secret&&piece.rotation===secret.rotation&&piece.flipped===secret.flipped){tutorialStage=8;tutorialShowStage();}
 }
 function tutorialPropose(){
-  if(tutorialStage!==8){showToast('Suis d’abord l’étape mise en évidence.');tutorialShowStage();return;}
-  if(!evaluateGuess()){tutorialCoach('Pas encore','La gemme mise en évidence n’est pas dans la bonne orientation. Touche-la encore avant de proposer.');return;}
+  if(tutorialStage!==8){showToast('Suis d\u2019abord l\u2019\u00e9tape mise en \u00e9vidence.');tutorialShowStage();return;}
+  if(!evaluateGuess()){tutorialCoach('Pas encore','La gemme mise en &eacute;vidence n&rsquo;est pas dans la bonne orientation. Touche-la encore avant de proposer.');return;}
   tutorialStage=9;tutorialClearTargets();tutorialShowStage();
 }
 $('#homeLearn').addEventListener('click',startInteractiveTutorial);
@@ -2489,7 +2537,9 @@ $('#tutorialCoachClose').addEventListener('click',exitInteractiveTutorial);
 $('#tutorialCoachAction').addEventListener('click',()=>{
   if(tutorialStage===0){tutorialStage=1;renderLabels();tutorialShowStage();}
   else if(tutorialStage===2){
-    if(tutorialRayIndex<tutorialRayExamples.length-1){tutorialRayIndex++;const ray=tutorialRayExamples[tutorialRayIndex];tutorialTargetLabel={side:ray.side,index:ray.index};tutorialStage=1;tutorialShowStage();}
+    if(tutorialRayIndex===1&&tutorialPlacementIndex===0)tutorialPreparePlacement(11);
+    else if(tutorialRayIndex===3&&tutorialPlacementIndex===1)tutorialPreparePlacement(12);
+    else if(tutorialRayIndex<tutorialRayExamples.length-1){tutorialRayIndex++;const ray=tutorialRayExamples[tutorialRayIndex];tutorialTargetLabel={side:ray.side,index:ray.index};tutorialStage=1;tutorialShowStage();}
     else{tutorialStage=3;tutorialShowStage();}
   }
   else if(tutorialStage===3){buildMixBoard();$('#helpModal').classList.add('open');tutorialStage=4;tutorialShowStage();}
