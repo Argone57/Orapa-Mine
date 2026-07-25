@@ -161,6 +161,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .stats-player-list{display:flex;flex-direction:column;gap:5px;max-height:220px;overflow:auto;margin-top:8px}.stats-player{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;width:100%;padding:8px 10px;text-align:left;border:1px solid var(--vein);border-radius:7px;background:rgba(255,255,255,.02);color:var(--text);font-family:inherit;cursor:pointer}.stats-player:hover{background:rgba(230,194,122,.08)}.stats-player span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.stats-player b{color:var(--gold-bright)}.stats-player em{font-style:normal;color:var(--text-dim);font-size:.7rem}.stats-back{margin-bottom:10px}.stats-subtitle{font-size:.72rem;color:var(--text-dim);margin:-5px 0 12px}.stats-section-title{display:flex;justify-content:space-between;align-items:end;gap:8px}.stats-section-title small{font-size:.65rem;color:var(--text-faint);font-weight:normal}
 @media(max-width:600px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stats-toolbar{align-items:stretch}.stats-mode-tabs{width:100%}.stats-mode-tabs button{flex:1}.stats-player{grid-template-columns:1fr auto}.stats-player em{grid-column:1/-1}}
 @media(max-width:600px){.ranking-time{display:none}.ranking-tabs{gap:5px}.ranking-tabs button{font-size:.72rem;padding-left:5px;padding-right:5px}.ranking-gems{font-size:.72rem}}
+@media(max-width:600px){.ranking-row .controls{margin-left:0!important;display:grid;grid-template-columns:1fr;width:100%}.ranking-row .controls button{width:100%}}
 
 .toast-msg{
   position:fixed; left:50%; bottom:80px; transform:translateX(-50%) translateY(20px);
@@ -254,6 +255,7 @@ body.home-view #helpFab{display:none}
       <button id="btnSolo" class="ghost">🧩 Jouer en solo</button>
       <button id="btnRandom" class="ghost">🎲 Placer aléatoirement</button>
       <button id="btnStart" class="primary">Démarrer la partie</button>
+      <button id="btnShareGrid" class="ghost">📤 Partager la grille</button>
       <button id="btnHome" class="ghost">← Retour à l'accueil</button>
     </div>
     <div id="startBlockMsg" style="display:none;color:#f5b8ae;font-size:.78rem;margin-top:8px;text-align:center;"></div>
@@ -316,8 +318,8 @@ body.home-view #helpFab{display:none}
       <button id="rankingTabGlobal" class="ghost">🌍 Défis du jour</button>
     </div>
     <div id="rankingSoloIntro">
-      <p>Moins de points, c'est mieux : un rayon vaut <b>1 point</b>, une coordonnée révélée <b>3 points</b>. À points égaux, le temps le plus court gagne. Les 10 meilleurs scores sont gardés pour chaque combinaison d'extensions.</p>
-      <p>Clique une ligne pour voir le détail et l'identifiant de la grille.</p>
+      <p>Résultats solo partagés dans Supabase. La première partie terminée de chaque profil sur une grille est conservée, réussite ou échec.</p>
+      <p>Utilise <b>Classement de la grille</b> pour comparer tous les joueurs ayant reçu exactement la même disposition.</p>
     </div>
     <div id="rankingDailyIntro" style="display:none;">
       <p>Classements locaux de ce navigateur pour les défis quotidiens. Les réussites sont classées avant les échecs, puis par score et par temps.</p>
@@ -456,6 +458,6 @@ body.home-view #helpFab{display:none}
   </div>
 </div>
 
-<script src="app.js?v=20260725-0335"></script>
+<script src="app.js?v=20260725-0400"></script>
 </body>
 </html>

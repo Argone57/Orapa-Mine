@@ -5,7 +5,7 @@
 Avant de publier cette version du site, exécute le fichier
 `Supabase/01_grilles_classements_et_statistiques.sql` dans **Supabase → SQL Editor**.
 Il ajoute les grilles partagées, leur classement global, la protection du créateur
-pendant 7 jours, un seul meilleur score par compte et les statistiques associées.
+pendant 7 jours, une seule première tentative terminée par compte et les statistiques associées.
 Le script est réexécutable et ne supprime aucune donnée existante.
 
 Application web (fichiers statiques, aucune dépendance à installer) pour animer une partie d'Orapa Mine en tant que maître du jeu, utilisable sur iPhone.
@@ -80,7 +80,7 @@ Tout est centralisé dans l'objet `SHAPES` en haut de `app.js` : chaque pièce e
 
 ## Mode solo
 
-Le bouton **🧩 Jouer en solo** ouvre d'abord une petite fenêtre pour choisir quelles extensions (Diamant, Corps noir, Saphir bleu ciel) peuvent apparaître dans la grille secrète, puis génère une grille aléatoire cachée que tu dois retrouver. La même fenêtre réapparaît si tu cliques **Recommencer** pendant une partie solo (tu peux changer les extensions à chaque nouveau défi) :
+Le bouton **🧩 Jouer en solo** demande d’abord une connexion par pseudo et code à 4 chiffres, sans adresse mail. Il ouvre ensuite le choix entre Défi du jour, Grille aléatoire et Par identifiant.
 
 - Les gemmes de la grille secrète ne sont **jamais affichées**.
 - Tu peux cliquer les bords (lettres/chiffres) comme d'habitude : le résultat (entrée/sortie/couleur) s'ajoute à l'historique, mais **le trajet du rayon n'est pas dessiné** sur la grille — seule l'info textuelle est donnée.
@@ -93,22 +93,21 @@ Le bouton **🧩 Jouer en solo** ouvre d'abord une petite fenêtre pour choisir 
   - Tout est juste → 🏆 victoire, partie terminée.
   - Erreur au 1ᵉʳ essai → message d'échec, la partie continue.
   - Erreur au 2ᵉ essai → 💥 défaite, partie terminée. La grille secrète est alors révélée en plein, et tes gemmes restent visibles en **contour pointillé de leur couleur** par-dessus, pour comparer facilement.
-- **↩ Retour maître du jeu** quitte le mode solo à tout moment (avec confirmation) et revient à la console habituelle.
+- **← Retour à l’accueil** quitte l’écran de jeu sans mélanger le parcours Solo et la création de grille.
 - En cas de défaite, deux boutons **👁 Mes gemmes** / **👁 Gemmes à trouver** permettent de masquer temporairement l'une ou l'autre couche pour mieux comparer.
 
 Le mode maître du jeu (placement manuel, bouton Aléatoire, Démarrer la partie) n'est pas affecté par cette fonctionnalité.
 
 ## Classements solo
 
-Le bouton flottant **🏆** (en bas à gauche, visible partout) ouvre les classements. Un sous-menu sépare les **parties solo** des **défis du jour**. Pour les parties solo, un classement séparé existe pour chacune des 8 combinaisons d'extensions possibles (aucune, Diamant seul, Corps noir seul, Saphir seul, et toutes leurs combinaisons), avec les **10 meilleurs scores** de chacun.
+Le bouton flottant **🏆** ouvre deux classements Supabase : **Parties solo** et **Défis du jour**. Il n’existe plus de classement quotidien local visible.
 
-- Le score privilégie le **coût** : chaque rayon lancé coûte **1 point**, chaque coordonnée révélée coûte **3 points** (les coordonnées sont plus « chères » qu'un simple rayon). Le détail (nombre de rayons 🔦 et de coordonnées 📍) est affiché à côté du score pour rester lisible en un coup d'œil, ex. `5 pts (2🔦 + 1📍) · 12s`.
-- À coté égal, le **temps** départage — chronométré entre le tout premier indice demandé (rayon ou coordonnée, peu importe lequel vient en premier) et la victoire.
-- À la victoire, une **saisie de nom** est proposée pour le classement (24 caractères max, « Anonyme » par défaut si laissé vide).
-- Un score n'est enregistré qu'en cas de **victoire**, et seulement si la grille n'a pas été chargée via un identifiant (voir plus bas).
-- Chaque grille a un **identifiant unique qui encode directement son contenu** (position, rotation et miroir de chaque gemme) — pas une graine aléatoire. Deux grilles identiques donnent toujours le même identifiant, sur n'importe quel appareil ou navigateur, et inversement un identifiant donné ne peut correspondre qu'à une seule grille précise. Affiché — et copiable — sur les écrans de victoire et de défaite en solo, ainsi qu'en console maître du jeu une fois la partie démarrée.
-- Dans le classement, chaque ligne est **repliée par défaut** (rang, nom, points, date) ; un clic dessus déplie le détail (répartition rayons/coordonnées, temps, et l'identifiant de la grille, copiable).
-- Chaque classement peut être **réinitialisé indépendamment** (bouton dédié, confirmation demandée).
+- Chaque rayon coûte **1 point** et chaque coordonnée révélée **3 points**.
+- Les réussites sont classées avant les échecs, puis le coût et le temps départagent les joueurs.
+- La première partie terminée d’un profil sur une grille est la seule enregistrée, qu’il s’agisse d’une réussite ou d’un échec.
+- Chaque résultat comporte un bouton **Classement de la grille**. Seul son propre résultat propose également **Copier le résumé**.
+- Le classement d’une grille affiche ses participants, permet de copier son identifiant et signale avec `*` le créateur ayant joué après la période de protection.
+- Les grilles aléatoires et celles chargées par identifiant utilisent le même système mondial de classement.
 
 ## Défi du jour
 
@@ -130,11 +129,11 @@ Le Défi du jour conserve un historique local sur l’appareil et envoie égalem
 
 ## Rejouer une grille précise
 
-Le bouton **🧩 Jouer en solo** propose notamment **🎲 Grille aléatoire** et **🔑 Par identifiant**. Ressaisir un identifiant régénère exactement la même grille secrète. Une victoire peut être enregistrée dans le classement global propre à cette grille. Un seul meilleur résultat est conservé par compte et par grille.
+Le bouton **🧩 Jouer en solo** propose notamment **🎲 Grille aléatoire** et **🔑 Par identifiant**. Ressaisir un identifiant régénère exactement la même grille secrète. La première partie terminée est enregistrée dans le classement global propre à cette grille.
 
 ## Grille du maître du jeu
 
-Une fois « Démarrer la partie » cliqué, un code apparaît en haut. Le bouton **📤 Partager la grille** enregistre la grille dans Supabase lors de sa première apparition puis copie le défi, ses extensions, son identifiant et le lien du site.
+**Démarrer la partie** lance uniquement l’assistance au jeu physique : aucune grille n’est envoyée à Supabase. **Partager la grille** est une action distincte disponible avant le démarrage ; elle exige un compte, associe le créateur, applique la protection et copie le défi.
 
 ## Partager un score
 

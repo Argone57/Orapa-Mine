@@ -152,7 +152,7 @@ function formatShareText(e){
   const idPart = `ID: ${e.gridId||'?'}`;
   return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}\nhttps://argone57.github.io/Orapa-Mine/`;
 }
-function recordScore(name, elapsedMsOverride){
+function recordScore(name, elapsedMsOverride, success=true){
   const key = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
   const rankings = loadRankings();
   if(!rankings[key]) rankings[key] = [];
@@ -162,10 +162,11 @@ function recordScore(name, elapsedMsOverride){
     cost: state.moveCost||0, timeMs: elapsedMs,
     rayCount: state.rayCount||0, coordCount: state.coordCount||0,
     gridId: state.gridId||null,
+    success:!!success,
     date: Date.now()
   };
   rankings[key].push(entry);
-  rankings[key].sort((a,b)=> a.cost - b.cost || a.timeMs - b.timeMs);
+  rankings[key].sort((a,b)=> Number(b.success!==false)-Number(a.success!==false) || a.cost - b.cost || a.timeMs - b.timeMs);
   rankings[key] = rankings[key].slice(0,10);
   saveRankings(rankings);
   const rank = rankings[key].indexOf(entry) + 1;
@@ -342,7 +343,7 @@ async function renderAccountHome(){
       <button class="danger" id="accountLogoutBtn">🚪 Se déconnecter</button>
     </div>`;
   $('#accountTrustDevice').onchange=e=>setTrustedDevice(e.target.checked);
-  $('#accountOpenRankingsBtn').onclick=()=>{$('#accountModal').classList.remove('open');$('#rankingsModal').classList.add('open');};
+  $('#accountOpenRankingsBtn').onclick=()=>{$('#accountModal').classList.remove('open');setRankingView('solo');$('#rankingsModal').classList.add('open');};
   $('#accountGridHistoryBtn').onclick=()=>openMyGridHistory();
   $('#accountSharedGridsBtn').onclick=()=>openMySharedGrids();
   $('#accountRenameBtn').onclick=showRenameAccount;
@@ -362,6 +363,7 @@ async function renderAccountHome(){
     </div>${st.best_time_ms==null?'':`<p>Meilleur temps : <b>${formatDuration(st.best_time_ms)}</b></p>`}
     ${gridStats?`<h3 class="account-section-title">🧩 Grilles partagées</h3><div class="account-stats-grid">
       <div class="account-stat"><b>${gridStats.played||0}</b>jouées</div>
+      <div class="account-stat"><b>${gridStats.played?Math.round((gridStats.wins||0)/gridStats.played*100):0}%</b>réussite</div>
       <div class="account-stat"><b>${gridStats.created||0}</b>créées</div>
       <div class="account-stat"><b>${gridStats.best_score==null?'—':gridStats.best_score+' pts'}</b>meilleur score</div>
       <div class="account-stat"><b>${gridStats.average_score==null?'—':gridStats.average_score+' pts'}</b>score moyen</div>
@@ -412,17 +414,19 @@ function gridRankingRows(rows){
   if(!rows?.length) return '<div class="history-empty">Aucun score classé pour cette grille.</div>';
   return rows.map(row=>`<div class="ranking-row"><div class="ranking-row-top">
     <span class="ranking-rank${Number(row.rank)===1?' top1':''}">${rankingMedal(Number(row.rank)-1)}</span>
-    <span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}</span>
+    <span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}
     <span class="ranking-points">${row.cost} pts</span>
     <span class="ranking-time">${formatDuration(row.time_ms)}</span>
   </div><div class="ranking-row-detail">${row.ray_count||0} rayon${row.ray_count===1?'':'s'} 🔦 + ${row.coord_count||0} coordonnée${row.coord_count===1?'':'s'} 📍</div></div>`).join('');
 }
 async function openGridRanking(gridId){
   if(!gridId) return;
-  openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b> · le coût le plus faible gagne.</p>`);
+  openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls" style="justify-content:flex-start"><button id="copyRankedGridId" class="ghost">📋 Copier l’ID de la grille</button></div>`);
+  $('#copyRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
   try{
     const rows=await supabaseRpc('orapa_get_grid_scores',{p_grid_id:gridId});
-    $('#gridDataContent').innerHTML=gridRankingRows(rows);
+    const wins=(rows||[]).filter(row=>row.success).length;
+    $('#gridDataContent').innerHTML=`<div class="global-ranking-summary"><b>${rows?.length||0}</b> participant${rows?.length===1?'':'s'} · <b>${wins}</b> réussite${wins===1?'':'s'}</div>${gridRankingRows(rows)}${rows?.some(row=>row.played_by_creator)?'<p class="stats-note">* Cette personne a créé la grille et l’a jouée après la période de protection.</p>':''}`;
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
 async function openMyGridHistory(){
@@ -431,7 +435,7 @@ async function openMyGridHistory(){
   try{
     const rows=await supabaseRpc('orapa_my_grid_history',{p_session_token:currentPlayerAccount.session_token});
     if(!rows?.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille classée jouée.</div>'; return; }
-    $('#gridDataContent').innerHTML=rows.map((row,i)=>`<div class="ranking-row"><div class="ranking-row-top"><span class="ranking-rank">#${row.rank}</span><span class="ranking-name">${escapeHtml(row.grid_id)}</span><span class="ranking-points">${row.cost} pts</span></div><div class="ranking-row-detail">${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)} · ${new Date(row.played_at).toLocaleDateString('fr-FR')}</div><div class="controls" style="justify-content:flex-start;margin:8px 0 0 34px"><button class="grid-history-ranking ghost" data-grid-index="${i}">Voir le classement</button></div></div>`).join('');
+    $('#gridDataContent').innerHTML=rows.map((row,i)=>`<div class="ranking-row"><div class="ranking-row-top"><span class="ranking-rank">#${row.rank}</span><span class="ranking-name">${escapeHtml(row.grid_id)}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}<span class="ranking-points">${row.cost} pts</span></div><div class="ranking-row-detail">${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)} · ${new Date(row.played_at).toLocaleDateString('fr-FR')}</div><div class="controls" style="justify-content:flex-start;margin:8px 0 0 34px"><button class="grid-history-ranking ghost" data-grid-index="${i}">🏆 Classement de la grille</button></div></div>`).join('');
     $('#gridDataContent').querySelectorAll('.grid-history-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id));
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
@@ -468,11 +472,9 @@ function renderScoreAccountPrompt(resolve){
       <div class="score-identity-actions">
         <button class="primary" id="scoreLoginBtn">Se connecter</button>
         <button class="ghost" id="scoreCreateBtn">Créer un compte</button>
-        <button class="ghost full" id="scoreContinueGuestBtn">Continuer sans classement global</button>
       </div>`;
     $('#scoreLoginBtn').onclick=()=>renderScoreInlineLogin(resolve,false);
     $('#scoreCreateBtn').onclick=()=>renderScoreInlineLogin(resolve,true);
-    $('#scoreContinueGuestBtn').onclick=()=>closeScoreIdentity({saveGlobal:false,name:'Invité'});
     return;
   }
   const trusted=isTrustedDevice();
@@ -485,7 +487,6 @@ function renderScoreAccountPrompt(resolve){
     <div class="score-identity-actions">
       <button class="primary" id="scoreSaveConnectedBtn">Enregistrer</button>
       <button class="ghost" id="scoreSwitchAccountBtn">Changer de compte</button>
-      <button class="ghost full" id="scoreSkipGlobalBtn">Continuer sans classement global</button>
     </div>`;
   $('#scoreSaveConnectedBtn').onclick=async()=>{
     accountError('#scoreIdentityError','');
@@ -501,7 +502,6 @@ function renderScoreAccountPrompt(resolve){
     }catch(e){accountError('#scoreIdentityError',e.message);}
   };
   $('#scoreSwitchAccountBtn').onclick=()=>renderScoreInlineLogin(resolve,false,true);
-  $('#scoreSkipGlobalBtn').onclick=()=>closeScoreIdentity({saveGlobal:false,name:currentPlayerAccount.display_name});
 }
 function renderScoreInlineLogin(resolve,create=false,switching=false){
   const content=$('#scoreIdentityContent');
@@ -594,12 +594,15 @@ async function submitGlobalGridScore(entry, identity){
     const row=await supabaseRpc('orapa_submit_grid_score',{
       p_grid_id:entry.gridId,
       p_session_token:identity.sessionToken,
+      p_success:entry.success!==false,
       p_cost:Number(entry.cost)||0,
       p_ray_count:Number(entry.rayCount)||0,
       p_coord_count:Number(entry.coordCount)||0,
       p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))
     });
-    showToast(row?.rank ? `🌍 Score enregistré · rang #${row.rank}` : '🌍 Score enregistré');
+    if(row?.reason==='already_played') showToast('Cette grille a déjà été classée avec ce profil.');
+    else if(row?.reason==='creator_protected') showToast('⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.');
+    else showToast(row?.rank ? `🌍 Première tentative enregistrée · rang #${row.rank}` : '🌍 Première tentative enregistrée');
     return row;
   }catch(err){
     console.error('Envoi du score de grille impossible :',err);
@@ -985,7 +988,7 @@ function randomizePlacement(){
 // ---------------------------------------------------------------------
 // MODE SOLO — une grille secrète est générée, le joueur doit la retrouver.
 // ---------------------------------------------------------------------
-function startSoloGame(explicitId){
+async function startSoloGame(explicitId){
   let gridId, secret, ranked;
   if(explicitId){
     const decoded = decodeGridId(explicitId);
@@ -1012,13 +1015,19 @@ function startSoloGame(explicitId){
     gridId = encodeGridId(secret, state.includeGray, state.includeOnyx, state.includeSapphire);
     ranked = true;
   }
+  let gridStatus=null;
+  try{
+    gridStatus=await supabaseRpc('orapa_get_grid_status',{p_grid_id:gridId,p_session_token:currentPlayerAccount.session_token});
+  }catch(e){ console.warn('Statut de grille indisponible',e); }
+  const unrankedReason=gridStatus?.creator_protected?'creator_protected':(gridStatus?.already_played?'already_played':null);
   setHintMode(false);
   state.mode = 'solo';
   state.started = false;
   state.secretPieces = secret;
   state.pieces = freshPieceSet();
   state.gridId = gridId;
-  state.gridRanked = ranked;
+  state.gridRanked = ranked && !unrankedReason;
+  state.gridUnrankedReason = unrankedReason;
   state.soloAttempts = 0;
   state.soloOver = false;
   state.soloResult = null;
@@ -1043,6 +1052,8 @@ function startSoloGame(explicitId){
   state.coordDots = [];
   saveState();
   renderAll();
+  if(unrankedReason==='creator_protected') setTimeout(()=>alert('Vous avez créé cette grille récemment. Vous pouvez jouer normalement, mais votre score ne sera pas ajouté au classement pour le moment.'),60);
+  else if(unrankedReason==='already_played') setTimeout(()=>alert('Cette grille a déjà été jouée avec ce profil. Vous pouvez rejouer, mais le résultat ne sera pas classé.'),60);
 }
 
 function dailyStatusToday(){
@@ -1140,7 +1151,9 @@ function openVictoryModal(){
   $('#victoryScoreLine').textContent = formatScoreLine(entry);
   $('#victoryRankLine').textContent = lastScoreResult && lastScoreResult.madeList
     ? `Classé #${lastScoreResult.rank} dans « ${lastScoreResult.key} »`
-    : (state.isDaily ? '' : (state.gridRanked ? '' : 'Grille chargée par identifiant — non comptabilisée au classement'));
+    : (state.isDaily ? '' : (state.gridUnrankedReason==='creator_protected'
+      ? '⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.'
+      : (state.gridUnrankedReason==='already_played' ? 'Cette grille a déjà été classée avec ce profil.' : '')));
   $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${state.dailyDate})` : (state.gridId || '');
   $('#btnVictoryGridRanking').style.display=(!state.isDaily&&state.gridId)?'':'none';
   $('#victoryModal').classList.add('open');
@@ -1161,10 +1174,11 @@ async function proposeSolution(){
     }else if(state.gridRanked){
       const identity=await requestGridIdentity();
       if(!identity){ state.soloOver=false; state.soloResult=null; return; }
-      lastScoreResult=recordScore(identity.name||'Invité',elapsedMs);
+      lastScoreResult={key:'classement global de la grille',entry:{...currentEntryForDisplay(),name:identity.name||'Invité'},rank:null,madeList:false};
       if(identity.saveGlobal!==false){
         const globalResult=await submitGlobalGridScore(lastScoreResult.entry,identity);
-        if(globalResult?.rank){ lastScoreResult.rank=globalResult.rank; lastScoreResult.key='classement global de la grille'; lastScoreResult.madeList=true; }
+        if(globalResult?.rank){ lastScoreResult.rank=globalResult.rank; lastScoreResult.madeList=true; }
+        if(globalResult?.reason){ state.gridUnrankedReason=globalResult.reason; state.gridRanked=false; }
       }
     }else lastScoreResult=null;
     saveState();renderAll();setTimeout(()=>openVictoryModal(),60);return;
@@ -1179,8 +1193,21 @@ async function proposeSolution(){
       const daily=recordDailyScore(identity.name||'Invité',state.dailyDate,false,elapsedMs);
       if(identity.saveGlobal!==false) await submitGlobalDailyScore(daily.entry,identity);
       saveDailyAttempt({date:state.dailyDate,result:'lose'});
+    }else if(state.gridRanked){
+      const identity=await requestGridIdentity();
+      if(!identity){ state.soloOver=false;state.soloResult=null;state.soloAttempts--;return; }
+      if(identity.saveGlobal!==false){
+        const entry={...currentEntryForDisplay(),name:identity.name||'Invité',success:false};
+        const globalResult=await submitGlobalGridScore(entry,identity);
+        if(globalResult?.reason){ state.gridUnrankedReason=globalResult.reason; state.gridRanked=false; }
+      }
     }
-    saveState();renderAll();setTimeout(()=>alert(state.isDaily?'💥 Solution incorrecte — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).':"💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour)."),60);
+    saveState();renderAll();setTimeout(()=>{
+      let message=state.isDaily?'💥 Solution incorrecte — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).':"💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).";
+      if(state.gridUnrankedReason==='creator_protected') message+='\n\n⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.';
+      else if(state.gridUnrankedReason==='already_played') message+='\n\nCette grille avait déjà été classée avec ce profil.';
+      alert(message);
+    },60);
   }else{saveState();setTimeout(()=>alert("C'est faux ! Il te reste un essai avant l'échec."),60);}
 }
 // ---------------------------------------------------------------------
@@ -1862,6 +1889,7 @@ function renderControls(){
   $('#btnRandom').style.display = gmPreStart ? '' : 'none';
   $('#btnSolo').style.display = gmPreStart ? '' : 'none';
   $('#btnStart').style.display = state.mode==='gm' ? '' : 'none';
+  $('#btnShareGrid').style.display = gmPreStart ? '' : 'none';
   let startBlockReason = '';
   if(state.mode==='gm' && !state.started){
     const unplaced = state.pieces.some(p=>!p.center);
@@ -1870,6 +1898,7 @@ function renderControls(){
     else if(conflictCount>0) startBlockReason = `${conflictCount} gemme${conflictCount>1?'s':''} en conflit (en rouge) à corriger avant de démarrer.`;
   }
   $('#btnStart').disabled = state.started || !!startBlockReason;
+  $('#btnShareGrid').disabled = !gmPreStart || !!startBlockReason;
   $('#startBlockMsg').textContent = startBlockReason;
   $('#startBlockMsg').style.display = startBlockReason ? 'block' : 'none';
   $('#btnPropose').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
@@ -1881,11 +1910,11 @@ function renderControls(){
   $('#btnToggleSecret').style.display = soloReveal ? '' : 'none';
   $('#btnToggleGuess').textContent = (state.soloShowGuess?'👁 ':'🚫 ') + 'Mes gemmes';
   $('#btnToggleSecret').textContent = (state.soloShowSecret?'👁 ':'🚫 ') + 'Gemmes à trouver';
-  const showGridId = (soloReveal && state.gridId) || (state.mode==='gm' && state.started && state.gridId);
+  const showGridId = soloReveal && state.gridId;
   $('#gridIdRow').style.display = showGridId ? 'flex' : 'none';
   if(showGridId){
     $('#gridIdText').textContent = state.gridId;
-    $('#btnCopyGridId').textContent = state.mode==='gm' ? '📋 Copier le défi' : '📋 Copier';
+    $('#btnCopyGridId').textContent = '📋 Copier';
   }
   $('#btnReplayVictory').style.display = (state.mode==='solo' && state.soloOver && state.soloResult==='win') ? '' : 'none';
   $('#btnReset').style.display = state.isDaily ? 'none' : '';
@@ -2174,11 +2203,17 @@ function showGame(){
   window.scrollTo({top:0,behavior:'smooth'});
   setTimeout(()=>{ computeCellSize(); renderAll(); },0);
 }
-$('#homeSolo').addEventListener('click', ()=>{
+async function enterSolo(){
+  if(!currentPlayerAccount){
+    alert('Connectez-vous pour jouer en solo et participer aux classements. Aucune adresse mail n’est nécessaire.');
+    await openAccountModal();
+    return;
+  }
   showGame();
   if(state.mode==='solo' && !state.soloOver) return;
   openSoloChoiceModal();
-});
+}
+$('#homeSolo').addEventListener('click', enterSolo);
 $('#homeCreate').addEventListener('click', ()=>{
   if(state.mode==='solo'){
     const msg=state.soloOver
@@ -2191,7 +2226,7 @@ $('#homeCreate').addEventListener('click', ()=>{
 });
 $('#btnHome').addEventListener('click', showHome);
 $('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; randomizePlacement(); });
-$('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; openSoloChoiceModal(); });
+$('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; enterSolo(); });
 $('#btnStart').addEventListener('click', ()=>{
   if(state.mode!=='gm' || state.started) return;
   if(state.pieces.some(p=>!p.center)){
@@ -2206,6 +2241,23 @@ $('#btnStart').addEventListener('click', ()=>{
   state.gridId = encodeGridId(state.pieces, state.includeGray, state.includeOnyx, state.includeSapphire);
   saveState();
   renderAll();
+});
+$('#btnShareGrid').addEventListener('click',async()=>{
+  if(state.mode!=='gm'||state.started||$('#btnShareGrid').disabled) return;
+  if(!currentPlayerAccount){
+    alert('Connectez-vous pour enregistrer cette grille comme la vôtre et la partager. Aucune adresse mail n’est nécessaire.');
+    await openAccountModal();
+    return;
+  }
+  const gridId=encodeGridId(state.pieces,state.includeGray,state.includeOnyx,state.includeSapphire);
+  if(!gridId) return;
+  const gems=gemFlagsEmojiLine(state.includeGray,state.includeOnyx,state.includeSapphire);
+  const text=`Je te défie à Orapa Mine !\n${gems}\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`;
+  try{
+    await shareGridGlobally(gridId);
+    await navigator.clipboard?.writeText(text);
+    showToast('Grille partagée et défi copié !');
+  }catch(err){ showToast(`⚠️ Partage impossible : ${err.message}`); }
 });
 $('#btnHint').addEventListener('click', ()=> setHintMode(!hintModeActive));
 $('#btnPropose').addEventListener('click', ()=> proposeSolution());
@@ -2376,10 +2428,7 @@ function buildRankingConfigOptions(){
       select.innerHTML = options;
     }
   } else {
-    select.innerHTML = RANKING_COMBOS.map(([g,o,s])=>{
-      const key = configKey(g,o,s);
-      return `<option value="${key}">${key}</option>`;
-    }).join('');
+    select.innerHTML = '<option value="GLOBAL_SOLO">Derniers résultats solo</option>';
   }
 }
 function setRankingView(view){
@@ -2393,7 +2442,7 @@ function setRankingView(view){
   $('#btnRefreshGlobal').style.display = view==='global' ? '' : 'none';
   $('#btnStatsGlobal').style.display = view==='global' ? '' : 'none';
   buildRankingConfigOptions();
-  if(view==='solo') $('#rankingConfigSelect').value = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
+  if(view==='solo') $('#rankingConfigSelect').value = 'GLOBAL_SOLO';
   renderRankingList();
 }
 let expandedScores = new Set();
@@ -2566,8 +2615,26 @@ async function openGlobalStats(){
   await renderGlobalStatsView();
 }
 
+async function renderGlobalSoloScores(){
+  const el=$('#rankingList');
+  $('#btnResetRanking').style.display='none';
+  if(!currentPlayerAccount){ el.innerHTML='<div class="history-empty">Connectez-vous pour consulter les résultats solo.</div>'; return; }
+  el.innerHTML='<div class="history-empty">Chargement des résultats solo…</div>';
+  try{
+    const rows=await supabaseRpc('orapa_get_recent_grid_scores',{p_session_token:currentPlayerAccount.session_token});
+    if(!rows?.length){ el.innerHTML='<div class="history-empty">Aucun résultat solo enregistré.</div>'; return; }
+    el.innerHTML=rows.map((row,i)=>`<div class="ranking-row"><div class="ranking-row-top"><span class="ranking-rank">${row.success?'✓':'×'}</span><span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}${row.is_mine?' <span class="ranking-you">Vous</span>':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}<span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${new Date(row.created_at).toLocaleDateString('fr-FR')}</span></div><div class="ranking-row-detail">Grille <b>${escapeHtml(row.grid_id)}</b> · ${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)}</div><div class="controls" style="justify-content:flex-start;gap:8px;margin:8px 0 2px 34px;">${row.is_mine?`<button class="solo-copy-summary ghost" data-solo-index="${i}">📋 Copier le résumé</button>`:''}<button class="solo-grid-ranking primary" data-solo-index="${i}">🏆 Classement de la grille</button></div></div>`).join('')+(rows.some(row=>row.played_by_creator)?'<p class="stats-note">* Créateur de la grille, résultat enregistré après la période de protection.</p>':'');
+    el.querySelectorAll('.solo-grid-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.soloIndex)].grid_id));
+    el.querySelectorAll('.solo-copy-summary').forEach(btn=>btn.onclick=()=>{const row=rows[Number(btn.dataset.soloIndex)];navigator.clipboard?.writeText(formatShareText({name:row.player_name,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,gridId:row.grid_id,date:new Date(row.created_at).getTime(),success:row.success})).then(()=>showToast('Résumé copié !'));});
+  }catch(e){ el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
+}
+
 function renderRankingList(){
   const key = $('#rankingConfigSelect').value || '';
+  if(key==='GLOBAL_SOLO'){
+    renderGlobalSoloScores();
+    return;
+  }
   if(key.startsWith('GLOBAL:')){
     $('#btnResetRanking').style.display='none';
     renderGlobalRanking(key.slice(7));
