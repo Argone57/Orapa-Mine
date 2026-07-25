@@ -1,5 +1,13 @@
 # Orapa Mine — Console du maître du jeu
 
+## Mise à jour Supabase V2
+
+Avant de publier cette version du site, exécute le fichier
+`Supabase/01_grilles_classements_et_statistiques.sql` dans **Supabase → SQL Editor**.
+Il ajoute les grilles partagées, leur classement global, la protection du créateur
+pendant 7 jours, un seul meilleur score par compte et les statistiques associées.
+Le script est réexécutable et ne supprime aucune donnée existante.
+
 Application web (fichiers statiques, aucune dépendance à installer) pour animer une partie d'Orapa Mine en tant que maître du jeu, utilisable sur iPhone.
 
 ## Mettre en ligne sur GitHub Pages
@@ -118,15 +126,15 @@ Depuis le choix « 🧩 Jouer en solo », un 3ᵉ bouton **📅 Défi du jour** 
 - Le classement du jour reste consultable (verrouillé) jusqu'au lendemain 23h59, puis remplacé par celui du jour suivant — accessible depuis le classement (🏆), avec une entrée « Défi du jour » et, tant qu'il existe, « Défi d'hier ».
 - Le bouton de partage indique **« Défi du jour (AAAA-MM-JJ) »** à la place d'un identifiant de grille.
 
-**⚠️ Limite technique importante :** cette application est un site statique (aucun serveur, aucune base de données). Le classement du défi du jour — comme tous les autres classements — est stocké dans le `localStorage` du navigateur, donc **propre à chaque appareil/navigateur**, pas réellement partagé entre tous les joueurs, même si la grille elle-même est bien identique pour tout le monde. Pour un classement *vraiment* global et synchronisé entre tous les joueurs, il faudrait connecter un service externe (ex. Firebase Realtime Database, gratuit) qui stocke les scores quelque part en ligne — possible en complément, mais ça demande de créer un compte sur ce service et de me fournir les identifiants de connexion à intégrer dans le code.
+Le Défi du jour conserve un historique local sur l’appareil et envoie également les scores enregistrés au classement global Supabase.
 
 ## Rejouer une grille précise
 
-Le bouton **🧩 Jouer en solo** propose un choix : **🎲 Aléatoire** (comme avant) ou **🔑 Par identifiant** — ressaisir un identifiant régénère exactement la même grille secrète, pratique pour défier quelqu'un d'autre sur la même disposition, ou reprendre un identifiant noté depuis le classement. Une partie lancée ainsi **ne compte pas pour le classement** (avertissement affiché avant de lancer). Annuler la saisie de l'identifiant (ou entrer un identifiant invalide) ne ferme pas l'écran de choix, tu peux réessayer ou choisir Aléatoire à la place.
+Le bouton **🧩 Jouer en solo** propose notamment **🎲 Grille aléatoire** et **🔑 Par identifiant**. Ressaisir un identifiant régénère exactement la même grille secrète. Une victoire peut être enregistrée dans le classement global propre à cette grille. Un seul meilleur résultat est conservé par compte et par grille.
 
 ## Grille du maître du jeu
 
-Une fois « Démarrer la partie » cliqué (impossible tant que toutes les gemmes ne sont pas placées), un code apparaît en haut, comme en solo. Le bouton **📋 Copier le défi** copie un message prêt à partager : « Je te défie à Orapa Mine ! » + les extensions actives (💎 ✅/❌, ⬛️ ✅/❌, 🟦 ✅/❌) + l'identifiant — les joueurs peuvent ensuite le charger en solo via **🔑 Par identifiant** pour tenter de retrouver exactement la même disposition.
+Une fois « Démarrer la partie » cliqué, un code apparaît en haut. Le bouton **📤 Partager la grille** enregistre la grille dans Supabase lors de sa première apparition puis copie le défi, ses extensions, son identifiant et le lien du site.
 
 ## Partager un score
 

@@ -7,7 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Orapa Mine">
 <meta name="theme-color" content="#120e0a">
-<title>Orapa Mine — Maître du jeu</title>
+<meta name="description" content="Jouez à Orapa Mine en solo, relevez le défi du jour ou créez une grille pour vos parties autour de la table.">
+<title>Orapa Mine — Défis et création de grilles</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
@@ -208,24 +209,52 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .score-account-summary{display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;padding:16px 12px;margin:10px 0 14px;border:1px solid var(--vein);border-radius:10px;background:var(--panel)}
 .score-account-summary strong{font-size:1.08rem;color:var(--gold-bright)}.score-account-summary span{font-size:.78rem;color:var(--text-dim)}.score-account-summary.guest strong{color:var(--text)}
 .score-identity-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.score-identity-actions .full{grid-column:1/-1}
+.home-screen{min-height:calc(100vh - 42px);display:none;align-items:center;justify-content:center;padding:36px 8px}
+.home-card{width:min(100%,560px);padding:34px 22px 26px;border:1px solid var(--vein);border-radius:22px;background:linear-gradient(155deg,rgba(56,44,31,.96),rgba(24,18,12,.98));box-shadow:0 22px 70px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.04);text-align:center;position:relative;overflow:hidden}
+.home-card::before{content:'';position:absolute;inset:-80px auto auto -70px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(230,194,122,.15),transparent 70%);pointer-events:none}
+.home-mark{width:74px;height:74px;margin:0 auto 18px;display:grid;place-items:center;border:1px solid var(--gold);border-radius:22px;transform:rotate(45deg);background:rgba(201,161,90,.08);box-shadow:0 0 34px rgba(201,161,90,.14)}
+.home-mark span{font-size:2rem;transform:rotate(-45deg)}
+.home-card h1{font-size:clamp(1.8rem,7vw,2.65rem);color:var(--gold-bright);text-shadow:0 0 24px rgba(230,194,122,.2)}
+.home-kicker{margin:8px 0 26px;color:var(--text-dim);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase}
+.home-actions{display:grid;gap:12px}
+.home-action{min-height:76px;display:grid;grid-template-columns:46px 1fr 24px;align-items:center;text-align:left;padding:13px 15px;border-radius:13px;background:rgba(18,14,10,.58)}
+.home-action.primary{background:linear-gradient(135deg,#4a3519,#2a1f10)}
+.home-action .icon{font-size:1.55rem;text-align:center}.home-action strong{display:block;font-family:'Cinzel',serif;font-size:1rem;color:var(--gold-bright)}.home-action small{display:block;margin-top:4px;color:var(--text-dim);font-weight:500}.home-action .arrow{font-size:1.25rem;color:var(--gold)}
+.home-note{margin:20px 0 0;color:var(--text-faint);font-size:.72rem;line-height:1.5}
+body.home-view .home-screen{display:flex}
+body.home-view .app>header,body.home-view .app>#setupOptions,body.home-view .app>#setupHint,body.home-view .app>#paletteTitle,body.home-view .app>#palette,body.home-view .app>.section-title,body.home-view .app>.board-scroll,body.home-view .app>.toolbar-row,body.home-view .app>#history{display:none!important}
+body.home-view #helpFab{display:none}
 @media(max-width:520px){.account-fab{right:8px;top:8px;padding:7px 10px}.account-actions,.account-main-actions,.score-identity-actions{grid-template-columns:1fr}.score-identity-actions .full{grid-column:auto}.account-stats-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 <button class="account-fab" id="accountFab">👤 Compte</button>
 <div class="app">
+  <section class="home-screen" id="homeScreen" aria-labelledby="homeTitle">
+    <div class="home-card">
+      <div class="home-mark" aria-hidden="true"><span>💎</span></div>
+      <h1 id="homeTitle">Orapa Mine</h1>
+      <p class="home-kicker">Explorez la mine · Déduisez la grille</p>
+      <div class="home-actions">
+        <button id="homeSolo" class="home-action primary"><span class="icon">🧩</span><span><strong>Jouer en solo</strong><small>Défi du jour, grille aléatoire ou identifiant</small></span><span class="arrow">›</span></button>
+        <button id="homeCreate" class="home-action"><span class="icon">🎯</span><span><strong>Créer une grille</strong><small>Préparez une partie autour de la table</small></span><span class="arrow">›</span></button>
+      </div>
+      <p class="home-note">Vos parties et votre progression restent enregistrées sur cet appareil.</p>
+    </div>
+  </section>
   <header>
     <h1>💎 Orapa Mine</h1>
     <div class="subtitle">Console du maître du jeu</div>
     <div id="modePill" class="mode-pill"><span class="dot"></span><span>Placement des gemmes</span></div>
     <div id="gridIdRow" style="display:none;align-items:center;gap:8px;font-size:.75rem;color:var(--text-dim);">
       <span>Grille : <b id="gridIdText" style="color:var(--gold-bright);font-family:'Cinzel',serif;"></b></span>
-      <button id="btnCopyGridId" class="ghost" style="padding:4px 10px;font-size:.7rem;">📋 Copier</button>
+      <button id="btnCopyGridId" class="ghost" style="padding:4px 10px;font-size:.7rem;">📤 Partager la grille</button>
     </div>
     <div class="controls">
       <button id="btnSolo" class="ghost">🧩 Jouer en solo</button>
-      <button id="btnRandom" class="ghost">🎲 Aléatoire</button>
+      <button id="btnRandom" class="ghost">🎲 Placer aléatoirement</button>
       <button id="btnStart" class="primary">Démarrer la partie</button>
+      <button id="btnHome" class="ghost">← Retour à l'accueil</button>
     </div>
     <div id="startBlockMsg" style="display:none;color:#f5b8ae;font-size:.78rem;margin-top:8px;text-align:center;"></div>
     <div class="controls">
@@ -235,7 +264,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
       <button id="btnToggleSecret" class="ghost" style="display:none;">👁 Gemmes à trouver</button>
       <button id="btnReplayVictory" class="ghost" style="display:none;">🏆 Revoir la victoire</button>
       <button id="btnReset" class="danger">Recommencer</button>
-      <button id="btnBackToGM" class="ghost" style="display:none;">↩ Retour maître du jeu</button>
+      <button id="btnBackToGM" class="ghost" style="display:none;">← Retour à l'accueil</button>
     </div>
   </header>
 
@@ -332,6 +361,15 @@ button:disabled{opacity:.35;cursor:not-allowed;}
   </div>
 </div>
 
+<div class="modal-backdrop" id="gridDataModal">
+  <div class="modal">
+    <button class="close-x" id="closeGridData">×</button>
+    <h2 id="gridDataTitle">Classement de la grille</h2>
+    <div id="gridDataIntro"></div>
+    <div id="gridDataContent" class="history-panel" style="max-height:420px;"></div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="scoreIdentityModal">
   <div class="modal">
     <button class="close-x" id="cancelScoreIdentity">×</button>
@@ -411,6 +449,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
       Grille : <b id="victoryGridId"></b>
     </div>
     <div class="controls" style="justify-content:flex-end;margin-top:16px;">
+      <button id="btnVictoryGridRanking" class="primary">🏆 Classement de la grille</button>
       <button id="btnVictoryCopyId" class="ghost">📋 Copier ID</button>
       <button id="btnVictoryCopySummary" class="ghost">📋 Copier le résumé</button>
     </div>

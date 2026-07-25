@@ -329,24 +329,39 @@ async function renderAccountHome(){
     <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Ne pas redemander le code sur cet appareil</b><br><small>Si cette option reste décochée, le code sera demandé avant chaque score global.</small></span></label>
     <div class="account-actions">
       <button class="ghost" id="accountOpenRankingsBtn">🏆 Classements</button>
+      <button class="ghost" id="accountGridHistoryBtn">🕘 Historique des grilles</button>
+      <button class="ghost" id="accountSharedGridsBtn">📤 Mes grilles partagées</button>
       <button class="ghost" id="accountRenameBtn">✏️ Renommer</button>
       <button class="ghost" id="accountPinBtn">🔢 Modifier le code</button>
       <button class="danger" id="accountLogoutBtn">🚪 Se déconnecter</button>
     </div>`;
   $('#accountTrustDevice').onchange=e=>setTrustedDevice(e.target.checked);
   $('#accountOpenRankingsBtn').onclick=()=>{$('#accountModal').classList.remove('open');$('#rankingsModal').classList.add('open');};
+  $('#accountGridHistoryBtn').onclick=()=>openMyGridHistory();
+  $('#accountSharedGridsBtn').onclick=()=>openMySharedGrids();
   $('#accountRenameBtn').onclick=showRenameAccount;
   $('#accountPinBtn').onclick=showChangePin;
   $('#accountLogoutBtn').onclick=()=>{savePlayerAccount(null);setTrustedDevice(false);showAccountLogin();showToast('Déconnecté');};
   try{
-    const st=await loadMyAccountStats();
+    const [st,gridStats]=await Promise.all([
+      loadMyAccountStats(),
+      supabaseRpc('orapa_my_grid_stats',{p_session_token:currentPlayerAccount.session_token}).catch(()=>null)
+    ]);
     const rate=st.participations?Math.round(st.wins/st.participations*100):0;
     $('#accountStats').innerHTML=`<div class="account-stats-grid">
       <div class="account-stat"><b>${st.participations||0}</b>défis</div>
       <div class="account-stat"><b>${st.wins||0}</b>réussites</div>
       <div class="account-stat"><b>${rate}%</b>réussite</div>
       <div class="account-stat"><b>${st.best_score==null?'—':st.best_score+' pts'}</b>meilleur score</div>
-    </div>${st.best_time_ms==null?'':`<p>Meilleur temps : <b>${formatDuration(st.best_time_ms)}</b></p>`}`;
+    </div>${st.best_time_ms==null?'':`<p>Meilleur temps : <b>${formatDuration(st.best_time_ms)}</b></p>`}
+    ${gridStats?`<h3 class="account-section-title">🧩 Grilles partagées</h3><div class="account-stats-grid">
+      <div class="account-stat"><b>${gridStats.played||0}</b>jouées</div>
+      <div class="account-stat"><b>${gridStats.created||0}</b>créées</div>
+      <div class="account-stat"><b>${gridStats.best_score==null?'—':gridStats.best_score+' pts'}</b>meilleur score</div>
+      <div class="account-stat"><b>${gridStats.average_score==null?'—':gridStats.average_score+' pts'}</b>score moyen</div>
+      <div class="account-stat"><b>${gridStats.average_rank==null?'—':'#'+gridStats.average_rank}</b>rang moyen</div>
+      <div class="account-stat"><b>${gridStats.first_places||0}</b>premières places</div>
+    </div>`:''}`;
   }catch(e){ $('#accountStats').innerHTML=`<div class="account-error" style="display:block;">${escapeHtml(e.message)}</div>`; }
 }
 function showRenameAccount(){
@@ -377,6 +392,58 @@ function showChangePin(){
 async function openAccountModal(){
   $('#accountModal').classList.add('open');
   await renderAccountHome();
+}
+
+function openGridDataShell(title,intro=''){
+  $('#accountModal').classList.remove('open');
+  $('#victoryModal').classList.remove('open');
+  $('#gridDataTitle').textContent=title;
+  $('#gridDataIntro').innerHTML=intro;
+  $('#gridDataContent').innerHTML='<div class="history-empty">Chargement…</div>';
+  $('#gridDataModal').classList.add('open');
+}
+function gridRankingRows(rows){
+  if(!rows?.length) return '<div class="history-empty">Aucun score classé pour cette grille.</div>';
+  return rows.map(row=>`<div class="ranking-row"><div class="ranking-row-top">
+    <span class="ranking-rank${Number(row.rank)===1?' top1':''}">${rankingMedal(Number(row.rank)-1)}</span>
+    <span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}</span>
+    <span class="ranking-points">${row.cost} pts</span>
+    <span class="ranking-time">${formatDuration(row.time_ms)}</span>
+  </div><div class="ranking-row-detail">${row.ray_count||0} rayon${row.ray_count===1?'':'s'} 🔦 + ${row.coord_count||0} coordonnée${row.coord_count===1?'':'s'} 📍</div></div>`).join('');
+}
+async function openGridRanking(gridId){
+  if(!gridId) return;
+  openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b> · le coût le plus faible gagne.</p>`);
+  try{
+    const rows=await supabaseRpc('orapa_get_grid_scores',{p_grid_id:gridId});
+    $('#gridDataContent').innerHTML=gridRankingRows(rows);
+  }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
+}
+async function openMyGridHistory(){
+  if(!currentPlayerAccount) return;
+  openGridDataShell('🕘 Historique des grilles','<p>Les 50 dernières grilles classées jouées avec ce compte.</p>');
+  try{
+    const rows=await supabaseRpc('orapa_my_grid_history',{p_session_token:currentPlayerAccount.session_token});
+    if(!rows?.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille classée jouée.</div>'; return; }
+    $('#gridDataContent').innerHTML=rows.map((row,i)=>`<div class="ranking-row"><div class="ranking-row-top"><span class="ranking-rank">#${row.rank}</span><span class="ranking-name">${escapeHtml(row.grid_id)}</span><span class="ranking-points">${row.cost} pts</span></div><div class="ranking-row-detail">${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)} · ${new Date(row.played_at).toLocaleDateString('fr-FR')}</div><div class="controls" style="justify-content:flex-start;margin:8px 0 0 34px"><button class="grid-history-ranking ghost" data-grid-index="${i}">Voir le classement</button></div></div>`).join('');
+    $('#gridDataContent').querySelectorAll('.grid-history-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id));
+  }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
+}
+async function openMySharedGrids(){
+  if(!currentPlayerAccount) return;
+  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est enregistré comme créateur.</p>');
+  try{
+    const rows=await supabaseRpc('orapa_my_shared_grids',{p_session_token:currentPlayerAccount.session_token});
+    if(!rows?.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille partagée avec ce compte.</div>'; return; }
+    const now=Date.now();
+    $('#gridDataContent').innerHTML=rows.map((row,i)=>{
+      const protectedUntil=row.creator_protected_until?new Date(row.creator_protected_until):null;
+      const protection=protectedUntil&&protectedUntil.getTime()>now?`Protection jusqu’au ${protectedUntil.toLocaleDateString('fr-FR')}`:'Protection terminée';
+      return `<div class="ranking-row"><div class="ranking-row-top"><span class="ranking-name">${escapeHtml(row.grid_id)}</span><span class="ranking-points">${row.score_count||0} score${Number(row.score_count)===1?'':'s'}</span></div><div class="ranking-row-detail">${protection}${row.best_score==null?'':` · meilleur : ${row.best_score} pts`}</div><div class="controls" style="justify-content:flex-start;margin:8px 0 0 34px"><button class="shared-copy ghost" data-grid-index="${i}">Copier l’ID</button><button class="shared-ranking ghost" data-grid-index="${i}">Voir le classement</button></div></div>`;
+    }).join('');
+    $('#gridDataContent').querySelectorAll('.shared-copy').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
+    $('#gridDataContent').querySelectorAll('.shared-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id));
+  }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
 
 function closeScoreIdentity(result=null){
@@ -457,13 +524,17 @@ function renderScoreInlineLogin(resolve,create=false,switching=false){
     }catch(e){accountError('#scoreIdentityError',e.message);}
   };
 }
-async function requestDailyIdentity(){
+async function requestScoreIdentity(title='Enregistrer le score'){
   return new Promise(resolve=>{
     scoreIdentityResolver=resolve;
+    const heading=$('#scoreIdentityModal h2');
+    if(heading) heading.textContent=`🏆 ${title}`;
     $('#scoreIdentityModal').classList.add('open');
     renderScoreAccountPrompt(resolve);
   });
 }
+async function requestDailyIdentity(){ return requestScoreIdentity('Enregistrer le défi du jour'); }
+async function requestGridIdentity(){ return requestScoreIdentity('Enregistrer ce score'); }
 let globalRankingLoading = false;
 let globalRankingCache = {};
 
@@ -500,6 +571,32 @@ async function submitGlobalDailyScore(entry, identity){
     return row;
   }catch(err){
     console.error('Envoi du score global impossible :',err);
+    showToast(`⚠️ Envoi global impossible : ${err.message}`);
+    return null;
+  }
+}
+async function shareGridGlobally(gridId){
+  if(!gridId) return null;
+  return supabaseRpc('orapa_share_grid',{
+    p_grid_id:gridId,
+    p_session_token:currentPlayerAccount?.session_token||''
+  });
+}
+async function submitGlobalGridScore(entry, identity){
+  if(!entry?.gridId || !identity?.sessionToken) return null;
+  try{
+    const row=await supabaseRpc('orapa_submit_grid_score',{
+      p_grid_id:entry.gridId,
+      p_session_token:identity.sessionToken,
+      p_cost:Number(entry.cost)||0,
+      p_ray_count:Number(entry.rayCount)||0,
+      p_coord_count:Number(entry.coordCount)||0,
+      p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))
+    });
+    showToast(row?.rank ? `🌍 Score enregistré · rang #${row.rank}` : '🌍 Score enregistré');
+    return row;
+  }catch(err){
+    console.error('Envoi du score de grille impossible :',err);
     showToast(`⚠️ Envoi global impossible : ${err.message}`);
     return null;
   }
@@ -899,7 +996,7 @@ function startSoloGame(explicitId){
       return;
     }
     gridId = decoded.id;
-    ranked = false;
+    ranked = true;
   } else {
     secret = generateRandomLayout();
     if(!secret){
@@ -1039,6 +1136,7 @@ function openVictoryModal(){
     ? `Classé #${lastScoreResult.rank} dans « ${lastScoreResult.key} »`
     : (state.isDaily ? '' : (state.gridRanked ? '' : 'Grille chargée par identifiant — non comptabilisée au classement'));
   $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${state.dailyDate})` : (state.gridId || '');
+  $('#btnVictoryGridRanking').style.display=(!state.isDaily&&state.gridId)?'':'none';
   $('#victoryModal').classList.add('open');
 }
 async function proposeSolution(){
@@ -1055,8 +1153,13 @@ async function proposeSolution(){
       lastScoreResult={key:'Défi du jour',entry:{...daily.entry,gridId:null,isDaily:true,dailyDate:state.dailyDate},rank:daily.rank,madeList:true};
       saveDailyAttempt({date:state.dailyDate,result:'win'});
     }else if(state.gridRanked){
-      const name=(prompt('🏆 Bravo, tu as retrouvé la disposition exacte !\nEntre ton nom pour le classement :',currentPlayerAccount?.display_name||'')||'').trim();
-      lastScoreResult=recordScore(name,elapsedMs);
+      const identity=await requestGridIdentity();
+      if(!identity){ state.soloOver=false; state.soloResult=null; return; }
+      lastScoreResult=recordScore(identity.name||'Invité',elapsedMs);
+      if(identity.saveGlobal!==false){
+        const globalResult=await submitGlobalGridScore(lastScoreResult.entry,identity);
+        if(globalResult?.rank){ lastScoreResult.rank=globalResult.rank; lastScoreResult.key='classement global de la grille'; lastScoreResult.madeList=true; }
+      }
     }else lastScoreResult=null;
     saveState();renderAll();setTimeout(()=>openVictoryModal(),60);return;
   }
@@ -2056,6 +2159,31 @@ function onCellClick(r,c,cellEl){
 // ---------------------------------------------------------------------
 // TOP LEVEL EVENTS
 // ---------------------------------------------------------------------
+function showHome(){
+  document.body.classList.add('home-view');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function showGame(){
+  document.body.classList.remove('home-view');
+  window.scrollTo({top:0,behavior:'smooth'});
+  setTimeout(()=>{ computeCellSize(); renderAll(); },0);
+}
+$('#homeSolo').addEventListener('click', ()=>{
+  showGame();
+  if(state.mode==='solo' && !state.soloOver) return;
+  openSoloChoiceModal();
+});
+$('#homeCreate').addEventListener('click', ()=>{
+  if(state.mode==='solo'){
+    const msg=state.soloOver
+      ? "Quitter cette partie et ouvrir la création de grille ?"
+      : "Quitter la partie solo en cours ? Elle sera effacée.";
+    if(!confirm(msg)) return;
+    resetAll();
+  }
+  showGame();
+});
+$('#btnHome').addEventListener('click', showHome);
 $('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; randomizePlacement(); });
 $('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; openSoloChoiceModal(); });
 $('#btnStart').addEventListener('click', ()=>{
@@ -2078,22 +2206,26 @@ $('#btnPropose').addEventListener('click', ()=> proposeSolution());
 $('#btnToggleGuess').addEventListener('click', ()=>{ state.soloShowGuess = !state.soloShowGuess; saveState(); renderControls(); renderPieces(); });
 $('#btnToggleSecret').addEventListener('click', ()=>{ state.soloShowSecret = !state.soloShowSecret; saveState(); renderControls(); renderPieces(); });
 $('#btnReplayVictory').addEventListener('click', ()=> openVictoryModal());
-$('#btnCopyGridId').addEventListener('click', ()=>{
+$('#btnCopyGridId').addEventListener('click', async()=>{
   if(!state.gridId || !navigator.clipboard) return;
   if(state.mode==='gm'){
     const gems = gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
-    const text = `Je te défie à Orapa Mine !\n${gems}\nID: ${state.gridId}`;
-    navigator.clipboard.writeText(text).then(()=> showToast('Défi copié !'));
+    const text = `Je te défie à Orapa Mine !\n${gems}\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`;
+    try{
+      await shareGridGlobally(state.gridId);
+      await navigator.clipboard.writeText(text);
+      showToast('Grille partagée et défi copié !');
+    }catch(err){
+      console.error('Partage Supabase impossible :',err);
+      await navigator.clipboard.writeText(text);
+      showToast('Défi copié · enregistrement en ligne impossible');
+    }
   } else {
     navigator.clipboard.writeText(state.gridId).then(()=> showToast('Identifiant copié : '+state.gridId));
   }
 });
 $('#btnBackToGM').addEventListener('click', ()=>{
-  const message = state.soloOver
-    ? 'Voulez-vous quitter le mode solo et revenir à la console maître du jeu ?'
-    : 'Quitter le mode solo et revenir à la console maître du jeu ? La partie solo en cours sera perdue.';
-  if(!confirm(message)) return;
-  resetAll();
+  showHome();
 });
 $('#btnReset').addEventListener('click', ()=>{
   if(state.mode==='solo'){
@@ -2151,7 +2283,7 @@ function promptLoadGridById(){
     alert("Identifiant invalide. Vérifie que tu l'as copié en entier.");
     return; // reste aussi sur l'écran de choix
   }
-  if(!confirm('⚠️ Une partie lancée à partir d\'un identifiant ne sera pas ajoutée au classement. Continuer ?')) return;
+  if(!confirm('Lancer cette grille ? Ton meilleur score pourra être ajouté à son classement global.')) return;
   closeSoloChoiceModal();
   startSoloGame(id);
 }
@@ -2202,6 +2334,9 @@ $('#btnVictoryCopySummary').addEventListener('click', ()=>{
   const text = formatShareText(currentEntryForDisplay());
   if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=> showToast('Résumé copié !'));
 });
+$('#btnVictoryGridRanking').addEventListener('click',()=>openGridRanking(state.gridId));
+$('#closeGridData').addEventListener('click',()=>$('#gridDataModal').classList.remove('open'));
+$('#gridDataModal').addEventListener('click',e=>{if(e.target.id==='gridDataModal')$('#gridDataModal').classList.remove('open');});
 $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('#helpModal').classList.remove('open'); });
 
 let rankingView = 'solo';
@@ -2506,5 +2641,7 @@ function init(){
   $('#optSapphire').checked = state.includeSapphire;
   computeCellSize();
   renderAll();
+  const hasActiveGame = state.mode==='solo' || state.started || state.history.length>0;
+  if(!hasActiveGame) showHome();
 }
 init();
