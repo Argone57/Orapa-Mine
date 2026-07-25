@@ -335,7 +335,6 @@ async function renderAccountHome(){
     <div id="accountStats"><div class="history-empty">Chargement des statistiques…</div></div>
     <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Ne pas redemander le code sur cet appareil</b><br><small>Si cette option reste décochée, le code sera demandé avant chaque score global.</small></span></label>
     <div class="account-actions">
-      <button class="ghost" id="accountOpenRankingsBtn">🏆 Classements</button>
       <button class="ghost" id="accountGridHistoryBtn">🕘 Historique des grilles</button>
       <button class="ghost" id="accountSharedGridsBtn">📤 Mes grilles partagées</button>
       <button class="ghost" id="accountRenameBtn">✏️ Renommer</button>
@@ -343,7 +342,6 @@ async function renderAccountHome(){
       <button class="danger" id="accountLogoutBtn">🚪 Se déconnecter</button>
     </div>`;
   $('#accountTrustDevice').onchange=e=>setTrustedDevice(e.target.checked);
-  $('#accountOpenRankingsBtn').onclick=()=>{$('#accountModal').classList.remove('open');setRankingView('solo');$('#rankingsModal').classList.add('open');};
   $('#accountGridHistoryBtn').onclick=()=>openMyGridHistory();
   $('#accountSharedGridsBtn').onclick=()=>openMySharedGrids();
   $('#accountRenameBtn').onclick=showRenameAccount;
@@ -402,12 +400,15 @@ async function openAccountModal(){
   await renderAccountHome();
 }
 
-function openGridDataShell(title,intro=''){
+let gridDataReturnsToAccount=false;
+function openGridDataShell(title,intro='',returnToAccount=false){
+  gridDataReturnsToAccount=returnToAccount;
   $('#accountModal').classList.remove('open');
   $('#victoryModal').classList.remove('open');
   $('#gridDataTitle').textContent=title;
   $('#gridDataIntro').innerHTML=intro;
   $('#gridDataContent').innerHTML='<div class="history-empty">Chargement…</div>';
+  $('#gridDataBack').style.display=returnToAccount?'':'none';
   $('#gridDataModal').classList.add('open');
 }
 function gridRankingRows(rows){
@@ -419,9 +420,9 @@ function gridRankingRows(rows){
     <span class="ranking-time">${formatDuration(row.time_ms)}</span>
   </div><div class="ranking-row-detail">${row.ray_count||0} rayon${row.ray_count===1?'':'s'} 🔦 + ${row.coord_count||0} coordonnée${row.coord_count===1?'':'s'} 📍</div></div>`).join('');
 }
-async function openGridRanking(gridId){
+async function openGridRanking(gridId,returnToAccount=false){
   if(!gridId) return;
-  openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls" style="justify-content:flex-start"><button id="copyRankedGridId" class="ghost">📋 Copier l’ID de la grille</button></div>`);
+  openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls" style="justify-content:flex-start"><button id="copyRankedGridId" class="ghost">📋 Copier l’ID de la grille</button></div>`,returnToAccount);
   $('#copyRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
   try{
     const rows=await supabaseRpc('orapa_get_grid_scores',{p_grid_id:gridId});
@@ -431,17 +432,17 @@ async function openGridRanking(gridId){
 }
 async function openMyGridHistory(){
   if(!currentPlayerAccount) return;
-  openGridDataShell('🕘 Historique des grilles','<p>Les 50 dernières grilles classées jouées avec ce compte.</p>');
+  openGridDataShell('🕘 Historique des grilles','<p>Les 50 dernières grilles classées jouées avec ce compte.</p>',true);
   try{
     const rows=await supabaseRpc('orapa_my_grid_history',{p_session_token:currentPlayerAccount.session_token});
     if(!rows?.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille classée jouée.</div>'; return; }
     $('#gridDataContent').innerHTML=rows.map((row,i)=>`<div class="ranking-row"><div class="ranking-row-top"><span class="ranking-rank">#${row.rank}</span><span class="ranking-name">${escapeHtml(row.grid_id)}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}<span class="ranking-points">${row.cost} pts</span></div><div class="ranking-row-detail">${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)} · ${new Date(row.played_at).toLocaleDateString('fr-FR')}</div><div class="controls" style="justify-content:flex-start;margin:8px 0 0 34px"><button class="grid-history-ranking ghost" data-grid-index="${i}">🏆 Classement de la grille</button></div></div>`).join('');
-    $('#gridDataContent').querySelectorAll('.grid-history-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id));
+    $('#gridDataContent').querySelectorAll('.grid-history-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
 async function openMySharedGrids(){
   if(!currentPlayerAccount) return;
-  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est enregistré comme créateur.</p>');
+  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est enregistré comme créateur.</p>',true);
   try{
     const rows=await supabaseRpc('orapa_my_shared_grids',{p_session_token:currentPlayerAccount.session_token});
     if(!rows?.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille partagée avec ce compte.</div>'; return; }
@@ -452,7 +453,7 @@ async function openMySharedGrids(){
       return `<div class="ranking-row"><div class="ranking-row-top"><span class="ranking-name">${escapeHtml(row.grid_id)}</span><span class="ranking-points">${row.score_count||0} score${Number(row.score_count)===1?'':'s'}</span></div><div class="ranking-row-detail">${protection}${row.best_score==null?'':` · meilleur : ${row.best_score} pts`}</div><div class="controls" style="justify-content:flex-start;margin:8px 0 0 34px"><button class="shared-copy ghost" data-grid-index="${i}">Copier l’ID</button><button class="shared-ranking ghost" data-grid-index="${i}">Voir le classement</button></div></div>`;
     }).join('');
     $('#gridDataContent').querySelectorAll('.shared-copy').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
-    $('#gridDataContent').querySelectorAll('.shared-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id));
+    $('#gridDataContent').querySelectorAll('.shared-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
 
@@ -1908,7 +1909,7 @@ function renderControls(){
   $('#btnPropose').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
   $('#btnHint').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
   updateHintModeUI();
-  $('#btnBackToGM').style.display = state.mode==='solo' ? '' : 'none';
+  $('#btnBackToGM').style.display = 'none';
   const soloReveal = state.mode==='solo' && state.soloOver;
   $('#btnToggleGuess').style.display = soloReveal ? '' : 'none';
   $('#btnToggleSecret').style.display = soloReveal ? '' : 'none';
@@ -2219,15 +2220,18 @@ async function enterSolo(){
 $('#homeSolo').addEventListener('click', enterSolo);
 $('#homeCreate').addEventListener('click', ()=>{
   if(state.mode==='solo'){
-    const msg=state.soloOver
-      ? "Quitter cette partie et ouvrir la création de grille ?"
-      : "Quitter la partie solo en cours ? Elle sera effacée.";
-    if(!confirm(msg)) return;
+    if(!state.soloOver && !confirm("Quitter la partie solo en cours ? Elle sera effacée.")) return;
     resetAll();
   }
   showGame();
 });
-$('#btnHome').addEventListener('click', showHome);
+$('#btnHome').addEventListener('click',()=>{
+  if(state.mode==='solo'&&!state.soloOver){
+    if(!confirm('Revenir à l’accueil ? La partie solo reste disponible tant que tu ne démarres pas une autre partie.')) return;
+  }
+  if(state.mode==='solo'&&state.soloOver) resetAll();
+  showHome();
+});
 $('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; randomizePlacement(); });
 $('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; enterSolo(); });
 $('#btnStart').addEventListener('click', ()=>{
@@ -2402,8 +2406,14 @@ $('#btnVictoryCopySummary').addEventListener('click', ()=>{
   if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=> showToast('Résumé copié !'));
 });
 $('#btnVictoryGridRanking').addEventListener('click',()=>openGridRanking(state.gridId));
-$('#closeGridData').addEventListener('click',()=>$('#gridDataModal').classList.remove('open'));
-$('#gridDataModal').addEventListener('click',e=>{if(e.target.id==='gridDataModal')$('#gridDataModal').classList.remove('open');});
+function closeGridDataModal(){
+  $('#gridDataModal').classList.remove('open');
+  if(gridDataReturnsToAccount) openAccountModal();
+  gridDataReturnsToAccount=false;
+}
+$('#closeGridData').addEventListener('click',closeGridDataModal);
+$('#gridDataBack').addEventListener('click',closeGridDataModal);
+$('#gridDataModal').addEventListener('click',e=>{if(e.target.id==='gridDataModal')closeGridDataModal();});
 $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('#helpModal').classList.remove('open'); });
 
 let rankingView = 'solo';
@@ -2437,7 +2447,10 @@ function buildRankingConfigOptions(){
       select.innerHTML = options;
     }
   } else {
-    select.innerHTML = '<option value="GLOBAL_SOLO">Derniers résultats solo</option>';
+    select.innerHTML = '<option value="GLOBAL_SOLO:ALL">Toutes les configurations</option>'+RANKING_COMBOS.map(([g,o,s])=>{
+      const key=configKey(g,o,s);
+      return `<option value="GLOBAL_SOLO:${key}">${key}</option>`;
+    }).join('');
   }
 }
 function setRankingView(view){
@@ -2451,7 +2464,7 @@ function setRankingView(view){
   $('#btnRefreshGlobal').style.display = view==='global' ? '' : 'none';
   $('#btnStatsGlobal').style.display = view==='global' ? '' : 'none';
   buildRankingConfigOptions();
-  if(view==='solo') $('#rankingConfigSelect').value = 'GLOBAL_SOLO';
+  if(view==='solo') $('#rankingConfigSelect').value = 'GLOBAL_SOLO:ALL';
   renderRankingList();
 }
 let expandedScores = new Set();
@@ -2624,24 +2637,40 @@ async function openGlobalStats(){
   await renderGlobalStatsView();
 }
 
-async function renderGlobalSoloScores(){
+async function renderGlobalSoloScores(filterKey='ALL'){
   const el=$('#rankingList');
   $('#btnResetRanking').style.display='none';
   if(!currentPlayerAccount){ el.innerHTML='<div class="history-empty">Connectez-vous pour consulter les résultats solo.</div>'; return; }
   el.innerHTML='<div class="history-empty">Chargement des résultats solo…</div>';
   try{
-    const rows=await supabaseRpc('orapa_get_recent_grid_scores',{p_session_token:currentPlayerAccount.session_token});
+    let rows=await supabaseRpc('orapa_get_recent_grid_scores',{p_session_token:currentPlayerAccount.session_token});
+    if(filterKey!=='ALL') rows=rows.filter(row=>{
+      const decoded=decodeGridId(row.grid_id);
+      return decoded&&configKey(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire)===filterKey;
+    });
     if(!rows?.length){ el.innerHTML='<div class="history-empty">Aucun résultat solo enregistré.</div>'; return; }
-    el.innerHTML=rows.map((row,i)=>`<div class="ranking-row"><div class="ranking-row-top"><span class="ranking-rank">${row.success?'✓':'×'}</span><span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}${row.is_mine?' <span class="ranking-you">Vous</span>':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}<span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${new Date(row.created_at).toLocaleDateString('fr-FR')}</span></div><div class="ranking-row-detail">Grille <b>${escapeHtml(row.grid_id)}</b> · ${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)}</div><div class="controls" style="justify-content:flex-start;gap:8px;margin:8px 0 2px 34px;">${row.is_mine?`<button class="solo-copy-summary ghost" data-solo-index="${i}">📋 Copier le résumé</button>`:''}<button class="solo-grid-ranking primary" data-solo-index="${i}">🏆 Classement de la grille</button></div></div>`).join('')+(rows.some(row=>row.played_by_creator)?'<p class="stats-note">* Créateur de la grille, résultat enregistré après la période de protection.</p>':'');
+    el.innerHTML=rows.map((row,i)=>{
+      const decoded=decodeGridId(row.grid_id);
+      const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
+      const expanded=expandedScores.has(`solo:${row.id}`);
+      return `<div class="ranking-row solo-global-row${expanded?' expanded':''}" data-solo-row="${i}"><div class="ranking-row-top"><span class="ranking-rank">${row.success?'✓':'×'}</span><span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}${row.is_mine?' <span class="ranking-you">Vous</span>':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}<span class="ranking-gems">${gems}</span><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${new Date(row.created_at).toLocaleDateString('fr-FR')}</span></div>${expanded?`<div class="ranking-row-detail">Grille <b>${escapeHtml(row.grid_id)}</b> · ${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions"><button class="solo-copy-summary ghost" data-solo-index="${i}">📋 Résumé</button><button class="solo-copy-id ghost" data-solo-index="${i}">📋 ID</button><button class="solo-grid-ranking primary" data-solo-index="${i}">🏆 Grille</button></div>`:''}</div>`;
+    }).join('')+(rows.some(row=>row.played_by_creator)?'<p class="stats-note">* Créateur de la grille, résultat enregistré après la période de protection.</p>':'');
+    el.querySelectorAll('.solo-global-row').forEach(rowEl=>rowEl.onclick=ev=>{
+      if(ev.target.closest('button')) return;
+      const row=rows[Number(rowEl.dataset.soloRow)],key=`solo:${row.id}`;
+      if(expandedScores.has(key)) expandedScores.delete(key); else expandedScores.add(key);
+      renderGlobalSoloScores(filterKey);
+    });
     el.querySelectorAll('.solo-grid-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.soloIndex)].grid_id));
     el.querySelectorAll('.solo-copy-summary').forEach(btn=>btn.onclick=()=>{const row=rows[Number(btn.dataset.soloIndex)];navigator.clipboard?.writeText(formatShareText({name:row.player_name,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,gridId:row.grid_id,date:new Date(row.created_at).getTime(),success:row.success})).then(()=>showToast('Résumé copié !'));});
+    el.querySelectorAll('.solo-copy-id').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.soloIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
   }catch(e){ el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
 
 function renderRankingList(){
   const key = $('#rankingConfigSelect').value || '';
-  if(key==='GLOBAL_SOLO'){
-    renderGlobalSoloScores();
+  if(key.startsWith('GLOBAL_SOLO:')){
+    renderGlobalSoloScores(key.slice(12));
     return;
   }
   if(key.startsWith('GLOBAL:')){

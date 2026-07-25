@@ -162,6 +162,8 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 @media(max-width:600px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stats-toolbar{align-items:stretch}.stats-mode-tabs{width:100%}.stats-mode-tabs button{flex:1}.stats-player{grid-template-columns:1fr auto}.stats-player em{grid-column:1/-1}}
 @media(max-width:600px){.ranking-time{display:none}.ranking-tabs{gap:5px}.ranking-tabs button{font-size:.72rem;padding-left:5px;padding-right:5px}.ranking-gems{font-size:.72rem}}
 @media(max-width:600px){.ranking-row .controls{margin-left:0!important;display:grid;grid-template-columns:1fr;width:100%}.ranking-row .controls button{width:100%}}
+.ranking-compact-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important;margin:9px 0 2px 34px!important}.ranking-compact-actions button{width:auto!important;min-width:0;padding:6px 5px;font-size:.68rem;white-space:nowrap}
+@media(max-width:600px){.ranking-compact-actions{margin-left:0!important}.ranking-row-top .ranking-gems{font-size:.66rem;max-width:94px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 
 .toast-msg{
   position:fixed; left:50%; bottom:80px; transform:translateX(-50%) translateY(20px);
@@ -368,6 +370,7 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
 <div class="modal-backdrop" id="gridDataModal">
   <div class="modal">
     <button class="close-x" id="closeGridData">×</button>
+    <button class="ghost" id="gridDataBack" style="display:none;margin-bottom:12px;">← Retour au compte</button>
     <h2 id="gridDataTitle">Classement de la grille</h2>
     <div id="gridDataIntro"></div>
     <div id="gridDataContent" class="history-panel" style="max-height:420px;"></div>
@@ -460,6 +463,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-<script src="app.js?v=20260725-0450"></script>
+<script src="app.js?v=20260725-0520"></script>
 </body>
 </html>
