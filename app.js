@@ -231,6 +231,7 @@ function loadPlayerAccount(){
 }
 function savePlayerAccount(account){
   currentPlayerAccount=account||null;
+  globalSoloScoresCache=null;
   try{
     if(account) localStorage.setItem(PLAYER_ACCOUNT_KEY,JSON.stringify(account));
     else localStorage.removeItem(PLAYER_ACCOUNT_KEY);
@@ -621,6 +622,7 @@ async function submitGlobalGridScore(entry, identity){
       p_coord_count:Number(entry.coordCount)||0,
       p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))
     });
+    if(row?.accepted) globalSoloScoresCache=null;
     if(row?.reason==='already_played') showToast('Cette grille a déjà été classée avec ce profil.');
     else if(row?.reason==='creator_protected') showToast('⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.');
     else showToast(row?.rank ? `🌍 Première tentative enregistrée · rang #${row.rank}` : '🌍 Première tentative enregistrée');
@@ -2665,13 +2667,16 @@ async function openGlobalStats(){
   await renderGlobalStatsView();
 }
 
+let globalSoloScoresCache=null;
 async function renderGlobalSoloScores(filterKey='ALL'){
   const el=$('#rankingList');
+  const savedScrollTop=el.scrollTop;
   $('#btnResetRanking').style.display='none';
   if(!currentPlayerAccount){ el.innerHTML='<div class="history-empty">Connectez-vous pour consulter les résultats solo.</div>'; return; }
-  el.innerHTML='<div class="history-empty">Chargement des résultats solo…</div>';
+  if(!globalSoloScoresCache) el.innerHTML='<div class="history-empty">Chargement des résultats solo…</div>';
   try{
-    let rows=await supabaseRpc('orapa_get_recent_grid_scores',{p_session_token:currentPlayerAccount.session_token});
+    if(!globalSoloScoresCache) globalSoloScoresCache=await supabaseRpc('orapa_get_recent_grid_scores',{p_session_token:currentPlayerAccount.session_token});
+    let rows=globalSoloScoresCache.slice();
     if(filterKey!=='ALL') rows=rows.filter(row=>{
       const decoded=decodeGridId(row.grid_id);
       return decoded&&configKey(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire)===filterKey;
@@ -2681,7 +2686,7 @@ async function renderGlobalSoloScores(filterKey='ALL'){
       const decoded=decodeGridId(row.grid_id);
       const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
       const expanded=expandedScores.has(`solo:${row.id}`);
-      return `<div class="ranking-row solo-global-row${expanded?' expanded':''}" data-solo-row="${i}"><div class="ranking-row-top"><span class="ranking-rank">${row.success?'✓':'×'}</span><span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}${row.is_mine?' <span class="ranking-you">Vous</span>':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}<span class="ranking-gems">${gems}</span><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${new Date(row.created_at).toLocaleDateString('fr-FR')}</span></div>${expanded?`<div class="ranking-row-detail">Grille <b>${escapeHtml(row.grid_id)}</b> · ${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions"><button class="solo-copy-summary ghost" data-solo-index="${i}">📋 Résumé</button><button class="solo-copy-id ghost" data-solo-index="${i}">📋 ID</button><button class="solo-grid-ranking primary" data-solo-index="${i}">🏆 Grille</button></div>`:''}</div>`;
+      return `<div class="ranking-row solo-global-row${expanded?' expanded':''}" data-solo-row="${i}"><div class="ranking-row-top"><span class="ranking-rank">${row.success?'✓':'×'}</span><span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}${row.is_mine?' <span class="ranking-you">Vous</span>':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}<span class="ranking-gems">${gems}</span><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${new Date(row.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span></div>${expanded?`<div class="ranking-row-detail">Grille <b>${escapeHtml(row.grid_id)}</b> · ${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions"><button class="solo-copy-summary ghost" data-solo-index="${i}">📋 Résumé</button><button class="solo-copy-id ghost" data-solo-index="${i}">📋 ID</button><button class="solo-grid-ranking primary" data-solo-index="${i}">🏆 Grille</button></div>`:''}</div>`;
     }).join('')+(rows.some(row=>row.played_by_creator)?'<p class="stats-note">* Créateur de la grille, résultat enregistré après la période de protection.</p>':'');
     el.querySelectorAll('.solo-global-row').forEach(rowEl=>rowEl.onclick=ev=>{
       if(ev.target.closest('button')) return;
@@ -2692,6 +2697,7 @@ async function renderGlobalSoloScores(filterKey='ALL'){
     el.querySelectorAll('.solo-grid-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.soloIndex)].grid_id));
     el.querySelectorAll('.solo-copy-summary').forEach(btn=>btn.onclick=()=>{const row=rows[Number(btn.dataset.soloIndex)];navigator.clipboard?.writeText(formatShareText({name:row.player_name,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,gridId:row.grid_id,date:new Date(row.created_at).getTime(),success:row.success})).then(()=>showToast('Résumé copié !'));});
     el.querySelectorAll('.solo-copy-id').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.soloIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
+    el.scrollTop=savedScrollTop;
   }catch(e){ el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
 
