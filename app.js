@@ -407,7 +407,7 @@ let gridDataReturnsToVictory=false;
 function openGridDataShell(title,intro='',returnToAccount=false,returnToVictory=false){
   gridDataReturnsToAccount=returnToAccount;
   gridDataReturnsToVictory=returnToVictory;
-  $('#accountModal').classList.remove('open');
+  if(!returnToAccount) $('#accountModal').classList.remove('open');
   $('#victoryModal').classList.remove('open');
   $('#gridDataTitle').textContent=title;
   $('#gridDataIntro').innerHTML=intro;
@@ -2495,7 +2495,7 @@ function closeGridDataModal(returnToOrigin=true){
   $('#gridDataModal').classList.remove('open');
   if(returnToOrigin){
     if(gridDataReturnsToVictory) openVictoryModal();
-    else if(gridDataReturnsToAccount) openAccountModal();
+    else if(gridDataReturnsToAccount) $('#accountModal').classList.add('open');
   }
   gridDataReturnsToAccount=false;
   gridDataReturnsToVictory=false;
