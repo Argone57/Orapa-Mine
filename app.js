@@ -332,7 +332,7 @@ async function renderAccountHome(){
   content.innerHTML=`<div class="account-card account-profile-row"><strong>👤 ${escapeHtml(currentPlayerAccount.display_name)}</strong><span class="account-status connected">● Connecté</span></div>
     <h3 class="account-section-title">📊 Mes statistiques</h3>
     <div id="accountStats"><div class="history-empty">Chargement des statistiques…</div></div>
-    <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Ne pas redemander le code sur cet appareil</b><br><small>Si cette option reste décochée, le code sera demandé avant chaque score global.</small></span></label>
+    <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Ne pas redemander le code pour les scores sur cet appareil</b><br><small>Cette préférence s’applique aux parties Solo et aux Défis du jour enregistrés dans Supabase.</small></span></label>
     <div class="account-actions">
       <button class="ghost" id="accountGridHistoryBtn">🕘 Historique des grilles</button>
       <button class="ghost" id="accountSharedGridsBtn">📤 Mes grilles partagées</button>
@@ -503,7 +503,7 @@ function renderScoreAccountPrompt(resolve){
       <span>Le score sera enregistré sous :</span>
       <strong>👤 ${escapeHtml(currentPlayerAccount.display_name)}</strong>
     </div>
-    ${trusted?'':`<div class="account-form">${accountInput('Code à 4 chiffres','scoreConnectedPin','password','inputmode="numeric" maxlength="4" autocomplete="off"')}</div>`}
+    ${trusted?'':`<div class="account-form">${accountInput('Code à 4 chiffres','scoreConnectedPin','password','inputmode="numeric" maxlength="4" autocomplete="off"')}</div><p class="score-account-note">Tu peux éviter cette demande pour les prochains scores en activant l’option correspondante dans <b>Compte</b>.</p>`}
     <div class="account-error" id="scoreIdentityError"></div>
     <div class="score-identity-actions">
       <button class="primary" id="scoreSaveConnectedBtn">Enregistrer</button>
