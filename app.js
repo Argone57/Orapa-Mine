@@ -2343,14 +2343,14 @@ function tutorialFindOccupiedCell(){
   for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(pieceAtCell(r,c,state.secretPieces)) return {r,c};
   return {r:3,c:4};
 }
-function tutorialResultText(result){
+function tutorialResultTextLegacy(result){
   if(result.absorbed) return `Le rayon a rencontrÃ© le <b>corps noir</b> et a Ã©tÃ© absorbÃ© : il nâ€™a donc aucune sortie.`;
   const entry=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);
   const bounced=result.exitSide===tutorialTargetLabel.side&&result.exitIndex===tutorialTargetLabel.index;
   const route=bounced?`Il ressort par son point dâ€™entrÃ©e <b>${entry}</b>.`:`Il ressort en <b>${labelText(result.exitSide,result.exitIndex)}</b>.`;
   return `${route} La couleur observÃ©e est <b>${result.color.name}</b>. Une gemme ne se laisse pas traverser : chacune de ses faces rÃ©flÃ©chit le rayon et modifie sa direction.`;
 }
-function tutorialShowStage(){
+function tutorialShowStageLegacy(){
   if(!tutorialActive) return;
   if(tutorialStage===0) tutorialCoach('Bienvenue dans la partie-école','Une vraie grille est cachée. Tu vas effectuer quelques actions sur le plateau, puis reconstruire la solution. Aucun compte n’est nécessaire et cette partie ne sera pas classée.','Commencer');
   else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);tutorialCoach('Lance ton premier rayon',`Touche l’entrée <b>${name}</b>, mise en évidence sur le bord de la mine. Un rayon coûte <b>1 point</b>.`);}
@@ -2362,6 +2362,31 @@ function tutorialShowStage(){
   else if(tutorialStage===7) tutorialCoach('Corrige la dernière gemme','Une solution presque complète vient d’être placée. La gemme mise en évidence est mal orientée : <b>touche-la une fois</b> pour la faire pivoter de 90°.');
   else if(tutorialStage===8) tutorialCoach('Propose la solution','Toutes les gemmes correspondent maintenant aux indices. Touche <b>Proposer une solution</b> pour vérifier la disposition.');
   else tutorialCoach('Tutoriel terminé !','Tu sais maintenant interroger la mine, lire les résultats, placer les gemmes et proposer une solution.<br><br><b>Sur l’accueil :</b> joue une grille aléatoire, le défi du jour ou un identifiant partagé ; crée tes propres grilles ; consulte tes historiques et les classements depuis ton compte.','Retour à l’accueil');
+}
+// Version textuelle normalisee : uniquement ASCII dans le fichier source pour
+// eviter tout double encodage lors du deploiement sur GitHub Pages.
+function tutorialResultText(result){
+  if(result.absorbed) return `Le rayon a rencontr&eacute; le <b>corps noir</b> et a &eacute;t&eacute; absorb&eacute; : il n&rsquo;a donc aucune sortie.`;
+  const entry=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);
+  const bounced=result.exitSide===tutorialTargetLabel.side&&result.exitIndex===tutorialTargetLabel.index;
+  const route=bounced?`Il est renvoy&eacute; vers son point d&rsquo;entr&eacute;e <b>${entry}</b>.`:`Il ressort en <b>${labelText(result.exitSide,result.exitIndex)}</b>.`;
+  const color=result.color.name==='Transparent'
+    ? `Le r&eacute;sultat est <b>Transparent</b> : aucune gemme color&eacute;e n&rsquo;a modifi&eacute; sa couleur.`
+    : `La couleur obtenue est <b>${result.color.name}</b>.`;
+  return `${route} ${color} Lorsqu&rsquo;il rencontre une face, le rayon est d&eacute;vi&eacute; ou renvoy&eacute; selon l&rsquo;angle avec lequel il atteint la gemme.`;
+}
+function tutorialShowStage(){
+  if(!tutorialActive) return;
+  if(tutorialStage===0) tutorialCoach('Bienvenue dans la partie-\u00e9cole','Une grille est cach&eacute;e. Tu vas utiliser les principales actions du jeu, puis apprendre &agrave; placer et valider une solution. Aucun compte n&rsquo;est n&eacute;cessaire et cette partie ne sera pas class&eacute;e.','Commencer');
+  else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);tutorialCoach('Lance ton premier rayon',`Touche l&rsquo;entr&eacute;e <b>${name}</b>, mise en &eacute;vidence sur le bord de la mine. Un rayon co&ucirc;te <b>1 point</b>.`);}
+  else if(tutorialStage===2) tutorialCoach('Lis le r\u00e9sultat du rayon',tutorialResultText(tutorialLastResult),'Essayer un autre rayon');
+  else if(tutorialStage===3){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);tutorialCoach('Compare avec un second rayon',`Touche maintenant l&rsquo;entr&eacute;e <b>${name}</b>. En croisant plusieurs sorties et couleurs, tu peux progressivement &eacute;liminer des placements.`);}
+  else if(tutorialStage===4) tutorialCoach('Passe au mode indice','Ces deux rayons servent uniquement d&rsquo;exemple : ils ne suffisent pas pour d&eacute;duire toute la grille. Dans une partie, continue tes recherches autant que n&eacute;cessaire.<br><br>Pour v&eacute;rifier une case, il faut d&rsquo;abord toucher le bouton <b>Demander un indice</b>. Le tutoriel va l&rsquo;activer pour toi.','Activer le mode indice');
+  else if(tutorialStage===5){const coord=LEFT_LABELS[tutorialTargetCell.r]+(tutorialTargetCell.c+1);tutorialCoach('V\u00e9rifie une coordonn\u00e9e',`Le mode indice est actif. Touche la case <b>${coord}</b>, mise en &eacute;vidence. Son contenu sera r&eacute;v&eacute;l&eacute; pour un co&ucirc;t de <b>3 points</b>.`);}
+  else if(tutorialStage===6) tutorialCoach('Lis le r\u00e9sultat de l\u2019indice',`La case interrog&eacute;e est maintenant marqu&eacute;e sur le plateau et son contenu figure dans l&rsquo;historique. Une coordonn&eacute;e permet de confirmer une hypoth&egrave;se, mais co&ucirc;te trois fois plus qu&rsquo;un rayon.`,'Apprendre \u00e0 placer la solution');
+  else if(tutorialStage===7) tutorialCoach('Corrige la derni\u00e8re gemme','Pour apprendre la manipulation sans te demander de r&eacute;soudre toute la grille, le tutoriel a pr&eacute;rempli la solution et laiss&eacute; volontairement une orientation incorrecte.<br><br><b>Touche une fois la gemme mise en &eacute;vidence</b> pour la faire pivoter de 90&deg;.');
+  else if(tutorialStage===8) tutorialCoach('Propose cette solution','La disposition pr&eacute;remplie est maintenant correcte. Dans une vraie partie, attends d&rsquo;avoir recueilli suffisamment d&rsquo;indices avant de proposer.<br><br>Ici, touche <b>Proposer une solution</b> pour d&eacute;couvrir la validation.');
+  else tutorialCoach('Tutoriel termin\u00e9 !','Tu as effectu&eacute; les principales actions d&rsquo;une partie : lancer des rayons, activer le mode indice, v&eacute;rifier une case, manipuler les gemmes et valider une proposition.<br><br><b>Sur l&rsquo;accueil :</b> joue une grille al&eacute;atoire, le d&eacute;fi du jour ou un identifiant partag&eacute; ; cr&eacute;e tes propres grilles ; consulte tes historiques et les classements depuis ton compte.','Retour \u00e0 l\u2019accueil');
 }
 function tutorialPrepareSolution(){
   state.pieces=state.secretPieces.map(p=>({...p,id:'p'+(pieceIdSeq++),center:{...p.center}}));
