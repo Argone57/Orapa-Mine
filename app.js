@@ -329,8 +329,7 @@ function showAccountCreate(){
 async function renderAccountHome(){
   if(!currentPlayerAccount){ showAccountLogin(); return; }
   const content=$('#accountContent');
-  content.innerHTML=`<div class="account-status connected">🟢 Connecté</div>
-    <div class="account-card"><strong>${escapeHtml(currentPlayerAccount.display_name)}</strong><div style="color:var(--text-faint);font-size:.76rem;margin-top:4px;">Pseudo unique</div></div>
+  content.innerHTML=`<div class="account-card account-profile-row"><strong>👤 ${escapeHtml(currentPlayerAccount.display_name)}</strong><span class="account-status connected">● Connecté</span></div>
     <h3 class="account-section-title">📊 Mes statistiques</h3>
     <div id="accountStats"><div class="history-empty">Chargement des statistiques…</div></div>
     <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Ne pas redemander le code sur cet appareil</b><br><small>Si cette option reste décochée, le code sera demandé avant chaque score global.</small></span></label>
@@ -432,21 +431,26 @@ async function openGridRanking(gridId,returnToAccount=false){
 }
 async function openMyGridHistory(){
   if(!currentPlayerAccount) return;
-  openGridDataShell('🕘 Historique des grilles','<p>Les 50 dernières grilles classées jouées avec ce compte.</p>',true);
+  const configOptions='<option value="ALL">Toutes les configurations</option>'+RANKING_COMBOS.map(([g,o,s])=>{const key=configKey(g,o,s);return `<option value="${key}">${key}</option>`;}).join('');
+  openGridDataShell('🕘 Historique des grilles',`<p>Les 50 dernières grilles classées jouées avec ce compte.</p><select id="accountHistoryConfigSelect" class="ranking-select">${configOptions}</select>`,true);
   try{
     const rows=await supabaseRpc('orapa_my_grid_history',{p_session_token:currentPlayerAccount.session_token});
     if(!rows?.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille classée jouée.</div>'; return; }
     const renderHistory=()=>{
-      $('#gridDataContent').innerHTML=rows.map((row,i)=>{
+      const selected=$('#accountHistoryConfigSelect')?.value||'ALL';
+      const activeRows=selected==='ALL'?rows:rows.filter(row=>{const decoded=decodeGridId(row.grid_id);return decoded&&configKey(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire)===selected;});
+      if(!activeRows.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille jouée pour cette configuration.</div>'; return; }
+      $('#gridDataContent').innerHTML=activeRows.map((row,i)=>{
         const key=`history:${row.grid_id}`,expanded=expandedScores.has(key),decoded=decodeGridId(row.grid_id);
         const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
         return `<div class="ranking-row account-history-row${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="ranking-rank">#${row.rank}</span><span class="ranking-name">${escapeHtml(row.grid_id)}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}<span class="ranking-gems">${gems}</span><span class="ranking-points">${row.cost} pts</span></div>${expanded?`<div class="ranking-row-detail">${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)} · ${new Date(row.played_at).toLocaleDateString('fr-FR')}</div><div class="controls ranking-compact-actions"><button class="history-summary ghost" data-grid-index="${i}">📋 Résumé</button><button class="history-copy-id ghost" data-grid-index="${i}">📋 ID</button><button class="grid-history-ranking primary" data-grid-index="${i}">🏆 Grille</button></div>`:''}</div>`;
       }).join('');
-      $('#gridDataContent').querySelectorAll('.account-history-row').forEach(el=>el.onclick=ev=>{if(ev.target.closest('button'))return;const row=rows[Number(el.dataset.gridIndex)],key=`history:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderHistory();});
-      $('#gridDataContent').querySelectorAll('.grid-history-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
-      $('#gridDataContent').querySelectorAll('.history-copy-id').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
-      $('#gridDataContent').querySelectorAll('.history-summary').forEach(btn=>btn.onclick=()=>{const row=rows[Number(btn.dataset.gridIndex)];navigator.clipboard?.writeText(formatShareText({name:currentPlayerAccount.display_name,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,gridId:row.grid_id,date:new Date(row.played_at).getTime(),success:row.success})).then(()=>showToast('Résumé copié !'));});
+      $('#gridDataContent').querySelectorAll('.account-history-row').forEach(el=>el.onclick=ev=>{if(ev.target.closest('button'))return;const row=activeRows[Number(el.dataset.gridIndex)],key=`history:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderHistory();});
+      $('#gridDataContent').querySelectorAll('.grid-history-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(activeRows[Number(btn.dataset.gridIndex)].grid_id,true));
+      $('#gridDataContent').querySelectorAll('.history-copy-id').forEach(btn=>btn.onclick=()=>{const id=activeRows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
+      $('#gridDataContent').querySelectorAll('.history-summary').forEach(btn=>btn.onclick=()=>{const row=activeRows[Number(btn.dataset.gridIndex)];navigator.clipboard?.writeText(formatShareText({name:currentPlayerAccount.display_name,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,gridId:row.grid_id,date:new Date(row.played_at).getTime(),success:row.success})).then(()=>showToast('Résumé copié !'));});
     };
+    $('#accountHistoryConfigSelect').addEventListener('change',renderHistory);
     renderHistory();
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
@@ -2438,13 +2442,17 @@ function shiftDateKey(dateKey, days){
   const date = new Date(Date.UTC(year, month-1, day + days));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}-${String(date.getUTCDate()).padStart(2,'0')}`;
 }
+function shortFrenchDate(dateKey){
+  const [year,month,day]=dateKey.split('-');
+  return `${day}/${month}/${String(year).slice(-2)}`;
+}
 function globalDateLabel(dateKey, index){
-  if(index===0) return `Défi du jour (${dateKey})`;
-  if(index===1) return `Défi d'hier (${dateKey})`;
+  if(index===0) return `Aujourd’hui · ${shortFrenchDate(dateKey)}`;
+  if(index===1) return `Hier · ${shortFrenchDate(dateKey)}`;
   const [year,month,day] = dateKey.split('-').map(Number);
   const date = new Date(Date.UTC(year,month-1,day));
   const weekday = new Intl.DateTimeFormat('fr-FR',{weekday:'long',timeZone:'UTC'}).format(date);
-  return `${weekday.charAt(0).toUpperCase()+weekday.slice(1)} ${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}`;
+  return `${weekday.charAt(0).toUpperCase()+weekday.slice(1)} · ${shortFrenchDate(dateKey)}`;
 }
 function buildRankingConfigOptions(){
   const select = $('#rankingConfigSelect');
@@ -2479,8 +2487,12 @@ function setRankingView(view){
   $('#rankingGlobalIntro').style.display = view==='global' ? '' : 'none';
   $('#btnRefreshGlobal').style.display = view==='global' ? '' : 'none';
   $('#btnStatsGlobal').style.display = view==='global' ? '' : 'none';
+  const picker=$('#rankingDatePicker');
+  picker.style.display=view==='global'?'block':'none';
+  picker.max=parisDateKey();
   buildRankingConfigOptions();
   if(view==='solo') $('#rankingConfigSelect').value = 'GLOBAL_SOLO:ALL';
+  if(view==='global') picker.value=($('#rankingConfigSelect').value||'').replace('GLOBAL:','')||parisDateKey();
   renderRankingList();
 }
 let expandedScores = new Set();
@@ -2738,7 +2750,25 @@ $('#rankingsFab').addEventListener('click', ()=>{
 });
 $('#closeRankings').addEventListener('click', ()=> $('#rankingsModal').classList.remove('open'));
 $('#rankingsModal').addEventListener('click', e=>{ if(e.target.id==='rankingsModal') $('#rankingsModal').classList.remove('open'); });
-$('#rankingConfigSelect').addEventListener('change', renderRankingList);
+$('#rankingConfigSelect').addEventListener('change', ()=>{
+  const value=$('#rankingConfigSelect').value;
+  if(value.startsWith('GLOBAL:')) $('#rankingDatePicker').value=value.slice(7);
+  renderRankingList();
+});
+$('#rankingDatePicker').addEventListener('change',()=>{
+  const dateKey=$('#rankingDatePicker').value;
+  if(!dateKey) return;
+  const select=$('#rankingConfigSelect'),value=`GLOBAL:${dateKey}`;
+  let option=[...select.options].find(item=>item.value===value);
+  if(!option){
+    option=document.createElement('option');
+    option.value=value;
+    option.textContent=shortFrenchDate(dateKey);
+    select.prepend(option);
+  }
+  select.value=value;
+  renderRankingList();
+});
 $('#btnResetRanking').addEventListener('click', ()=>{
   const key = $('#rankingConfigSelect').value;
   if(key.startsWith('DAILY:') || key.startsWith('GLOBAL:')) return;
