@@ -436,8 +436,18 @@ async function openMyGridHistory(){
   try{
     const rows=await supabaseRpc('orapa_my_grid_history',{p_session_token:currentPlayerAccount.session_token});
     if(!rows?.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille classée jouée.</div>'; return; }
-    $('#gridDataContent').innerHTML=rows.map((row,i)=>`<div class="ranking-row"><div class="ranking-row-top"><span class="ranking-rank">#${row.rank}</span><span class="ranking-name">${escapeHtml(row.grid_id)}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}<span class="ranking-points">${row.cost} pts</span></div><div class="ranking-row-detail">${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)} · ${new Date(row.played_at).toLocaleDateString('fr-FR')}</div><div class="controls" style="justify-content:flex-start;margin:8px 0 0 34px"><button class="grid-history-ranking ghost" data-grid-index="${i}">🏆 Classement de la grille</button></div></div>`).join('');
-    $('#gridDataContent').querySelectorAll('.grid-history-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
+    const renderHistory=()=>{
+      $('#gridDataContent').innerHTML=rows.map((row,i)=>{
+        const key=`history:${row.grid_id}`,expanded=expandedScores.has(key),decoded=decodeGridId(row.grid_id);
+        const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
+        return `<div class="ranking-row account-history-row${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="ranking-rank">#${row.rank}</span><span class="ranking-name">${escapeHtml(row.grid_id)}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}<span class="ranking-gems">${gems}</span><span class="ranking-points">${row.cost} pts</span></div>${expanded?`<div class="ranking-row-detail">${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)} · ${new Date(row.played_at).toLocaleDateString('fr-FR')}</div><div class="controls ranking-compact-actions"><button class="history-summary ghost" data-grid-index="${i}">📋 Résumé</button><button class="history-copy-id ghost" data-grid-index="${i}">📋 ID</button><button class="grid-history-ranking primary" data-grid-index="${i}">🏆 Grille</button></div>`:''}</div>`;
+      }).join('');
+      $('#gridDataContent').querySelectorAll('.account-history-row').forEach(el=>el.onclick=ev=>{if(ev.target.closest('button'))return;const row=rows[Number(el.dataset.gridIndex)],key=`history:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderHistory();});
+      $('#gridDataContent').querySelectorAll('.grid-history-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
+      $('#gridDataContent').querySelectorAll('.history-copy-id').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
+      $('#gridDataContent').querySelectorAll('.history-summary').forEach(btn=>btn.onclick=()=>{const row=rows[Number(btn.dataset.gridIndex)];navigator.clipboard?.writeText(formatShareText({name:currentPlayerAccount.display_name,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,gridId:row.grid_id,date:new Date(row.played_at).getTime(),success:row.success})).then(()=>showToast('Résumé copié !'));});
+    };
+    renderHistory();
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
 async function openMySharedGrids(){
@@ -447,13 +457,19 @@ async function openMySharedGrids(){
     const rows=await supabaseRpc('orapa_my_shared_grids',{p_session_token:currentPlayerAccount.session_token});
     if(!rows?.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille partagée avec ce compte.</div>'; return; }
     const now=Date.now();
-    $('#gridDataContent').innerHTML=rows.map((row,i)=>{
-      const protectedUntil=row.creator_protected_until?new Date(row.creator_protected_until):null;
-      const protection=protectedUntil&&protectedUntil.getTime()>now?`Protection jusqu’au ${protectedUntil.toLocaleDateString('fr-FR')}`:'Protection terminée';
-      return `<div class="ranking-row"><div class="ranking-row-top"><span class="ranking-name">${escapeHtml(row.grid_id)}</span><span class="ranking-points">${row.score_count||0} score${Number(row.score_count)===1?'':'s'}</span></div><div class="ranking-row-detail">${protection}${row.best_score==null?'':` · meilleur : ${row.best_score} pts`}</div><div class="controls" style="justify-content:flex-start;margin:8px 0 0 34px"><button class="shared-copy ghost" data-grid-index="${i}">Copier l’ID</button><button class="shared-ranking ghost" data-grid-index="${i}">Voir le classement</button></div></div>`;
-    }).join('');
-    $('#gridDataContent').querySelectorAll('.shared-copy').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
-    $('#gridDataContent').querySelectorAll('.shared-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
+    const renderShared=()=>{
+      $('#gridDataContent').innerHTML=rows.map((row,i)=>{
+        const key=`shared:${row.grid_id}`,expanded=expandedScores.has(key),decoded=decodeGridId(row.grid_id);
+        const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
+        const protectedUntil=row.creator_protected_until?new Date(row.creator_protected_until):null;
+        const protection=protectedUntil&&protectedUntil.getTime()>now?`Protection jusqu’au ${protectedUntil.toLocaleDateString('fr-FR')}`:'Protection terminée';
+        return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="ranking-name">${escapeHtml(row.grid_id)}</span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.score_count||0} score${Number(row.score_count)===1?'':'s'}</span></div>${expanded?`<div class="ranking-row-detail">${protection}${row.best_score==null?'':` · meilleur : ${row.best_score} pts`}${row.shared_at?` · partagée le ${new Date(row.shared_at).toLocaleDateString('fr-FR')}`:''}</div><div class="controls ranking-compact-actions two"><button class="shared-copy ghost" data-grid-index="${i}">📋 ID</button><button class="shared-ranking primary" data-grid-index="${i}">🏆 Grille</button></div>`:''}</div>`;
+      }).join('');
+      $('#gridDataContent').querySelectorAll('.account-shared-row').forEach(el=>el.onclick=ev=>{if(ev.target.closest('button'))return;const row=rows[Number(el.dataset.gridIndex)],key=`shared:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderShared();});
+      $('#gridDataContent').querySelectorAll('.shared-copy').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
+      $('#gridDataContent').querySelectorAll('.shared-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
+    };
+    renderShared();
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
 
