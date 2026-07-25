@@ -2318,7 +2318,7 @@ function tutorialClearTargets(){ document.querySelectorAll('.tutorial-target').f
 function tutorialCoach(title,text,actionLabel=''){
   tutorialClearTargets();
   const coach=$('#tutorialCoach');
-  coach.classList.toggle('tutorial-coach-top',![11,12].includes(tutorialStage));
+  coach.classList.toggle('tutorial-coach-top',![8,11,12].includes(tutorialStage));
   $('#tutorialCoachTitle').innerHTML=title;
   $('#tutorialCoachText').innerHTML=text;
   const stepKey=`${tutorialStage}:${tutorialRayIndex}:${tutorialPlacementIndex}`;
@@ -2421,17 +2421,19 @@ function tutorialSelectRayExamples(pieces){
   if(picked.length<4)return {examples:[],ends:[]};
   const ends=[];
   const placementPieces=['red','yellow','blue','white','rhombus'].map(type=>pieces.find(item=>item.type===type));
+  const raysNeeded=[2,3,2,3,1];
   for(let placementIndex=0;placementIndex<placementPieces.length;placementIndex++){
     const piece=placementPieces[placementIndex];
     if(!piece)return {examples:[],ends:[]};
     const before=picked.length;
     pick(ray=>!ray.result.absorbed&&new Set(hits(ray)).size===1&&hits(ray).includes(piece.id));
-    if(placementIndex<placementPieces.length-1){
-      const first=picked[picked.length-1];
-      pick(ray=>!ray.result.absorbed&&new Set(hits(ray)).size===1&&hits(ray).includes(piece.id)&&(!first||ray.side!==first.side));
-      while(picked.length<before+2&&pick(ray=>!ray.result.absorbed&&new Set(hits(ray)).size===1&&hits(ray).includes(piece.id))){}
-      if(picked.length<before+2)return {examples:[],ends:[]};
-    }else if(picked.length<before+1)return {examples:[],ends:[]};
+    while(picked.length<before+raysNeeded[placementIndex]){
+      const usedSides=new Set(picked.slice(before).map(ray=>ray.side));
+      if(!pick(ray=>!ray.result.absorbed&&new Set(hits(ray)).size===1&&hits(ray).includes(piece.id)&&!usedSides.has(ray.side)))
+        pick(ray=>!ray.result.absorbed&&new Set(hits(ray)).size===1&&hits(ray).includes(piece.id));
+      if(picked.length===before)return {examples:[],ends:[]};
+      if(picked.length<before+raysNeeded[placementIndex]&&!all.some(ray=>!picked.includes(ray)&&!blocked.has(key(ray.side,ray.index))&&!ray.result.absorbed&&new Set(hits(ray)).size===1&&hits(ray).includes(piece.id)))return {examples:[],ends:[]};
+    }
     ends.push(picked.length-1);
   }
   return {examples:picked,ends};
@@ -2441,7 +2443,7 @@ function tutorialChooseLayout(){
   for(let attempt=0;attempt<80;attempt++){
     pieces=generateRandomLayout(35);
     const lesson=pieces?tutorialSelectRayExamples(pieces):{examples:[],ends:[]};
-    if(lesson.examples.length>=13&&pieces.find(piece=>piece.type==='red')?.flipped)return {pieces,...lesson};
+    if(lesson.examples.length>=15&&pieces.find(piece=>piece.type==='red')?.flipped)return {pieces,...lesson};
   }
   const lesson=tutorialSelectRayExamples(pieces||[]);
   return {pieces,...lesson};
@@ -2541,17 +2543,27 @@ function tutorialObservationText(result){
   const returned=result.entrySide===result.exitSide&&result.entryIndex===result.exitIndex;
   if(colored.length===1){const adjective={red:'rouge',yellow:'jaune',blue:'bleue',white:'blanche'}[colored[0]];const movement=returned?`L&rsquo;onde est revenue &agrave; son point de d&eacute;part <b>${exit}</b> : une gemme l&rsquo;a renvoy&eacute;e`:`L&rsquo;onde ressort en <b>${exit}</b> : une gemme l&rsquo;a d&eacute;vi&eacute;e`;return `${movement} et elle est devenue <b>${color.toLowerCase()}</b>. Elle n&rsquo;a rencontr&eacute; que la gemme ${adjective}.`;}
   const names=colored.map(key=>({red:'rouge',yellow:'jaune',blue:'bleue',white:'blanche'}[key]));
-  return `L&rsquo;onde ressort en <b>${exit}</b> avec la couleur <b>${color}</b>. Cette combinaison signifie qu&rsquo;elle a rencontr&eacute; ${names.length===2?'la gemme '+names[0]+' et au moins une gemme '+names[1]:'plusieurs gemmes de couleurs diff&eacute;rentes'}.`;
+  const encountered=names.length===2
+    ? `la gemme ${names[0]} et au moins une gemme ${names[1]}`
+    : names.slice(0,-1).map(name=>`la gemme ${name}`).join(', ')+` et au moins une gemme ${names.at(-1)}`;
+  const formula=names.map(name=>name.charAt(0).toUpperCase()+name.slice(1)).join(' + ')+` = ${color}`;
+  return `L&rsquo;onde ressort en <b>${exit}</b> avec la couleur <b>${color}</b>.<br><b>${formula}</b> : elle a rencontr&eacute; ${encountered}.`;
+}
+function tutorialWaveGroup(){
+  const placement=tutorialPlacementEnds.findIndex(end=>tutorialRayIndex<=end);
+  if(placement<0)return null;
+  const start=placement===0?4:tutorialPlacementEnds[placement-1]+1;
+  return {placement,start,count:tutorialPlacementEnds[placement]-start+1,offset:tutorialRayIndex-start};
 }
 function tutorialShowStage(){
   if(!tutorialActive)return;
   if(tutorialStage===0)tutorialCoach('Bienvenue dans le tutoriel','Nous avons re&ccedil;u la mission de localiser les gemmes de la mine d&rsquo;Orapa. En envoyant des ondes supersoniques &agrave; travers le sol et en interpr&eacute;tant correctement les signaux qui nous reviennent, nous devons &ecirc;tre capables de d&eacute;terminer la position et l&rsquo;&eacute;tat des gemmes recherch&eacute;es&hellip;','Commencer');
-  else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);let intro='';if(tutorialRayIndex===0)intro='L&rsquo;action principale consiste &agrave; envoyer une onde dans la mine.';else if(tutorialRayIndex===1)intro='Teste maintenant l&rsquo;entr&eacute;e juste &agrave; c&ocirc;t&eacute; pour comparer les deux trajets.';else if(tutorialRayIndex===2)intro='Poursuis avec l&rsquo;entr&eacute;e voisine situ&eacute;e de l&rsquo;autre c&ocirc;t&eacute;.';else if(tutorialRayIndex===3)intro='Cette onde va montrer comment plusieurs couleurs peuvent se combiner.';else if(tutorialRayIndex===tutorialRayExamples.length-1)intro='Toutes les autres gemmes sont plac&eacute;es : une derni&egrave;re onde suffit pour rep&eacute;rer la gemme restante.';else intro=tutorialRayIndex%2===0?'Envoie une onde sur cette ligne pour obtenir un premier rep&egrave;re.':'Teste maintenant la seconde entr&eacute;e indiqu&eacute;e pour comparer les deux r&eacute;sultats.';tutorialCoach('Envoie une onde',`${intro}<br><br>Touche l&rsquo;entr&eacute;e <b>${name}</b>, mise en &eacute;vidence.`);}
-  else if(tutorialStage===2){let follow='';if(tutorialRayIndex===1)follow='La ligne transparente et cette nouvelle trajectoire encadrent une premi&egrave;re zone de recherche.';else if(tutorialRayIndex===2)follow='Cette couleur diff&eacute;rente signale la pr&eacute;sence d&rsquo;une autre gemme sur la ligne voisine.';else if(tutorialRayIndex===tutorialRayExamples.length-1)follow='Comme les quatre autres gemmes sont d&eacute;j&agrave; plac&eacute;es, ce r&eacute;sultat permet de situer la derni&egrave;re.';else if(tutorialRayIndex>=4)follow=tutorialRayIndex%2===0?'Garde ce trajet comme premier rep&egrave;re pour cette couleur.':'Compar&eacute; au trajet pr&eacute;c&eacute;dent, ce second r&eacute;sultat pr&eacute;cise la position et l&rsquo;orientation possibles.';tutorialCoach('Observe le r\u00e9sultat',`${tutorialObservationText(tutorialLastResult)}${follow?'<br><br>'+follow:''}`,'Continuer');}
+  else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index),group=tutorialWaveGroup();let intro='';if(tutorialRayIndex===0)intro='L&rsquo;action principale consiste &agrave; envoyer une onde dans la mine.';else if(tutorialRayIndex===1)intro='Teste maintenant l&rsquo;entr&eacute;e juste &agrave; c&ocirc;t&eacute; pour comparer les deux trajets.';else if(tutorialRayIndex===2)intro='Poursuis avec l&rsquo;entr&eacute;e voisine situ&eacute;e de l&rsquo;autre c&ocirc;t&eacute;.';else if(tutorialRayIndex===3)intro='Cette onde va montrer comment plusieurs couleurs peuvent se combiner.';else if(group?.count===1)intro='Toutes les autres gemmes sont plac&eacute;es : une derni&egrave;re onde suffit pour rep&eacute;rer la gemme restante.';else intro=['Teste cette entr&eacute;e pour rep&eacute;rer le passage de la couleur recherch&eacute;e.','Envoie maintenant une onde depuis un autre bord pour comparer son trajet.','Ajoute une troisi&egrave;me direction afin de confirmer la zone et l&rsquo;orientation.'][group?.offset||0];tutorialCoach('Envoie une onde',`${intro}<br><br>Touche l&rsquo;entr&eacute;e <b>${name}</b>, mise en &eacute;vidence.`);}
+  else if(tutorialStage===2){const group=tutorialWaveGroup();let follow='';if(tutorialRayIndex===1)follow='La ligne transparente et cette nouvelle trajectoire encadrent une premi&egrave;re zone de recherche.';else if(tutorialRayIndex===2)follow='Cette couleur diff&eacute;rente signale la pr&eacute;sence d&rsquo;une autre gemme sur la ligne voisine.';else if(group?.count===1)follow='Comme les quatre autres gemmes sont d&eacute;j&agrave; plac&eacute;es, ce r&eacute;sultat permet de situer la derni&egrave;re.';else if(group?.offset===0)follow='Cette trajectoire confirme le passage de cette couleur sur la ligne test&eacute;e.';else if(group?.offset===1)follow=group.count===2?'Les deux directions permettent maintenant de comparer la position et l&rsquo;orientation possibles.':'Ce second trajet r&eacute;duit la zone encore compatible.';else if(group?.offset===2)follow='Avec cette troisi&egrave;me direction, la zone indiqu&eacute;e peut maintenant &ecirc;tre retenue.';tutorialCoach('Observe le r\u00e9sultat',`${tutorialObservationText(tutorialLastResult)}${follow?'<br><br>'+follow:''}`,'Continuer');}
   else if(tutorialStage===3)tutorialCoach('Comprendre les m&eacute;langes','L&rsquo;aide pr&eacute;sente les diff&eacute;rentes combinaisons de couleurs obtenues lorsqu&rsquo;une onde rencontre plusieurs gemmes.','Afficher l\u2019aide des couleurs');
   else if(tutorialStage===8)tutorialCoach('Propose cette solution','Toutes les gemmes sont plac&eacute;es. Dans une partie solo, tu peux proposer une solution <b>deux fois au maximum</b> : une seule erreur est donc permise.<br><br>Touche maintenant <b>Proposer une solution</b>.');
   else if(tutorialStage===9)tutorialCoach('Les gemmes optionnelles','Cette grille utilise uniquement les cinq gemmes de base. D&rsquo;autres parties peuvent ajouter une ou plusieurs de ces gemmes :<br><br>&#128142; <b>Diamant</b> : d&eacute;vie l&rsquo;onde sans ajouter de couleur.<br>&#11035; <b>Corps noir</b> : absorbe l&rsquo;onde, qui ne ressort pas.<br>&#128998; <b>Saphir bleu ciel</b> : ajoute simultan&eacute;ment le bleu et le blanc au r&eacute;sultat.','D&eacute;couvrir les autres fonctions');
-  else if(tutorialStage===11){const name=CONFIG.PIECES[tutorialPlacementType()].label;const explanation=tutorialPlacementIndex===4?'Les quatre autres gemmes sont d&eacute;j&agrave; plac&eacute;es. La derni&egrave;re onde permet de rep&eacute;rer l&rsquo;emplacement restant.':'Les deux derni&egrave;res ondes ont rencontr&eacute; uniquement cette couleur depuis deux directions diff&eacute;rentes. La forme pointill&eacute;e montre le placement retenu pour poursuivre le tutoriel.';tutorialCoach(`Place la gemme ${tutorialPlacementIndex+1} sur 5`,`${explanation}<br><br>Fais glisser <b>${name}</b> jusqu&rsquo;&agrave; cet emplacement.`);}
+  else if(tutorialStage===11){const name=CONFIG.PIECES[tutorialPlacementType()].label;const start=tutorialPlacementIndex===0?4:tutorialPlacementEnds[tutorialPlacementIndex-1]+1;const count=tutorialPlacementEnds[tutorialPlacementIndex]-start+1;const explanation=tutorialPlacementIndex===4?'Les quatre autres gemmes sont d&eacute;j&agrave; plac&eacute;es. La derni&egrave;re onde permet de rep&eacute;rer l&rsquo;emplacement restant.':`Les ${count===3?'trois':'deux'} derni&egrave;res ondes ont rencontr&eacute; uniquement cette couleur depuis des directions diff&eacute;rentes. La forme pointill&eacute;e montre le placement retenu pour poursuivre le tutoriel.`;tutorialCoach(`Place la gemme ${tutorialPlacementIndex+1} sur 5`,`${explanation}<br><br>Fais glisser <b>${name}</b> jusqu&rsquo;&agrave; cet emplacement.`);}
   else if(tutorialStage===12){const piece=state.pieces.find(p=>p.id===tutorialPlacementPieceId),secret=state.secretPieces.find(p=>p.type===piece?.type),target=piece&&secret?tutorialTargetTransform(piece,secret):null;const needsFlip=piece?.type==='red'&&target&&piece.flipped!==target.flipped;const turns=piece&&target?((target.rotation-piece.rotation+360)%360)/90:0;let action=needsFlip?'<b>Reste appuy&eacute; sur le trap&egrave;ze</b> pour le retourner en miroir.':'';if(turns)action+=(action?'<br>':'')+`<b>Touche la gemme ${turns===1?'une fois':turns+' fois'}</b> pour la faire pivoter.`;tutorialCoach('Oriente la gemme',`La position est correcte. Il reste &agrave; adapter son orientation aux trajectoires.<br><br>${action}`);}
   else if(tutorialStage===13)tutorialCoach('Les r&egrave;gles de placement','Une gemme doit rester enti&egrave;rement dans la mine. Ses sommets se placent sur les intersections de la grille.<br><br>Deux gemmes ne peuvent ni se chevaucher ni partager un c&ocirc;t&eacute;. Elles peuvent toutefois se toucher par une pointe.<br><br>Toutes les gemmes doivent aussi pouvoir &ecirc;tre atteintes directement par au moins une onde.','Voir les deux types d&rsquo;indices');
   else if(tutorialStage===14)tutorialCoach('Onde ou coordonn&eacute;e ?','Une <b>onde</b> co&ucirc;te 1 point et donne une trajectoire ainsi qu&rsquo;une couleur.<br><br>Une <b>coordonn&eacute;e</b> co&ucirc;te 3 points et r&eacute;v&egrave;le directement si une case est vide ou occup&eacute;e. Elle est utile pour trancher entre deux placements encore possibles.','Tester une case vide');
@@ -2575,7 +2587,7 @@ function startInteractiveTutorial(){
   if(state.mode==='solo'&&!state.soloOver&&!confirm('Quitter la partie solo en cours pour lancer le tutoriel ?')) return;
   state.includeGray=false;state.includeOnyx=false;state.includeSapphire=false;
   const lesson=tutorialChooseLayout();
-  if(!lesson.pieces||lesson.examples.length<13){showToast('Le tutoriel est momentan\u00e9ment indisponible.');return;}
+  if(!lesson.pieces||lesson.examples.length<15){showToast('Le tutoriel est momentan\u00e9ment indisponible.');return;}
   tutorialRayExamples=lesson.examples;tutorialPlacementEnds=lesson.ends;tutorialRayIndex=0;tutorialPlacementIndex=0;tutorialPlacementPieceId=null;
   tutorialActive=true;tutorialStage=0;tutorialStepNumber=0;tutorialStepKey='';tutorialTargetLabel={side:tutorialRayExamples[0].side,index:tutorialRayExamples[0].index};tutorialTargetCell=null;tutorialWrongPieceId=null;tutorialLastResult=null;
   document.body.classList.add('tutorial-active');
