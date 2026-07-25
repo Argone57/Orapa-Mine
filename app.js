@@ -2421,7 +2421,7 @@ function tutorialSelectRayExamples(pieces){
   if(picked.length<4)return {examples:[],ends:[]};
   const ends=[];
   const placementPieces=['red','yellow','blue','white','rhombus'].map(type=>pieces.find(item=>item.type===type));
-  const raysNeeded=[2,3,2,3,1];
+  const raysNeeded=[2,3,2,3,0];
   for(let placementIndex=0;placementIndex<placementPieces.length;placementIndex++){
     const piece=placementPieces[placementIndex];
     if(!piece)return {examples:[],ends:[]};
@@ -2443,10 +2443,31 @@ function tutorialChooseLayout(){
   for(let attempt=0;attempt<80;attempt++){
     pieces=generateRandomLayout(35);
     const lesson=pieces?tutorialSelectRayExamples(pieces):{examples:[],ends:[]};
-    if(lesson.examples.length>=15&&pieces.find(piece=>piece.type==='red')?.flipped)return {pieces,...lesson};
+    if(lesson.examples.length>=14&&pieces.find(piece=>piece.type==='red')?.flipped)return {pieces,...lesson};
   }
   const lesson=tutorialSelectRayExamples(pieces||[]);
   return {pieces,...lesson};
+}
+function tutorialFixedLesson(){
+  const pieces=[
+    {id:'tutorial-red',type:'red',center:{x:7.5,y:2.5},rotation:180,flipped:true},
+    {id:'tutorial-yellow',type:'yellow',center:{x:2,y:3},rotation:90,flipped:false},
+    {id:'tutorial-white',type:'white',center:{x:7,y:7},rotation:0,flipped:false},
+    {id:'tutorial-blue',type:'blue',center:{x:3,y:5},rotation:180,flipped:false},
+    {id:'tutorial-rhombus',type:'rhombus',center:{x:5,y:2},rotation:270,flipped:false}
+  ];
+  const inputs=[
+    ['right',0],['right',1],['right',2],['right',5],
+    ['top',6],['top',7],
+    ['top',1],['right',3],['left',2],
+    ['top',3],['bottom',1],
+    ['right',6],['bottom',5],['left',7]
+  ];
+  const examples=inputs.map(([side,index])=>{
+    const result=simulateBeam(side,index,pieces);
+    return {side,index,result,same:!result.absorbed&&result.exitSide===side&&result.exitIndex===index,colored:result.color.name!=='Transparent'};
+  });
+  return {pieces,examples,ends:[5,8,10,13,13]};
 }
 function tutorialPlacementType(){return ['red','yellow','blue','white','rhombus'][tutorialPlacementIndex]||'red';}
 function tutorialTargetTransform(piece,secret){
@@ -2490,6 +2511,7 @@ function tutorialCompletePlacement(){
   tutorialPlacementIndex++;tutorialPlacementPieceId=null;
   renderPalette();renderPieces();renderTraces();
   if(tutorialPlacementIndex>=5){tutorialStage=8;tutorialShowStage();return;}
+  if(tutorialPlacementIndex===4){tutorialPreparePlacement(11);return;}
   tutorialRayIndex++;
   const ray=tutorialRayExamples[tutorialRayIndex];
   tutorialTargetLabel={side:ray.side,index:ray.index};tutorialStage=1;tutorialShowStage();
@@ -2557,23 +2579,25 @@ function tutorialWaveGroup(){
 }
 function tutorialShowStage(){
   if(!tutorialActive)return;
-  if(tutorialStage===0)tutorialCoach('Bienvenue dans le tutoriel','Nous avons re&ccedil;u la mission de localiser les gemmes de la mine d&rsquo;Orapa. En envoyant des ondes supersoniques &agrave; travers le sol et en interpr&eacute;tant correctement les signaux qui nous reviennent, nous devons &ecirc;tre capables de d&eacute;terminer la position et l&rsquo;&eacute;tat des gemmes recherch&eacute;es&hellip;','Commencer');
-  else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index),group=tutorialWaveGroup();let intro='';if(tutorialRayIndex===0)intro='L&rsquo;action principale consiste &agrave; envoyer une onde dans la mine.';else if(tutorialRayIndex===1)intro='Teste maintenant l&rsquo;entr&eacute;e juste &agrave; c&ocirc;t&eacute; pour comparer les deux trajets.';else if(tutorialRayIndex===2)intro='Poursuis avec l&rsquo;entr&eacute;e voisine situ&eacute;e de l&rsquo;autre c&ocirc;t&eacute;.';else if(tutorialRayIndex===3)intro='Cette onde va montrer comment plusieurs couleurs peuvent se combiner.';else if(group?.count===1)intro='Toutes les autres gemmes sont plac&eacute;es : une derni&egrave;re onde suffit pour rep&eacute;rer la gemme restante.';else intro=['Teste cette entr&eacute;e pour rep&eacute;rer le passage de la couleur recherch&eacute;e.','Envoie maintenant une onde depuis un autre bord pour comparer son trajet.','Ajoute une troisi&egrave;me direction afin de confirmer la zone et l&rsquo;orientation.'][group?.offset||0];tutorialCoach('Envoie une onde',`${intro}<br><br>Touche l&rsquo;entr&eacute;e <b>${name}</b>, mise en &eacute;vidence.`);}
-  else if(tutorialStage===2){const group=tutorialWaveGroup();let follow='';if(tutorialRayIndex===1)follow='La ligne transparente et cette nouvelle trajectoire encadrent une premi&egrave;re zone de recherche.';else if(tutorialRayIndex===2)follow='Cette couleur diff&eacute;rente signale la pr&eacute;sence d&rsquo;une autre gemme sur la ligne voisine.';else if(group?.count===1)follow='Comme les quatre autres gemmes sont d&eacute;j&agrave; plac&eacute;es, ce r&eacute;sultat permet de situer la derni&egrave;re.';else if(group?.offset===0)follow='Cette trajectoire confirme le passage de cette couleur sur la ligne test&eacute;e.';else if(group?.offset===1)follow=group.count===2?'Les deux directions permettent maintenant de comparer la position et l&rsquo;orientation possibles.':'Ce second trajet r&eacute;duit la zone encore compatible.';else if(group?.offset===2)follow='Avec cette troisi&egrave;me direction, la zone indiqu&eacute;e peut maintenant &ecirc;tre retenue.';tutorialCoach('Observe le r\u00e9sultat',`${tutorialObservationText(tutorialLastResult)}${follow?'<br><br>'+follow:''}`,'Continuer');}
+  if(tutorialStage===0)tutorialCoach('Bienvenue dans le tutoriel','Nous avons re&ccedil;u la mission de localiser les gemmes de la mine d&rsquo;Orapa. En envoyant des ondes supersoniques &agrave; travers le sol et en interpr&eacute;tant correctement les signaux qui nous reviennent, nous devons &ecirc;tre capables de d&eacute;terminer la position et l&rsquo;&eacute;tat des gemmes recherch&eacute;es&hellip;','D&eacute;couvrir les actions');
+  else if(tutorialStage===24)tutorialCoach('Deux actions pour enqu&ecirc;ter','Tu peux obtenir des informations de deux fa&ccedil;ons :<br><br><b>Envoyer une onde</b> co&ucirc;te 1 point et r&eacute;v&egrave;le sa sortie ainsi que sa couleur.<br><br><b>Demander une coordonn&eacute;e</b> co&ucirc;te 3 points et indique directement si une case est vide ou occup&eacute;e.<br><br>Commen&ccedil;ons par l&rsquo;action principale : envoyer des ondes.','Commencer l&rsquo;enqu&ecirc;te');
+  else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index),group=tutorialWaveGroup();let intro='';if(tutorialRayIndex===0)intro='Commen&ccedil;ons par observer le trajet le plus simple.';else if(tutorialRayIndex===1)intro='Teste maintenant l&rsquo;entr&eacute;e suivante pour comparer les deux trajets.';else if(tutorialRayIndex===2)intro='Poursuis avec l&rsquo;entr&eacute;e suivante.';else if(tutorialRayIndex===3)intro='Cette onde va montrer comment plusieurs couleurs peuvent se combiner.';else if(group?.placement===0&&group.offset===0)intro='Essayons maintenant de localiser la gemme rouge.';else if(group?.placement===1&&group.offset===0)intro='Passons &agrave; la gemme jaune.';else if(group?.placement===2&&group.offset===0)intro='Essayons maintenant d&rsquo;en savoir plus sur la gemme bleue.';else if(group?.placement===3&&group.offset===0)intro='Cherchons maintenant les gemmes blanches.';else intro=['Envoie cette onde pour obtenir une nouvelle information.','Observe maintenant la gemme depuis un autre bord.','Cette derni&egrave;re direction va confirmer son placement et son orientation.'][group?.offset||0];tutorialCoach('Envoie une onde',`${intro}<br><br>Touche l&rsquo;entr&eacute;e <b>${name}</b>, mise en &eacute;vidence.`);}
+  else if(tutorialStage===2){const group=tutorialWaveGroup();let follow='';if(tutorialRayIndex===1)follow='En comparant ces deux trajectoires, tu peux commencer &agrave; d&eacute;limiter la zone occup&eacute;e.';else if(tutorialRayIndex===2)follow='Cette nouvelle couleur indique qu&rsquo;une autre gemme intervient sur ce trajet.';else if(group?.placement===2&&group.offset===1)follow='Avec les deux ondes bleues et l&rsquo;onde verte observ&eacute;e plus t&ocirc;t, d&eacute;vi&eacute;e par la jaune puis renvoy&eacute;e par la bleue, le placement du triangle bleu peut maintenant &ecirc;tre d&eacute;termin&eacute;.';else if(group?.offset===0)follow='Ce r&eacute;sultat apporte une premi&egrave;re information sur cette gemme.';else if(group?.offset===1)follow=group.count===2?'En recoupant ces deux directions avec les trajets d&eacute;j&agrave; observ&eacute;s, son placement devient d&eacute;terminable.':'Cette seconde direction pr&eacute;cise les positions encore possibles.';else if(group?.offset===2)follow='Cette troisi&egrave;me direction confirme le placement et l&rsquo;orientation retenus.';tutorialCoach('Observe le r\u00e9sultat',`${tutorialObservationText(tutorialLastResult)}${follow?'<br><br>'+follow:''}`,'Continuer');}
   else if(tutorialStage===3)tutorialCoach('Comprendre les m&eacute;langes','L&rsquo;aide pr&eacute;sente les diff&eacute;rentes combinaisons de couleurs obtenues lorsqu&rsquo;une onde rencontre plusieurs gemmes.','Afficher l\u2019aide des couleurs');
   else if(tutorialStage===8)tutorialCoach('Propose cette solution','Toutes les gemmes sont plac&eacute;es. Dans une partie solo, tu peux proposer une solution <b>deux fois au maximum</b> : une seule erreur est donc permise.<br><br>Touche maintenant <b>Proposer une solution</b>.');
+  else if(tutorialStage===19)tutorialCoach('Bravo, tu as trouv&eacute; !','La disposition est correcte : tu viens de terminer le tutoriel.<br><br>Voici maintenant quelques informations suppl&eacute;mentaires sur les autres grilles et les fonctions du site.','Continuer');
   else if(tutorialStage===9)tutorialCoach('Les gemmes optionnelles','Cette grille utilise uniquement les cinq gemmes de base. D&rsquo;autres parties peuvent ajouter une ou plusieurs de ces gemmes :<br><br>&#128142; <b>Diamant</b> : d&eacute;vie l&rsquo;onde sans ajouter de couleur.<br>&#11035; <b>Corps noir</b> : absorbe l&rsquo;onde, qui ne ressort pas.<br>&#128998; <b>Saphir bleu ciel</b> : ajoute simultan&eacute;ment le bleu et le blanc au r&eacute;sultat.','D&eacute;couvrir les autres fonctions');
-  else if(tutorialStage===11){const name=CONFIG.PIECES[tutorialPlacementType()].label;const start=tutorialPlacementIndex===0?4:tutorialPlacementEnds[tutorialPlacementIndex-1]+1;const count=tutorialPlacementEnds[tutorialPlacementIndex]-start+1;const explanation=tutorialPlacementIndex===4?'Les quatre autres gemmes sont d&eacute;j&agrave; plac&eacute;es. La derni&egrave;re onde permet de rep&eacute;rer l&rsquo;emplacement restant.':`Les ${count===3?'trois':'deux'} derni&egrave;res ondes ont rencontr&eacute; uniquement cette couleur depuis des directions diff&eacute;rentes. La forme pointill&eacute;e montre le placement retenu pour poursuivre le tutoriel.`;tutorialCoach(`Place la gemme ${tutorialPlacementIndex+1} sur 5`,`${explanation}<br><br>Fais glisser <b>${name}</b> jusqu&rsquo;&agrave; cet emplacement.`);}
+  else if(tutorialStage===11){const name=CONFIG.PIECES[tutorialPlacementType()].label;const start=tutorialPlacementIndex===0?4:tutorialPlacementEnds[tutorialPlacementIndex-1]+1;const count=tutorialPlacementEnds[tutorialPlacementIndex]-start+1;const explanation=tutorialPlacementIndex===4?'Les quatre autres gemmes et les trajets d&eacute;j&agrave; observ&eacute;s ne laissent plus qu&rsquo;un emplacement possible pour le losange blanc.':`Les ${count===3?'trois':'deux'} derni&egrave;res ondes, recoup&eacute;es avec les r&eacute;sultats pr&eacute;c&eacute;dents, permettent de retenir ce placement et cette orientation.`;tutorialCoach(`Place la gemme ${tutorialPlacementIndex+1} sur 5`,`${explanation}<br><br>Fais glisser <b>${name}</b> jusqu&rsquo;&agrave; cet emplacement.`);}
   else if(tutorialStage===12){const piece=state.pieces.find(p=>p.id===tutorialPlacementPieceId),secret=state.secretPieces.find(p=>p.type===piece?.type),target=piece&&secret?tutorialTargetTransform(piece,secret):null;const needsFlip=piece?.type==='red'&&target&&piece.flipped!==target.flipped;const turns=piece&&target?((target.rotation-piece.rotation+360)%360)/90:0;let action=needsFlip?'<b>Reste appuy&eacute; sur le trap&egrave;ze</b> pour le retourner en miroir.':'';if(turns)action+=(action?'<br>':'')+`<b>Touche la gemme ${turns===1?'une fois':turns+' fois'}</b> pour la faire pivoter.`;tutorialCoach('Oriente la gemme',`La position est correcte. Il reste &agrave; adapter son orientation aux trajectoires.<br><br>${action}`);}
-  else if(tutorialStage===13)tutorialCoach('Les r&egrave;gles de placement','Une gemme doit rester enti&egrave;rement dans la mine. Ses sommets se placent sur les intersections de la grille.<br><br>Deux gemmes ne peuvent ni se chevaucher ni partager un c&ocirc;t&eacute;. Elles peuvent toutefois se toucher par une pointe.<br><br>Toutes les gemmes doivent aussi pouvoir &ecirc;tre atteintes directement par au moins une onde.','Voir les deux types d&rsquo;indices');
-  else if(tutorialStage===14)tutorialCoach('Onde ou coordonn&eacute;e ?','Une <b>onde</b> co&ucirc;te 1 point et donne une trajectoire ainsi qu&rsquo;une couleur.<br><br>Une <b>coordonn&eacute;e</b> co&ucirc;te 3 points et r&eacute;v&egrave;le directement si une case est vide ou occup&eacute;e. Elle est utile pour trancher entre deux placements encore possibles.','Tester une case vide');
+  else if(tutorialStage===13)tutorialCoach('Les r&egrave;gles de placement','Une gemme doit rester enti&egrave;rement dans la mine. Ses sommets se placent sur les intersections de la grille.<br><br>Deux gemmes ne peuvent ni se chevaucher ni partager un c&ocirc;t&eacute;. Elles peuvent toutefois se toucher par une pointe.<br><br>Toutes les gemmes doivent aussi pouvoir &ecirc;tre atteintes directement par au moins une onde.','D&eacute;couvrir la seconde action');
+  else if(tutorialStage===14)tutorialCoach('Demander une coordonn&eacute;e','Voici la seconde action pr&eacute;sent&eacute;e au d&eacute;but du tutoriel. Une <b>coordonn&eacute;e</b> co&ucirc;te 3 points et r&eacute;v&egrave;le directement si une case est vide ou occup&eacute;e. Elle est utile pour trancher entre deux placements encore possibles.','Tester une case vide');
   else if(tutorialStage===15){const coord=LEFT_LABELS[tutorialTargetCell.r]+(tutorialTargetCell.c+1);tutorialCoach('Active le mode indice',`Le tutoriel a activ&eacute; <b>Demander un indice</b>. Touche la case <b>${coord}</b>, mise en &eacute;vidence.`);}
   else if(tutorialStage===16)tutorialCoach('Premier r&eacute;sultat : case vide','La croix indique que la case est vide : aucune gemme ne peut occuper ou traverser cet emplacement.','Tester une case occup&eacute;e');
   else if(tutorialStage===17){const coord=LEFT_LABELS[tutorialTargetCell.r]+(tutorialTargetCell.c+1);tutorialCoach('Un second exemple',`Touche maintenant la case <b>${coord}</b>. Cette fois, elle contient une gemme.`);}
   else if(tutorialStage===18)tutorialCoach('Second r&eacute;sultat : gemme trouv&eacute;e','Un point color&eacute; marque la case et l&rsquo;historique indique la gemme rencontr&eacute;e. Tu connais maintenant les deux r&eacute;sultats possibles d&rsquo;une coordonn&eacute;e.','Poursuivre l&rsquo;enqu&ecirc;te');
-  else if(tutorialStage===20)tutorialCoach('Jouer en solo','<div class="tutorial-summary-grid"><div><b>&#127922; Al&eacute;atoire</b><span>Une nouvelle disposition &agrave; r&eacute;soudre.</span></div><div><b>&#127757; D&eacute;fi du jour</b><span>La m&ecirc;me grille quotidienne pour tous, avec des r&egrave;gles sp&eacute;ciales.</span></div><div><b>&#128273; Par identifiant</b><span>Rejoins une grille pr&eacute;cise partag&eacute;e par un joueur.</span></div></div>','Suivant');
-  else if(tutorialStage===21)tutorialCoach('Cr&eacute;er une grille','Place et oriente les gemmes, puis partage l&rsquo;identifiant obtenu.<br><br>Ce mode peut servir de ma&icirc;tre du jeu avec la bo&icirc;te physique, ou permettre &agrave; d&rsquo;autres joueurs de r&eacute;soudre ta disposition en ligne.','Suivant');
-  else if(tutorialStage===22)tutorialCoach('Le compte joueur','Un simple <b>pseudo</b> et un <b>code &agrave; 4 chiffres</b> suffisent : aucune adresse e-mail n&rsquo;est demand&eacute;e. Ils permettent de retrouver ton profil depuis n&rsquo;importe quel navigateur.<br><br>Le compte regroupe ton historique de grilles, tes d&eacute;fis du jour, tes grilles partag&eacute;es et tes informations de joueur. Il permet aussi d&rsquo;identifier tes r&eacute;sultats dans les classements.','Terminer');
+  else if(tutorialStage===20)tutorialCoach('Jouer en solo','<div class="tutorial-summary-grid"><div><b>&#127922; Al&eacute;atoire</b><span>R&eacute;sous une grille g&eacute;n&eacute;r&eacute;e al&eacute;atoirement.</span></div><div><b>&#127757; D&eacute;fi du jour</b><span>Une nouvelle grille chaque jour, identique pour tout le monde, avec des r&egrave;gles sp&eacute;ciales et une seule tentative &#128520;</span></div><div><b>&#128273; Par identifiant</b><span>Rejoins une grille pr&eacute;cise partag&eacute;e par un joueur.</span></div></div>','Suivant');
+  else if(tutorialStage===21)tutorialCoach('Cr&eacute;er une grille','Cr&eacute;e tes propres grilles pour les utiliser avec le jeu physique ou les partager avec d&rsquo;autres joueurs.','Suivant');
+  else if(tutorialStage===22)tutorialCoach('Le compte joueur','Le compte est n&eacute;cessaire pour jouer en solo, mais il suffit d&rsquo;un <b>pseudo</b> et d&rsquo;un <b>code &agrave; 4 chiffres</b> : aucune adresse e-mail n&rsquo;est demand&eacute;e. Il permet de retrouver ton profil depuis n&rsquo;importe quel navigateur.<br><br>Tu y retrouves ton historique de grilles, tes d&eacute;fis du jour, tes grilles partag&eacute;es et tes informations de joueur. Il permet aussi d&rsquo;identifier tes r&eacute;sultats dans les classements.','Terminer');
   else tutorialCoach('Tutoriel termin\u00e9 !','Tu connais maintenant les principes du jeu et les principales fonctions du site. Tu peux revenir au tutoriel &agrave; tout moment depuis l&rsquo;accueil.','Retour \u00e0 l\u2019accueil');
 }
 function tutorialPrepareSolution(){
@@ -2586,12 +2610,12 @@ function tutorialPrepareSolution(){
 function startInteractiveTutorial(){
   if(state.mode==='solo'&&!state.soloOver&&!confirm('Quitter la partie solo en cours pour lancer le tutoriel ?')) return;
   state.includeGray=false;state.includeOnyx=false;state.includeSapphire=false;
-  const lesson=tutorialChooseLayout();
-  if(!lesson.pieces||lesson.examples.length<15){showToast('Le tutoriel est momentan\u00e9ment indisponible.');return;}
+  const lesson=tutorialFixedLesson();
+  if(!lesson.pieces||lesson.examples.length<14){showToast('Le tutoriel est momentan\u00e9ment indisponible.');return;}
   tutorialRayExamples=lesson.examples;tutorialPlacementEnds=lesson.ends;tutorialRayIndex=0;tutorialPlacementIndex=0;tutorialPlacementPieceId=null;
   tutorialActive=true;tutorialStage=0;tutorialStepNumber=0;tutorialStepKey='';tutorialTargetLabel={side:tutorialRayExamples[0].side,index:tutorialRayExamples[0].index};tutorialTargetCell=null;tutorialWrongPieceId=null;tutorialLastResult=null;
   document.body.classList.add('tutorial-active');
-  state.mode='solo';state.started=false;state.secretPieces=lesson.pieces.map(p=>({...p,id:'p'+(pieceIdSeq++),center:{...p.center}}));state.pieces=freshPieceSet();
+  state.mode='solo';state.started=false;state.secretPieces=lesson.pieces.map(p=>({...p,center:{...p.center}}));state.pieces=freshPieceSet();
   state.gridId=null;state.gridRanked=false;state.gridUnrankedReason='tutorial';state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;state.isDaily=false;state.dailyDate=null;state.history=[];state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.coordDots=[];
   showGame();setTimeout(tutorialShowStage,80);
 }
@@ -2612,12 +2636,13 @@ function tutorialAfterPieceAction(piece){
 function tutorialPropose(){
   if(tutorialStage!==8){showToast('Suis d\u2019abord l\u2019\u00e9tape mise en \u00e9vidence.');tutorialShowStage();return;}
   if(!evaluateGuess()){tutorialCoach('Pas encore','La gemme mise en &eacute;vidence n&rsquo;est pas dans la bonne orientation. Touche-la encore avant de proposer.');return;}
-  tutorialStage=9;tutorialClearTargets();tutorialShowStage();
+  tutorialStage=19;tutorialClearTargets();tutorialShowStage();
 }
 $('#homeLearn').addEventListener('click',startInteractiveTutorial);
 $('#tutorialCoachClose').addEventListener('click',exitInteractiveTutorial);
 $('#tutorialCoachAction').addEventListener('click',()=>{
-  if(tutorialStage===0){tutorialStage=1;renderLabels();tutorialShowStage();}
+  if(tutorialStage===0){tutorialStage=24;tutorialShowStage();}
+  else if(tutorialStage===24){tutorialStage=1;renderLabels();tutorialShowStage();}
   else if(tutorialStage===2){
     if(tutorialRayIndex===3){tutorialStage=3;tutorialShowStage();}
     else if(tutorialPlacementEnds[tutorialPlacementIndex]===tutorialRayIndex)tutorialPreparePlacement(11);
@@ -2628,6 +2653,7 @@ $('#tutorialCoachAction').addEventListener('click',()=>{
   else if(tutorialStage===14){tutorialTargetCell=tutorialFindEmptyCell();setHintMode(true);tutorialStage=15;renderBgGrid();tutorialShowStage();}
   else if(tutorialStage===16){tutorialTargetCell=tutorialFindOccupiedCell();setHintMode(true);tutorialStage=17;renderBgGrid();tutorialShowStage();}
   else if(tutorialStage===18){tutorialRayIndex++;const ray=tutorialRayExamples[tutorialRayIndex];tutorialTargetLabel={side:ray.side,index:ray.index};tutorialStage=1;tutorialShowStage();}
+  else if(tutorialStage===19){tutorialStage=9;tutorialShowStage();}
   else if(tutorialStage===9){tutorialStage=20;tutorialShowStage();}
   else if(tutorialStage===20){tutorialStage=21;tutorialShowStage();}
   else if(tutorialStage===21){tutorialStage=22;tutorialShowStage();}
