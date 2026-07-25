@@ -312,8 +312,8 @@ body.home-view #helpFab{display:none}
     <h2>🏆 Classements</h2>
     <div class="ranking-tabs">
       <button id="rankingTabSolo" class="ghost active">Parties solo</button>
-      <button id="rankingTabDaily" class="ghost">Défis du jour</button>
-      <button id="rankingTabGlobal" class="ghost">🌍 Global</button>
+      <button id="rankingTabDaily" class="ghost" style="display:none;">Défis locaux</button>
+      <button id="rankingTabGlobal" class="ghost">🌍 Défis du jour</button>
     </div>
     <div id="rankingSoloIntro">
       <p>Moins de points, c'est mieux : un rayon vaut <b>1 point</b>, une coordonnée révélée <b>3 points</b>. À points égaux, le temps le plus court gagne. Les 10 meilleurs scores sont gardés pour chaque combinaison d'extensions.</p>
@@ -323,7 +323,7 @@ body.home-view #helpFab{display:none}
       <p>Classements locaux de ce navigateur pour les défis quotidiens. Les réussites sont classées avant les échecs, puis par score et par temps.</p>
     </div>
     <div id="rankingGlobalIntro" style="display:none;">
-      <p>Classement partagé entre tous les joueurs. Les réussites passent avant les échecs, puis le score et le temps départagent les joueurs. Les 100 premières participations sont affichées.</p>
+      <p>Classement partagé des défis du jour. Les réussites passent avant les échecs, puis le score et le temps départagent les joueurs. Les 100 premières participations sont affichées.</p>
     </div>
     <select id="rankingConfigSelect" class="ranking-select"></select>
     <div id="rankingList" class="history-panel" style="max-height:320px;"></div>
@@ -456,6 +456,6 @@ body.home-view #helpFab{display:none}
   </div>
 </div>
 
-<script src="app.js"></script>
+<script src="app.js?v=20260725-0335"></script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+// Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
 // =====================================================================
 // ORAPA MINE — Console du maître du jeu (v3)
 // =====================================================================
@@ -256,7 +257,12 @@ async function supabaseRpc(fn,params={}){
   return data;
 }
 function validPin(pin){ return /^\d{4}$/.test(pin||''); }
-function accountError(id,msg){ const el=$(id); el.textContent=msg||''; el.style.display=msg?'block':'none'; }
+function accountError(id,msg){
+  const el=$(id);
+  if(!el) return;
+  el.textContent=msg||'';
+  el.style.display=msg?'block':'none';
+}
 function accountInput(label,id,type='text',extra=''){
   return `<label>${label}<input id="${id}" type="${type}" ${extra}></label>`;
 }
@@ -2606,7 +2612,7 @@ $('#statsModeDaily').addEventListener('click', ()=>{ globalStatsMode='daily'; re
 $('#statsModeAll').addEventListener('click', ()=>{ globalStatsMode='all'; renderGlobalStatsView(); });
 $('#globalStatsDateSelect').addEventListener('change', ()=> renderGlobalStatsView());
 $('#rankingsFab').addEventListener('click', ()=>{
-  setRankingView(state.isDaily ? 'daily' : 'solo');
+  setRankingView(state.isDaily ? 'global' : 'solo');
   $('#rankingsModal').classList.add('open');
 });
 $('#closeRankings').addEventListener('click', ()=> $('#rankingsModal').classList.remove('open'));
