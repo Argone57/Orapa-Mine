@@ -1250,6 +1250,7 @@ function openVictoryModal(){
 }
 async function proposeSolution(){
   if(state.mode!=='solo' || state.soloOver) return;
+  if(tutorialActive){tutorialPropose();return;}
   const correct=evaluateGuess();
   if(correct){
     state.soloOver=true; state.soloResult='win';
@@ -1956,7 +1957,8 @@ function renderModePill(){
   const pill=$('#modePill');
   let text, cls;
   if(state.mode==='solo'){
-    if(state.soloOver){
+    if(tutorialActive){text='Partie-école guidée';cls='live';}
+    else if(state.soloOver){
       if(state.isDaily){
         text = state.soloResult==='win' ? '📅 Défi du jour — Victoire !' : '📅 Défi du jour — Défaite';
       } else {
@@ -2106,6 +2108,7 @@ function showToast(msg){
 }
 function onPieceDown(ev, piece, el){
   if(!piecesEditable()) return;
+  if(tutorialActive&&(tutorialStage!==7||piece.id!==tutorialWrongPieceId)){showToast('Utilise uniquement l’élément mis en évidence.');return;}
   ev.preventDefault();
   const startX=ev.clientX, startY=ev.clientY;
   let moved=false, longPressed=false, dragging=false;
@@ -2182,6 +2185,7 @@ function onPieceDown(ev, piece, el){
       saveState();
       renderPalette();
       renderPieces();
+      tutorialAfterPieceAction(piece);
     }
   }
   window.addEventListener('pointermove', onMove);
@@ -2194,6 +2198,7 @@ function onPieceDown(ev, piece, el){
 function timeNow(){ const d=new Date(); return d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 
 function onLabelClick(side,index){
+  if(tutorialActive&&(![1,3].includes(tutorialStage)||!tutorialTargetLabel||side!==tutorialTargetLabel.side||index!==tutorialTargetLabel.index)){showToast('Touche l’entrée mise en évidence.');return;}
   if(state.labelColor[side][index] !== undefined) return;
   registerSoloAction('ray');
   const piecesForRay = state.mode==='solo' ? state.secretPieces : state.pieces;
@@ -2231,6 +2236,7 @@ function onLabelClick(side,index){
   }
   saveState();
   renderLabels(); renderHistory(); renderTraces();
+  if(tutorialActive) tutorialAfterRay(result);
 }
 
 function gemDisplayName(piece){
@@ -2251,12 +2257,13 @@ function updateHintModeUI(){
 }
 
 function onCellClick(r,c,cellEl){
+  if(tutorialActive&&(tutorialStage!==5||!tutorialTargetCell||r!==tutorialTargetCell.r||c!==tutorialTargetCell.c)){showToast('Touche la case mise en évidence.');return;}
   const key = r+','+c;
   if(state.cellUsed[key]) return;
   if(state.mode==='solo' && !hintModeActive) return;
   const coord = LEFT_LABELS[r] + (c+1);
   if(state.mode==='solo'){
-    if(!confirm(`Révéler le contenu de la case ${coord} ?`)) return;
+    if(!tutorialActive&&!confirm(`Révéler le contenu de la case ${coord} ?`)) return;
     registerSoloAction('coord');
   }
   state.cellUsed[key] = true;
@@ -2279,6 +2286,7 @@ function onCellClick(r,c,cellEl){
   renderHistory();
   renderTraces();
   cellEl.classList.remove('queried'); void cellEl.offsetWidth; cellEl.classList.add('queried');
+  if(tutorialActive) tutorialAfterCell();
 }
 
 // ---------------------------------------------------------------------
@@ -2302,22 +2310,99 @@ async function enterSolo(){
   openSoloChoiceModal();
 }
 $('#homeSolo').addEventListener('click', enterSolo);
-let tutorialStep=0;
-function renderTutorial(){
-  const steps=[...document.querySelectorAll('.tutorial-step')];
-  steps.forEach((step,i)=>step.classList.toggle('active',i===tutorialStep));
-  $('#tutorialProgress').innerHTML=steps.map((_,i)=>`<span class="${i<=tutorialStep?'active':''}"></span>`).join('');
-  $('#tutorialCounter').textContent=`${tutorialStep+1} / ${steps.length}`;
-  $('#tutorialPrev').disabled=tutorialStep===0;
-  $('#tutorialNext').textContent=tutorialStep===steps.length-1?'Terminer':'Suivant →';
+let tutorialActive=false,tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null;
+function tutorialClearTargets(){ document.querySelectorAll('.tutorial-target').forEach(el=>el.classList.remove('tutorial-target')); }
+function tutorialCoach(title,text,actionLabel=''){
+  tutorialClearTargets();
+  $('#tutorialCoachTitle').textContent=title;
+  $('#tutorialCoachText').innerHTML=text;
+  $('#tutorialCoachStep').textContent=`Étape ${Math.min(tutorialStage+1,10)} sur 10`;
+  $('#tutorialCoachAction').textContent=actionLabel;
+  $('#tutorialCoachAction').style.display=actionLabel?'':'none';
+  setTimeout(tutorialHighlightTarget,40);
 }
-function closeTutorial(){ $('#tutorialModal').classList.remove('open'); }
-$('#homeLearn').addEventListener('click',()=>{tutorialStep=0;$('#tutorialRayDemo').classList.remove('active');$('#tutorialRayButton').textContent='▶ Lancer le rayon';renderTutorial();$('#tutorialModal').classList.add('open');});
-$('#closeTutorial').addEventListener('click',closeTutorial);
-$('#tutorialModal').addEventListener('click',e=>{if(e.target.id==='tutorialModal')closeTutorial();});
-$('#tutorialPrev').addEventListener('click',()=>{if(tutorialStep>0){tutorialStep--;renderTutorial();}});
-$('#tutorialNext').addEventListener('click',()=>{const count=document.querySelectorAll('.tutorial-step').length;if(tutorialStep<count-1){tutorialStep++;renderTutorial();}else closeTutorial();});
-$('#tutorialRayButton').addEventListener('click',()=>{$('#tutorialRayDemo').classList.toggle('active');$('#tutorialRayButton').textContent=$('#tutorialRayDemo').classList.contains('active')?'↺ Rejouer':'▶ Lancer le rayon';});
+function tutorialHighlightTarget(){
+  tutorialClearTargets();
+  let target=null;
+  if((tutorialStage===1||tutorialStage===3)&&tutorialTargetLabel){
+    target=document.querySelector(`#labels${tutorialTargetLabel.side[0].toUpperCase()+tutorialTargetLabel.side.slice(1)} .label:nth-child(${tutorialTargetLabel.index+1})`);
+  }else if(tutorialStage===5&&tutorialTargetCell){
+    target=document.querySelector(`.cellhit[data-row="${tutorialTargetCell.r}"][data-col="${tutorialTargetCell.c}"]`);
+  }else if(tutorialStage===7&&tutorialWrongPieceId){
+    target=document.querySelector(`#pieceSvg .piece-poly[data-id="${tutorialWrongPieceId}"]`);
+  }else if(tutorialStage===8) target=$('#btnPropose');
+  if(target){target.classList.add('tutorial-target');target.scrollIntoView({behavior:'smooth',block:'center'});}
+}
+function tutorialFindUnusedLabel(){
+  for(const [side,count] of [['top',COLS],['right',ROWS],['bottom',COLS],['left',ROWS]]){
+    for(let index=0;index<count;index++) if(state.labelColor[side][index]===undefined) return {side,index};
+  }
+  return {side:'top',index:0};
+}
+function tutorialFindOccupiedCell(){
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(pieceAtCell(r,c,state.secretPieces)) return {r,c};
+  return {r:3,c:4};
+}
+function tutorialResultText(result){
+  if(result.absorbed) return `Le rayon a rencontrÃ© le <b>corps noir</b> et a Ã©tÃ© absorbÃ© : il nâ€™a donc aucune sortie.`;
+  const entry=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);
+  const bounced=result.exitSide===tutorialTargetLabel.side&&result.exitIndex===tutorialTargetLabel.index;
+  const route=bounced?`Il ressort par son point dâ€™entrÃ©e <b>${entry}</b>.`:`Il ressort en <b>${labelText(result.exitSide,result.exitIndex)}</b>.`;
+  return `${route} La couleur observÃ©e est <b>${result.color.name}</b>. Une gemme ne se laisse pas traverser : chacune de ses faces rÃ©flÃ©chit le rayon et modifie sa direction.`;
+}
+function tutorialShowStage(){
+  if(!tutorialActive) return;
+  if(tutorialStage===0) tutorialCoach('Bienvenue dans la partie-école','Une vraie grille est cachée. Tu vas effectuer quelques actions sur le plateau, puis reconstruire la solution. Aucun compte n’est nécessaire et cette partie ne sera pas classée.','Commencer');
+  else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);tutorialCoach('Lance ton premier rayon',`Touche l’entrée <b>${name}</b>, mise en évidence sur le bord de la mine. Un rayon coûte <b>1 point</b>.`);}
+  else if(tutorialStage===2) tutorialCoach('Lis le résultat du rayon',tutorialResultText(tutorialLastResult),'Essayer un autre rayon');
+  else if(tutorialStage===3){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);tutorialCoach('Compare avec un second indice',`Touche maintenant l’entrée <b>${name}</b>. En croisant plusieurs sorties et couleurs, tu élimines progressivement les placements impossibles.`);}
+  else if(tutorialStage===4) tutorialCoach('Les rayons donnent des contraintes',tutorialResultText(tutorialLastResult)+' Observe également le nouvel élément ajouté dans l’historique de la partie.','Vérifier une case');
+  else if(tutorialStage===5){const coord=LEFT_LABELS[tutorialTargetCell.r]+(tutorialTargetCell.c+1);tutorialCoach('Utilise une coordonnée',`Touche la case <b>${coord}</b>, mise en évidence. Une coordonnée révèle directement son contenu, mais coûte <b>3 points</b>.`);}
+  else if(tutorialStage===6) tutorialCoach('Un indice très précis',`La case interrogée est maintenant marquée sur le vrai plateau et son contenu figure dans l’historique. Les coordonnées sont utiles pour confirmer une hypothèse, mais elles coûtent trois fois plus qu’un rayon.`,'Reconstruire la grille');
+  else if(tutorialStage===7) tutorialCoach('Corrige la dernière gemme','Une solution presque complète vient d’être placée. La gemme mise en évidence est mal orientée : <b>touche-la une fois</b> pour la faire pivoter de 90°.');
+  else if(tutorialStage===8) tutorialCoach('Propose la solution','Toutes les gemmes correspondent maintenant aux indices. Touche <b>Proposer une solution</b> pour vérifier la disposition.');
+  else tutorialCoach('Tutoriel terminé !','Tu sais maintenant interroger la mine, lire les résultats, placer les gemmes et proposer une solution.<br><br><b>Sur l’accueil :</b> joue une grille aléatoire, le défi du jour ou un identifiant partagé ; crée tes propres grilles ; consulte tes historiques et les classements depuis ton compte.','Retour à l’accueil');
+}
+function tutorialPrepareSolution(){
+  state.pieces=state.secretPieces.map(p=>({...p,id:'p'+(pieceIdSeq++),center:{...p.center}}));
+  const wrong=state.pieces.find(p=>p.type==='red')||state.pieces[0];
+  wrong.rotation=(wrong.rotation+270)%360;
+  tutorialWrongPieceId=wrong.id;
+  renderPalette();renderPieces();
+}
+function startInteractiveTutorial(){
+  if(state.mode==='solo'&&!state.soloOver&&!confirm('Quitter la partie solo en cours pour lancer le tutoriel ?')) return;
+  const decoded=decodeGridId('HFHG-JQGL-LDSG-FQLB-QDFJ-FEHB-B');
+  if(!decoded){showToast('Le tutoriel est momentanément indisponible.');return;}
+  tutorialActive=true;tutorialStage=0;tutorialTargetLabel={side:'top',index:0};tutorialTargetCell=null;tutorialWrongPieceId=null;tutorialLastResult=null;
+  document.body.classList.add('tutorial-active');
+  state.includeGray=decoded.includeGray;state.includeOnyx=decoded.includeOnyx;state.includeSapphire=decoded.includeSapphire;
+  state.mode='solo';state.started=false;state.secretPieces=decoded.pieces.map(p=>({...p,id:'p'+(pieceIdSeq++),center:{...p.center}}));state.pieces=freshPieceSet();
+  state.gridId=null;state.gridRanked=false;state.gridUnrankedReason='tutorial';state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;state.isDaily=false;state.dailyDate=null;state.history=[];state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.coordDots=[];
+  showGame();setTimeout(tutorialShowStage,80);
+}
+function exitInteractiveTutorial(){tutorialActive=false;document.body.classList.remove('tutorial-active');tutorialClearTargets();resetAll();showHome();}
+function tutorialAfterRay(result){tutorialLastResult=result;tutorialStage=tutorialStage===1?2:4;tutorialShowStage();}
+function tutorialAfterCell(){tutorialStage=6;tutorialShowStage();}
+function tutorialAfterPieceAction(piece){
+  if(!tutorialActive||tutorialStage!==7||piece.id!==tutorialWrongPieceId)return;
+  const secret=state.secretPieces.find(p=>p.type===piece.type);
+  if(secret&&piece.rotation===secret.rotation&&piece.flipped===secret.flipped){tutorialStage=8;tutorialShowStage();}
+}
+function tutorialPropose(){
+  if(tutorialStage!==8){showToast('Suis d’abord l’étape mise en évidence.');tutorialShowStage();return;}
+  if(!evaluateGuess()){tutorialCoach('Pas encore','La gemme mise en évidence n’est pas dans la bonne orientation. Touche-la encore avant de proposer.');return;}
+  tutorialStage=9;tutorialClearTargets();tutorialShowStage();
+}
+$('#homeLearn').addEventListener('click',startInteractiveTutorial);
+$('#tutorialCoachClose').addEventListener('click',exitInteractiveTutorial);
+$('#tutorialCoachAction').addEventListener('click',()=>{
+  if(tutorialStage===0){tutorialStage=1;renderLabels();tutorialShowStage();}
+  else if(tutorialStage===2){tutorialTargetLabel=tutorialFindUnusedLabel();tutorialStage=3;tutorialShowStage();}
+  else if(tutorialStage===4){tutorialTargetCell=tutorialFindOccupiedCell();setHintMode(true);tutorialStage=5;renderBgGrid();tutorialShowStage();}
+  else if(tutorialStage===6){tutorialPrepareSolution();tutorialStage=7;tutorialShowStage();}
+  else if(tutorialStage===9) exitInteractiveTutorial();
+});
 $('#closeSoloAccountPrompt').addEventListener('click',()=>$('#soloAccountPromptModal').classList.remove('open'));
 $('#soloAccountPromptModal').addEventListener('click',e=>{if(e.target.id==='soloAccountPromptModal')$('#soloAccountPromptModal').classList.remove('open');});
 $('#soloPromptLogin').addEventListener('click',async()=>{$('#soloAccountPromptModal').classList.remove('open');await openAccountModal();});
