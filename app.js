@@ -418,12 +418,16 @@ function openGridDataShell(title,intro='',returnToAccount=false,returnToVictory=
 }
 function gridRankingRows(rows){
   if(!rows?.length) return '<div class="history-empty">Aucun score classé pour cette grille.</div>';
-  return rows.map(row=>`<div class="ranking-row"><div class="ranking-row-top">
+  const myAccountName=currentPlayerAccount?.display_name?.trim().toLocaleLowerCase('fr-FR')||'';
+  return rows.map(row=>{
+    const mine=!!myAccountName&&String(row.player_name||'').trim().toLocaleLowerCase('fr-FR')===myAccountName;
+    return `<div class="ranking-row${mine?' ranking-mine':''}"><div class="ranking-row-top">
     <span class="ranking-rank${Number(row.rank)===1?' top1':''}">${rankingMedal(Number(row.rank)-1)}</span>
     <span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}
     <span class="ranking-points">${row.cost} pts</span>
     <span class="ranking-time">${formatDuration(row.time_ms)}</span>
-  </div><div class="ranking-row-detail">${row.ray_count||0} rayon${row.ray_count===1?'':'s'} 🔦 + ${row.coord_count||0} coordonnée${row.coord_count===1?'':'s'} 📍</div></div>`).join('');
+  </div><div class="ranking-row-detail">${row.ray_count||0} rayon${row.ray_count===1?'':'s'} 🔦 + ${row.coord_count||0} coordonnée${row.coord_count===1?'':'s'} 📍</div></div>`;
+  }).join('');
 }
 async function openGridRanking(gridId,returnToAccount=false,returnToVictory=false){
   if(!gridId) return;
