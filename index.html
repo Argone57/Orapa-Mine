@@ -166,6 +166,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .stats-week{display:flex;flex-direction:column;gap:4px;}.stats-day{display:grid;grid-template-columns:1fr auto 46px;align-items:center;gap:10px;padding:7px 9px;border-radius:6px;font-size:.75rem;background:rgba(255,255,255,.02);}.stats-day.selected{background:rgba(230,194,122,.1);box-shadow:inset 3px 0 0 var(--gold);}.stats-day b{font-size:.72rem;color:var(--text);}.stats-day em{font-style:normal;text-align:right;color:var(--gold-bright);}
 .stats-week-total{margin-top:9px;text-align:right;font-size:.72rem;color:var(--text-dim);}.stats-note{font-size:.68rem;color:var(--text-faint);margin-top:13px;}
 .stats-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:2px 0 14px}.stats-toolbar select{flex:1;min-width:190px}.stats-mode-tabs{display:flex;gap:6px}.stats-mode-tabs button.active{border-color:var(--gold);color:var(--gold-bright);background:rgba(230,194,122,.1)}
+.stats-daily-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px}.stats-daily-heading h3{margin:0}.stats-date-picker-wrap{display:inline-flex;flex:0 0 42px}
 .stats-player-list{display:flex;flex-direction:column;gap:5px;max-height:220px;overflow:auto;margin-top:8px}.stats-player{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;width:100%;padding:8px 10px;text-align:left;border:1px solid var(--vein);border-radius:7px;background:rgba(255,255,255,.02);color:var(--text);font-family:inherit;cursor:pointer}.stats-player:hover{background:rgba(230,194,122,.08)}.stats-player span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.stats-player b{color:var(--gold-bright)}.stats-player em{font-style:normal;color:var(--text-dim);font-size:.7rem}.stats-back{margin-bottom:10px}.stats-subtitle{font-size:.72rem;color:var(--text-dim);margin:-5px 0 12px}.stats-section-title{display:flex;justify-content:space-between;align-items:end;gap:8px}.stats-section-title small{font-size:.65rem;color:var(--text-faint);font-weight:normal}
 @media(max-width:600px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stats-toolbar{align-items:stretch}.stats-mode-tabs{width:100%}.stats-mode-tabs button{flex:1}.stats-player{grid-template-columns:1fr auto}.stats-player em{grid-column:1/-1}}
 @media(max-width:600px){.ranking-time{display:none}.ranking-tabs{gap:5px}.ranking-tabs button{font-size:.72rem;padding-left:5px;padding-right:5px}.ranking-gems{font-size:.72rem}}
@@ -262,7 +263,7 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
       <p class="home-kicker">Explorez la mine · Déduisez la grille</p>
       <div class="home-actions">
         <button id="homeSolo" class="home-action primary"><span class="icon">🧩</span><span><strong>Jouer en solo</strong><small>Défi du jour, grille aléatoire ou identifiant</small></span><span class="arrow">›</span></button>
-        <button id="homeCreate" class="home-action"><span class="icon">🎯</span><span><strong>Créer une grille</strong><small>Préparez une partie autour de la table</small></span><span class="arrow">›</span></button>
+        <button id="homeCreate" class="home-action"><span class="icon">🎯</span><span><strong>Créer une grille</strong></span><span class="arrow">›</span></button>
         <button id="homeLearn" class="home-action learn"><span class="icon">📖</span><span><strong>Apprendre à jouer</strong></span><span class="arrow">›</span></button>
       </div>
     </div>
@@ -565,6 +566,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-  <script src="app.js?v=20260726-0535"></script>
+  <script src="app.js?v=20260727-0010"></script>
 </body>
 </html>

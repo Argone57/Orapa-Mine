@@ -3076,7 +3076,14 @@ async function renderGlobalStatsView(force=false){
       const rows=await fetchGlobalDailyScores(dateKey,force);
       if(!modal.classList.contains('open')) return;
       globalStatsRows=rows;
-      content.innerHTML=`<h3>Défi du ${formatStatsDate(dateKey)}</h3>${rows.length ? statsSummaryCards(rows)+statsDetails(rows)+statsPlayerButtons(rows,true) : '<div class="history-empty">Aucune participation pour cette date.</div>'}`;
+      content.innerHTML=`<div class="stats-daily-heading"><h3>Défi du ${formatStatsDate(dateKey)}</h3><label class="ranking-date-picker-wrap stats-date-picker-wrap" aria-label="Choisir une autre date"><span aria-hidden="true">&#128197;</span><input id="globalStatsDatePicker" class="ranking-date-picker" type="date" value="${dateKey}" max="${parisDateKey()}"></label></div>${rows.length ? statsSummaryCards(rows)+statsDetails(rows)+statsPlayerButtons(rows,true) : '<div class="history-empty">Aucune participation pour cette date.</div>'}`;
+      $('#globalStatsDatePicker')?.addEventListener('change',event=>{
+        const picked=event.target.value;
+        if(!picked)return;
+        if(![...dateSelect.options].some(option=>option.value===picked))dateSelect.add(new Option(formatStatsDate(picked),picked));
+        dateSelect.value=picked;
+        renderGlobalStatsView();
+      });
     }else{
       const rows=await fetchAllGlobalScores(force);
       if(!modal.classList.contains('open')) return;
