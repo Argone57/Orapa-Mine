@@ -431,6 +431,21 @@ function gridRankingRows(rows){
 }
 async function openGridRanking(gridId,returnToAccount=false,returnToVictory=false){
   if(!gridId) return;
+  if(returnToAccount&&$('#gridDataModal').classList.contains('open')){
+    $('#nestedGridRankingIntro').innerHTML=`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls ranked-grid-actions"><button id="copyNestedRankedGridId" class="ghost">📋 Copier l’ID de la grille</button></div>`;
+    $('#nestedGridRankingContent').innerHTML='<div class="history-empty">Chargement…</div>';
+    $('#nestedGridRankingModal').classList.add('open');
+    $('#copyNestedRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
+    try{
+      const rows=await supabaseRpc('orapa_get_grid_scores',{p_grid_id:gridId});
+      if(!$('#nestedGridRankingModal').classList.contains('open'))return;
+      const wins=(rows||[]).filter(row=>row.success).length;
+      $('#nestedGridRankingContent').innerHTML=`<div class="global-ranking-summary"><b>${rows?.length||0}</b> participant${rows?.length===1?'':'s'} · <b>${wins}</b> réussite${wins===1?'':'s'}</div>${gridRankingRows(rows)}${rows?.some(row=>row.played_by_creator)?'<p class="stats-note">* Cette personne a créé la grille et l’a jouée après la période de protection.</p>':''}`;
+    }catch(e){
+      $('#nestedGridRankingContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;
+    }
+    return;
+  }
   openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls ranked-grid-actions"><button id="copyRankedGridId" class="ghost">📋 Copier l’ID de la grille</button>${returnToVictory?'<button id="gridResultBack" class="ghost">← Retour au résultat</button>':''}</div>`,returnToAccount,returnToVictory);
   $('#copyRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
   if(returnToVictory) $('#gridResultBack').onclick=()=>closeGridDataModal(true);
@@ -2874,6 +2889,8 @@ function closeGridDataModal(returnToOrigin=true){
 $('#closeGridData').addEventListener('click',()=>closeGridDataModal(false));
 $('#gridDataBack').addEventListener('click',()=>closeGridDataModal(true));
 $('#gridDataModal').addEventListener('click',e=>{if(e.target.id==='gridDataModal')closeGridDataModal(false);});
+$('#closeNestedGridRanking').addEventListener('click',()=>$('#nestedGridRankingModal').classList.remove('open'));
+$('#nestedGridRankingModal').addEventListener('click',e=>{if(e.target.id==='nestedGridRankingModal')$('#nestedGridRankingModal').classList.remove('open');});
 $('#helpModal').addEventListener('click', e=>{ if(e.target.id==='helpModal') $('#helpModal').classList.remove('open'); });
 
 let rankingView = 'solo';
