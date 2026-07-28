@@ -2090,15 +2090,6 @@ function buildMixBoard(){
         ${row(['red','yellow','blue','white'],'blue+red+white+yellow')}
       </div>
     </div>
-    ${state.includeGray ? `
-    <hr class="mix-sep">
-    <div class="mix-section-title">${shapeIconSVG('gray')}<span>Diamant</span></div>
-    <p class="mix-option-text">Le diamant ne modifie pas la couleur du rayon.<br>Si le rayon vient heurter le diamant en plus des autres gemmes, sa couleur reste déterminée uniquement par les autres gemmes.</p>` : ''}
-    ${state.includeOnyx ? `
-    <hr class="mix-sep">
-    <div class="mix-section-title">${shapeIconSVG('onyx')}<span>Corps noir</span></div>
-    <p class="mix-option-text">Le corps noir absorbe le rayon sans le renvoyer.</p>
-    <img class="mix-onyx-example" src="onyx-absorption-example.png" alt="Exemple d’un rayon absorbé par le corps noir">` : ''}
     ${state.includeSapphire ? `
     <hr class="mix-sep">
     <div class="mix-section-title">${shapeIconSVG('sapphire')}<span>Saphir bleu ciel — compte comme bleu + blanc à chaque contact</span></div>
@@ -2113,7 +2104,16 @@ function buildMixBoard(){
         ${row(['sapphire','yellow'],'blue+white+yellow')}
         ${row(['sapphire','red','yellow'],'blue+red+white+yellow')}
       </div>
-    </div>` : ''}`;
+    </div>` : ''}
+    ${state.includeGray ? `
+    <hr class="mix-sep">
+    <div class="mix-section-title">${shapeIconSVG('gray')}<span>Diamant</span></div>
+    <p class="mix-option-text">Le diamant ne modifie pas la couleur du rayon.<br>Si le rayon vient heurter le diamant en plus des autres gemmes, sa couleur reste déterminée uniquement par les autres gemmes.</p>` : ''}
+    ${state.includeOnyx ? `
+    <hr class="mix-sep">
+    <div class="mix-section-title">${shapeIconSVG('onyx')}<span>Corps noir</span></div>
+    <p class="mix-option-text">Le corps noir absorbe le rayon sans le renvoyer.</p>
+    <img class="mix-onyx-example" src="onyx-absorption-example.png" alt="Exemple d’un rayon absorbé par le corps noir">` : ''}`;
 }
 
 // ---------------------------------------------------------------------
