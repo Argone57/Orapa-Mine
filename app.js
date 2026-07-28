@@ -231,7 +231,7 @@ function loadPlayerAccount(){
 }
 function savePlayerAccount(account){
   currentPlayerAccount=account||null;
-  globalSoloScoresCache=null;
+  invalidateGlobalSoloScores();
   try{
     if(account) localStorage.setItem(PLAYER_ACCOUNT_KEY,JSON.stringify(account));
     else localStorage.removeItem(PLAYER_ACCOUNT_KEY);
@@ -704,7 +704,7 @@ async function submitGlobalGridScore(entry, identity){
       p_coord_count:Number(entry.coordCount)||0,
       p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))
     });
-    if(row?.accepted) globalSoloScoresCache=null;
+    if(row?.accepted) invalidateGlobalSoloScores();
     if(row?.reason==='already_played') showToast('Cette grille a déjà été classée avec ce profil.');
     else if(row?.reason==='creator_protected') showToast('⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.');
     else showToast(row?.rank ? `🌍 Première tentative enregistrée · rang #${row.rank}` : '🌍 Première tentative enregistrée');
@@ -3132,6 +3132,19 @@ async function openGlobalStats(){
 
 const GLOBAL_SOLO_PAGE_SIZE=10;
 let globalSoloScoresCache=null;
+let globalSoloVisibleCounts={};
+function invalidateGlobalSoloScores(){
+  globalSoloScoresCache=null;
+  globalSoloVisibleCounts={};
+}
+function filterGlobalSoloRows(filterKey){
+  const cachedRows=globalSoloScoresCache?.rows||[];
+  if(filterKey==='ALL') return cachedRows.slice();
+  return cachedRows.filter(row=>{
+    const decoded=decodeGridId(row.grid_id);
+    return decoded&&configKey(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire)===filterKey;
+  });
+}
 async function loadNextGlobalSoloPage(){
   if(!globalSoloScoresCache) globalSoloScoresCache={rows:[],hasMore:true};
   if(!globalSoloScoresCache.hasMore) return;
@@ -3151,12 +3164,15 @@ async function renderGlobalSoloScores(filterKey='ALL'){
   if(!currentPlayerAccount){ el.innerHTML='<div class="history-empty">Connectez-vous pour consulter les résultats solo.</div>'; return; }
   if(!globalSoloScoresCache) el.innerHTML='<div class="history-empty">Chargement des résultats solo…</div>';
   try{
+    const visibleTarget=globalSoloVisibleCounts[filterKey]||GLOBAL_SOLO_PAGE_SIZE;
+    globalSoloVisibleCounts[filterKey]=visibleTarget;
     if(!globalSoloScoresCache) await loadNextGlobalSoloPage();
-    let rows=globalSoloScoresCache.rows.slice();
-    if(filterKey!=='ALL') rows=rows.filter(row=>{
-      const decoded=decodeGridId(row.grid_id);
-      return decoded&&configKey(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire)===filterKey;
-    });
+    let matchingRows=filterGlobalSoloRows(filterKey);
+    while(matchingRows.length<visibleTarget+1&&globalSoloScoresCache.hasMore){
+      await loadNextGlobalSoloPage();
+      matchingRows=filterGlobalSoloRows(filterKey);
+    }
+    const rows=matchingRows.slice(0,visibleTarget);
     if(!rows?.length && !globalSoloScoresCache.hasMore){ el.innerHTML='<div class="history-empty">Aucun résultat solo enregistré.</div>'; return; }
     const rowsHtml=rows.map((row,i)=>{
       const decoded=decodeGridId(row.grid_id);
@@ -3164,9 +3180,10 @@ async function renderGlobalSoloScores(filterKey='ALL'){
       const expanded=expandedScores.has(`solo:${row.id}`);
       return `<div class="ranking-row solo-global-row${expanded?' expanded':''}" data-solo-row="${i}"><div class="ranking-row-top"><span class="solo-ranking-player"><span class="ranking-rank solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><span class="ranking-name${row.is_mine?' mine':''}">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}</span></span><span class="solo-ranking-config ranking-gems">${gems}</span><span class="solo-ranking-score"><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${new Date(row.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span></span></div>${expanded?`<div class="ranking-row-detail">Grille <b>${escapeHtml(row.grid_id)}</b> · ${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions"><button class="solo-copy-summary ghost" data-solo-index="${i}">📋 Résumé</button><button class="solo-copy-id ghost" data-solo-index="${i}">📋 ID</button><button class="solo-grid-ranking primary" data-solo-index="${i}">🏆 Grille</button></div>`:''}</div>`;
     }).join('');
-    const emptyFiltered=!rows.length?'<div class="history-empty">Aucun résultat de cette configuration dans les pages chargées.</div>':'';
+    const emptyFiltered=!rows.length?'<div class="history-empty">Aucun résultat pour cette configuration.</div>':'';
     const creatorNote=rows.some(row=>row.played_by_creator)?'<p class="stats-note">* Créateur de la grille, résultat enregistré après la période de protection.</p>':'';
-    const moreButton=globalSoloScoresCache.hasMore?'<button id="soloLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'';
+    const hasMore=matchingRows.length>visibleTarget||globalSoloScoresCache.hasMore;
+    const moreButton=hasMore?'<button id="soloLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'';
     el.innerHTML=rowsHtml+emptyFiltered+creatorNote+moreButton;
     el.querySelectorAll('.solo-global-row').forEach(rowEl=>rowEl.onclick=ev=>{
       if(ev.target.closest('button')) return;
@@ -3181,7 +3198,7 @@ async function renderGlobalSoloScores(filterKey='ALL'){
     if(loadMore) loadMore.onclick=async()=>{
       loadMore.disabled=true;
       loadMore.textContent='Chargement…';
-      try{ await loadNextGlobalSoloPage(); renderGlobalSoloScores(filterKey); }
+      try{ globalSoloVisibleCounts[filterKey]=visibleTarget+GLOBAL_SOLO_PAGE_SIZE; await renderGlobalSoloScores(filterKey); }
       catch(e){ showToast(`Chargement impossible : ${e.message}`); loadMore.disabled=false; loadMore.textContent='Afficher les résultats suivants'; }
     };
     el.scrollTop=savedScrollTop;
