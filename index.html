@@ -126,6 +126,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .mix-swatch{width:20px;height:20px;border-radius:5px;flex:0 0 20px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);}
 .mix-icon{width:22px;height:22px;flex:0 0 22px;}
 .mix-name{color:var(--text);font-weight:600;}
+.mix-section-title{display:flex;align-items:center;gap:7px;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}.mix-section-title .mix-icon{flex:0 0 22px}.mix-option-text{margin:3px 0 10px;color:var(--text-dim);font-size:.76rem;line-height:1.5}.mix-onyx-example{display:block;width:min(100%,360px);height:auto;margin:10px auto 2px;border:1px solid var(--vein);border-radius:8px}
 .help-fab{position:fixed;bottom:18px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);font-family:'Cinzel',serif;font-weight:700;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:1.15rem;line-height:1;padding:0;}
 .rankings-fab{left:18px;right:auto;}
 .ranking-tabs{display:flex;gap:8px;margin:12px 0;}
@@ -277,9 +278,9 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
       <button id="btnCopyGridId" class="ghost" style="padding:4px 10px;font-size:.7rem;">📤 Partager la grille</button>
     </div>
     <div class="controls">
-      <button id="btnSolo" class="ghost">🧩 Jouer en solo</button>
       <button id="btnRandom" class="ghost">🎲 Placer aléatoirement</button>
       <button id="btnStart" class="primary">Démarrer la partie</button>
+      <button id="btnEndGame" class="danger" style="display:none;">🏁 Fin de partie</button>
       <button id="btnShareGrid" class="ghost">📤 Partager la grille</button>
       <button id="btnHome" class="ghost">← Retour à l'accueil</button>
     </div>
@@ -575,6 +576,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-  <script src="app.js?v=20260728-0046"></script>
+  <script src="app.js?v=20260728-0047"></script>
 </body>
 </html>

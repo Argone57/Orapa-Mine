@@ -1999,8 +1999,8 @@ function renderModePill(){
 function renderControls(){
   const gmPreStart = state.mode==='gm' && !state.started;
   $('#btnRandom').style.display = gmPreStart ? '' : 'none';
-  $('#btnSolo').style.display = gmPreStart ? '' : 'none';
   $('#btnStart').style.display = state.mode==='gm' ? '' : 'none';
+  $('#btnEndGame').style.display = (state.mode==='gm' && state.started) ? '' : 'none';
   $('#btnShareGrid').style.display = gmPreStart ? '' : 'none';
   let startBlockReason = '';
   if(state.mode==='gm' && !state.started){
@@ -2052,8 +2052,9 @@ function shapeIconSVG(type, size){
   const pad=0.2;
   const def = CONFIG.PIECES[type];
   const fill = def.isDiamond ? 'rgba(207,216,220,0.7)' : def.hex;
+  const stroke = def.isOnyx ? '#cfd8dc' : 'rgba(0,0,0,.4)';
   return `<svg class="mix-icon" width="${size}" height="${size}" viewBox="${minX-pad} ${minY-pad} ${(maxX-minX)+2*pad} ${(maxY-minY)+2*pad}">
-    <polygon points="${polyPointsAttr(pts)}" fill="${fill}" stroke="rgba(0,0,0,.4)" stroke-width="0.05"/>
+    <polygon points="${polyPointsAttr(pts)}" fill="${fill}" stroke="${stroke}" stroke-width="0.05"/>
   </svg>`;
 }
 function buildMixBoard(){
@@ -2089,9 +2090,18 @@ function buildMixBoard(){
         ${row(['red','yellow','blue','white'],'blue+red+white+yellow')}
       </div>
     </div>
+    ${state.includeGray ? `
+    <hr class="mix-sep">
+    <div class="mix-section-title">${shapeIconSVG('gray')}<span>Diamant</span></div>
+    <p class="mix-option-text">Le diamant ne modifie pas la couleur du rayon.<br>Si le rayon vient heurter le diamant en plus des autres gemmes, sa couleur reste déterminée uniquement par les autres gemmes.</p>` : ''}
+    ${state.includeOnyx ? `
+    <hr class="mix-sep">
+    <div class="mix-section-title">${shapeIconSVG('onyx')}<span>Corps noir</span></div>
+    <p class="mix-option-text">Le corps noir absorbe le rayon sans le renvoyer.</p>
+    <img class="mix-onyx-example" src="onyx-absorption-example.png" alt="Exemple d’un rayon absorbé par le corps noir">` : ''}
     ${state.includeSapphire ? `
     <hr class="mix-sep">
-    <div style="color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Saphir bleu ciel — compte comme bleu + blanc à chaque contact</div>
+    <div class="mix-section-title">${shapeIconSVG('sapphire')}<span>Saphir bleu ciel — compte comme bleu + blanc à chaque contact</span></div>
     <div class="mix-quad">
       <div class="mix-block">
         ${row(['sapphire'],'blue+white')}
@@ -2145,7 +2155,7 @@ function onPieceDown(ev, piece, el){
       el.classList.add('flip-pulse');
       setTimeout(()=>el.classList.remove('flip-pulse'),350);
       if(navigator.vibrate) navigator.vibrate(15);
-      renderPalette(); renderPieces();
+      renderPalette(); renderPieces(); renderControls();
       tutorialAfterPieceAction(piece);
     }
   }, 480);
@@ -2200,6 +2210,7 @@ function onPieceDown(ev, piece, el){
       saveState();
       renderPalette();
       renderPieces();
+      renderControls();
       tutorialAfterPiecePlacement(piece);
     } else if(!longPressed){
       piece.rotation = (piece.rotation + 90) % 360;
@@ -2207,6 +2218,7 @@ function onPieceDown(ev, piece, el){
       saveState();
       renderPalette();
       renderPieces();
+      renderControls();
       tutorialAfterPieceAction(piece);
     }
   }
@@ -2704,7 +2716,6 @@ $('#btnHome').addEventListener('click',()=>{
   showHome();
 });
 $('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; randomizePlacement(); });
-$('#btnSolo').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; enterSolo(); });
 $('#btnStart').addEventListener('click', ()=>{
   if(state.mode!=='gm' || state.started) return;
   if(state.pieces.some(p=>!p.center)){
@@ -2719,6 +2730,12 @@ $('#btnStart').addEventListener('click', ()=>{
   state.gridId = encodeGridId(state.pieces, state.includeGray, state.includeOnyx, state.includeSapphire);
   saveState();
   renderAll();
+});
+$('#btnEndGame').addEventListener('click',()=>{
+  if(state.mode!=='gm'||!state.started) return;
+  if(!confirm('Terminer cette partie et revenir à l’accueil ?')) return;
+  resetAll();
+  showHome();
 });
 $('#btnShareGrid').addEventListener('click',async()=>{
   if(state.mode!=='gm'||state.started||$('#btnShareGrid').disabled) return;
@@ -2854,7 +2871,7 @@ function syncOptionalPiece(type, include, flagName){
   const existing = state.pieces.filter(p=>p.type===type);
   if(include && existing.length===0) state.pieces.push(newPiece(type));
   else if(!include) state.pieces = state.pieces.filter(p=>p.type!==type);
-  saveState(); renderPalette(); renderPieces();
+  saveState(); renderPalette(); renderPieces(); renderControls(); buildMixBoard();
 }
 $('#helpFab').addEventListener('click', ()=>{
   buildMixBoard();
