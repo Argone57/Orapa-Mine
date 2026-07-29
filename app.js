@@ -1067,10 +1067,94 @@ function tryDailyLayout(rngFn){
     flags, exceptionRule, exceptionType
   };
 }
+function placeDailyRegularPiece(type, placed, rngFn){
+  for(let tries=0; tries<250; tries++){
+    const rotation = ROTATIONS[Math.floor(rngFn()*4)];
+    const flipped = rngFn()<0.5;
+    const probe = { id:'r_'+type, type, center:{x:COLS/2,y:ROWS/2}, rotation, flipped };
+    const {hw,hh} = boundingHalfExtents(probe);
+    if(hw*2>COLS || hh*2>ROWS) return null;
+    const rawX = hw+rngFn()*(COLS-2*hw);
+    const rawY = hh+rngFn()*(ROWS-2*hh);
+    let {x:cx,y:cy} = snapPieceCenter(rawX,rawY,probe);
+    cx=Math.min(COLS-hw,Math.max(hw,cx));
+    cy=Math.min(ROWS-hh,Math.max(hh,cy));
+    const candidate={id:'r_'+type,type,center:{x:cx,y:cy},rotation,flipped};
+    if(placementValid(candidate,null,placed)) return candidate;
+  }
+  return null;
+}
+function pieceIsPartiallyOutside(piece){
+  const {hw,hh}=boundingHalfExtents(piece);
+  return piece.center.x-hw < -1e-6 || piece.center.x+hw > COLS+1e-6 ||
+         piece.center.y-hh < -1e-6 || piece.center.y+hh > ROWS+1e-6;
+}
+function sideTouchPairs(pieces){
+  const pairs=[];
+  for(let i=0;i<pieces.length;i++) for(let j=i+1;j<pieces.length;j++){
+    if(edgeContactKind(pieceVertices(pieces[i]),pieceVertices(pieces[j]))==='sideTouch') pairs.push([pieces[i].type,pieces[j].type]);
+  }
+  return pairs;
+}
+// Depuis le 30/07/2026, les deux exceptions sont tirées explicitement :
+// dépassement seul, contact seul, ou les deux. Dans ce dernier cas, le contact
+// peut concerner la gemme qui dépasse ou deux autres gemmes.
+function tryDailyLayoutV2(rngFn){
+  const flags={gray:rngFn()<0.5,onyx:rngFn()<0.5,sapphire:rngFn()<0.5};
+  const types=seededShuffle(dailyTypesForFlags(flags.gray,flags.onyx,flags.sapphire),rngFn);
+  const modes=['partialOut','sideTouch','both'];
+  const exceptionRule=modes[Math.floor(rngFn()*modes.length)];
+  const needsPartial=exceptionRule!=='sideTouch';
+  const needsTouch=exceptionRule!=='partialOut';
+  const partialType=needsPartial ? types[Math.floor(rngFn()*types.length)] : null;
+  let touchTypes=[];
+  if(needsTouch){
+    const touchPool=seededShuffle(types,rngFn);
+    touchTypes=[touchPool[0],touchPool[1]];
+  }
+  const placed=[];
+  if(needsPartial){
+    const partial=findForcedPartialOut(partialType,placed,rngFn);
+    if(!partial) return null;
+    placed.push(partial);
+  }
+  if(needsTouch){
+    const partialInPair=touchTypes.includes(partialType);
+    if(partialInPair){
+      const otherType=touchTypes.find(type=>type!==partialType);
+      const touching=findForcedSideTouch(otherType,placed,rngFn);
+      if(!touching) return null;
+      placed.push(touching);
+    }else{
+      const anchor=placeDailyRegularPiece(touchTypes[0],placed,rngFn);
+      if(!anchor) return null;
+      placed.push(anchor);
+      const touching=findForcedSideTouch(touchTypes[1],placed,rngFn);
+      if(!touching) return null;
+      placed.push(touching);
+    }
+  }
+  for(const type of types){
+    if(placed.some(piece=>piece.type===type)) continue;
+    const candidate=placeDailyRegularPiece(type,placed,rngFn);
+    if(!candidate) return null;
+    placed.push(candidate);
+  }
+  const partialCount=placed.filter(pieceIsPartiallyOutside).length;
+  const touches=sideTouchPairs(placed);
+  if(needsPartial ? partialCount<1 : partialCount!==0) return null;
+  if(needsTouch ? touches.length<1 : touches.length!==0) return null;
+  if(unreachablePieces(placed).length>0) return null;
+  return {
+    pieces:placed.map(p=>({id:'p'+(pieceIdSeq++),type:p.type,center:p.center,rotation:p.rotation,flipped:p.flipped})),
+    flags,exceptionRule,exceptionType:partialType,touchTypes
+  };
+}
 function generateDailyLayout(dateKey){
-  const rngFn = mulberry32(seedFromString('DAILY-'+dateKey));
+  const useV2=dateKey>='2026-07-30';
+  const rngFn = mulberry32(seedFromString((useV2?'DAILY-V2-':'DAILY-')+dateKey));
   for(let attempt=0; attempt<200; attempt++){
-    const result = tryDailyLayout(rngFn);
+    const result = useV2 ? tryDailyLayoutV2(rngFn) : tryDailyLayout(rngFn);
     if(result) return result;
   }
   return null;
@@ -2163,6 +2247,7 @@ function buildMixBoard(){
     ${state.includeSapphire ? `
     <hr class="mix-sep">
     <div class="mix-section-title">${shapeIconSVG('sapphire')}<span>Saphir bleu ciel — compte comme bleu + blanc à chaque contact</span></div>
+    <p class="mix-reminder mix-warning"><span>⚠️</span><span>Le Saphir bleu ciel doit pouvoir être atteint par au moins 3 rayons sans rebond.</span></p>
     <div class="mix-quad">
       <div class="mix-block">
         ${row(['sapphire'],'blue+white')}

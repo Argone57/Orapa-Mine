@@ -126,7 +126,8 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .mix-swatch{width:20px;height:20px;border-radius:5px;flex:0 0 20px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);}
 .mix-icon{width:22px;height:22px;flex:0 0 22px;}
 .mix-name{color:var(--text);font-weight:600;}
-.mix-section-title{display:flex;align-items:center;gap:7px;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}.mix-section-title .mix-icon{flex:0 0 22px}.mix-option-text{margin:3px 0 10px;color:var(--text-dim);font-size:.76rem;line-height:1.5}.mix-onyx-example{display:block;width:min(100%,180px);height:auto;margin:10px auto 2px;border:1px solid var(--vein);border-radius:8px}
+.mix-section-title{display:flex;align-items:center;gap:7px;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}.mix-section-title .mix-icon{flex:0 0 22px}.mix-option-text{margin:3px 0 10px;color:var(--text-dim);font-size:.76rem;line-height:1.5}.mix-reminder{margin:2px 0 10px;color:var(--text-dim);font-size:.76rem;line-height:1.5}.mix-warning{display:flex;align-items:flex-start;gap:7px;color:var(--gold-bright)}.mix-warning span:first-child{flex:0 0 auto}.mix-onyx-example{display:block;width:min(100%,180px);height:auto;margin:10px auto 2px;border:1px solid var(--vein);border-radius:8px}
+.daily-special-rules{margin:12px 0 4px;padding:11px 12px;border:1px solid var(--vein);border-radius:10px;background:rgba(230,194,122,.045)}.daily-special-rules h3{margin:0 0 7px;color:var(--gold-bright);font-family:'Cinzel',serif;font-size:.84rem}.daily-special-rules ul{margin:5px 0 8px;padding-left:20px}.daily-special-rules p{margin:7px 0 0}
 .help-fab{position:fixed;bottom:18px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);font-family:'Cinzel',serif;font-weight:700;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:1.15rem;line-height:1;padding:0;}
 .rankings-fab{left:18px;right:auto;}
 .ranking-tabs{display:flex;gap:8px;margin:12px 0;}
@@ -501,7 +502,8 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
 <div class="modal-backdrop" id="helpModal">
   <div class="modal">
     <button class="close-x" id="closeHelp">×</button>
-    <h2>Couleurs créées par combinaison</h2>
+    <h2>Rappels</h2>
+    <p>Chaque gemme doit pouvoir être atteinte par au moins 1 rayon sans rebond.</p>
     <div id="mixBoard" class="mix-board"></div>
   </div>
 </div>
@@ -544,12 +546,19 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
     <p>Le défi est identique pour tous les joueurs pendant la journée.</p>
     <ul>
       <li><b>Tu ne disposes que d’une seule tentative</b> pour proposer ta solution.</li>
-      <li>Les gemmes optionnelles sont tirées aléatoirement pour aujourd’hui.</li>
-      <li>Une gemme spéciale est soit partiellement en dehors de la grille, soit placée contre le côté d’une autre gemme.</li>
+      <li>Les gemmes optionnelles sont tirées aléatoirement.</li>
     </ul>
-    <div style="display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:10px 0 4px;">
-      <img src="daily-example-outside.png" alt="Exemple de gemme partiellement hors de la grille" style="max-width:145px;width:42%;height:auto;border-radius:6px;border:1px solid var(--vein);">
-      <img src="daily-example-touching.png" alt="Exemple de deux gemmes placées côte à côte" style="max-width:145px;width:42%;height:auto;border-radius:6px;border:1px solid var(--vein);">
+    <div class="daily-special-rules">
+      <h3>⚠️ Règles spéciales</h3>
+      <ul>
+        <li>Une gemme peut être partiellement en dehors de la grille.</li>
+        <li>Une gemme peut partager un côté avec une autre gemme.</li>
+      </ul>
+      <p>Au moins une de ces deux règles est sélectionnée aléatoirement. Elles peuvent également être appliquées toutes les deux au cours du même défi.</p>
+      <div style="display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:10px 0 0;">
+        <img src="daily-example-outside.png" alt="Exemple de gemme partiellement hors de la grille" style="max-width:145px;width:42%;height:auto;border-radius:6px;border:1px solid var(--vein);">
+        <img src="daily-example-touching.png" alt="Exemple de deux gemmes partageant un côté" style="max-width:145px;width:42%;height:auto;border-radius:6px;border:1px solid var(--vein);">
+      </div>
     </div>
     <div class="controls" style="justify-content:flex-end;margin-top:16px;">
       <button id="dailyRulesCancel" class="ghost">Annuler</button>
@@ -576,6 +585,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-  <script src="app.js?v=20260729-0054"></script>
+  <script src="app.js?v=20260730-0055"></script>
 </body>
 </html>
