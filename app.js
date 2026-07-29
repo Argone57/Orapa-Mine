@@ -2140,6 +2140,7 @@ function onPieceDown(ev, piece, el){
   if(!piecesEditable()) return;
   if(tutorialActive&&!((tutorialStage===7&&piece.id===tutorialWrongPieceId)||([11,12].includes(tutorialStage)&&piece.id===tutorialPlacementPieceId))){showToast('Utilise uniquement l’élément mis en évidence.');return;}
   ev.preventDefault();
+  try{ el.setPointerCapture(ev.pointerId); }catch(e){}
   const startX=ev.clientX, startY=ev.clientY;
   let moved=false, longPressed=false, dragging=false;
   let ghost=null;
@@ -2193,6 +2194,7 @@ function onPieceDown(ev, piece, el){
   function onUp(e){
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onCancel);
     clearTimeout(longPressTimer);
     if(dragging){
       const rect = boardRect();
@@ -2222,8 +2224,20 @@ function onPieceDown(ev, piece, el){
       tutorialAfterPieceAction(piece);
     }
   }
+  function onCancel(){
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onCancel);
+    clearTimeout(longPressTimer);
+    if(ghost?.isConnected) ghost.remove();
+    el.classList.remove('dragging');
+    renderPalette();
+    renderPieces();
+    renderControls();
+  }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onCancel);
 }
 
 // ---------------------------------------------------------------------

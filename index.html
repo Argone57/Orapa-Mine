@@ -93,7 +93,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .cellhit.used-empty,.cellhit.used-occupied{cursor:default;}
 @keyframes flashCell{0%{background:rgba(255,255,255,.55)}100%{background:transparent}}
 .overlaysvg{position:absolute;inset:0;pointer-events:none;}
-#pieceSvg{overflow:visible;}
+#pieceSvg{overflow:visible;touch-action:none;pointer-events:none;}
 .piece-poly{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));touch-action:none;}
 .piece-poly.interactive{pointer-events:auto;}
 .piece-poly.dragging{opacity:.35;}
@@ -576,6 +576,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-  <script src="app.js?v=20260729-0050"></script>
+  <script src="app.js?v=20260729-0051"></script>
 </body>
 </html>
