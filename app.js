@@ -3310,6 +3310,7 @@ $('#cancelScoreIdentity').addEventListener('click',()=>closeScoreIdentity(null))
 $('#scoreIdentityModal').addEventListener('click',e=>{if(e.target.id==='scoreIdentityModal')closeScoreIdentity(null);});
 
 window.addEventListener('resize', ()=>{ renderBgGrid(); renderPieces(); renderTraces(); });
+document.addEventListener('dblclick',event=>event.preventDefault(),{passive:false});
 
 // ---------------------------------------------------------------------
 // INIT
