@@ -2190,6 +2190,11 @@ function buildMixBoard(){
 // INTERACTIONS — tap = pivoter, appui long = miroir, glisser = déplacer
 // ---------------------------------------------------------------------
 function attachPieceInteraction(el, piece){
+  // Safari iOS n'applique pas toujours touch-action:none aux formes SVG.
+  // Bloque son scroll natif uniquement si le geste commence sur une gemme.
+  const keepPieceGesture=event=>event.preventDefault();
+  el.addEventListener('touchstart',keepPieceGesture,{passive:false});
+  el.addEventListener('touchmove',keepPieceGesture,{passive:false});
   el.addEventListener('pointerdown', ev=> onPieceDown(ev, piece, el));
 }
 let toastTimer = null;
