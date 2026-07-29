@@ -2247,7 +2247,7 @@ function buildMixBoard(){
     ${state.includeSapphire ? `
     <hr class="mix-sep">
     <div class="mix-section-title">${shapeIconSVG('sapphire')}<span>Saphir bleu ciel — compte comme bleu + blanc à chaque contact</span></div>
-    <p class="mix-reminder mix-warning"><span>⚠️</span><span>Le Saphir bleu ciel doit pouvoir être atteint par au moins 3 rayons sans rebond.</span></p>
+    <p class="mix-reminder mix-warning"><span>⚠️</span><span>Le Saphir bleu ciel doit pouvoir être atteint directement par au moins 3 rayons différents, sans rebond.</span></p>
     <div class="mix-quad">
       <div class="mix-block">
         ${row(['sapphire'],'blue+white')}
