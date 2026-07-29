@@ -675,6 +675,7 @@ async function submitGlobalDailyScore(entry, identity){
       p_coord_count:Number(entry.coordCount)||0,
       p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))
     });
+    await releaseDailyChallengeLock(identity,entry.dailyDate);
     if(row?.accepted===false&&row?.reason==='already_played'){
       showToast('Ce défi du jour est déjà enregistré avec ce compte.');
       return row;
@@ -1172,10 +1173,64 @@ function dailyStatusToday(){
   const attempt = loadDailyAttempt();
   return { dateKey, alreadyPlayed: !!(attempt && attempt.date===dateKey), attempt: (attempt && attempt.date===dateKey) ? attempt : null };
 }
-function startDailyChallenge(){
+function fallbackBrowserEnvironment(){
+  const ua=navigator.userAgent||'';
+  let browserName='Navigateur',browserVersion='inconnue',osName='Système',osVersion='inconnue',match;
+  if((match=ua.match(/Edg(?:A|iOS)?\/([\d.]+)/))){browserName='Edge';browserVersion=match[1];}
+  else if((match=ua.match(/OPR\/([\d.]+)/))){browserName='Opera';browserVersion=match[1];}
+  else if((match=ua.match(/(?:Chrome|CriOS)\/([\d.]+)/))){browserName='Chrome';browserVersion=match[1];}
+  else if((match=ua.match(/(?:Firefox|FxiOS)\/([\d.]+)/))){browserName='Firefox';browserVersion=match[1];}
+  else if((match=ua.match(/Version\/([\d.]+).*Safari/))){browserName='Safari';browserVersion=match[1];}
+  if((match=ua.match(/Android\s+([\d.]+)/))){osName='Android';osVersion=match[1];}
+  else if((match=ua.match(/(?:iPhone|CPU) OS ([\d_]+)/))){osName='iOS';osVersion=match[1].replace(/_/g,'.');}
+  else if((match=ua.match(/Windows NT ([\d.]+)/))){osName='Windows';osVersion=match[1];}
+  else if((match=ua.match(/Mac OS X ([\d_]+)/))){osName='macOS';osVersion=match[1].replace(/_/g,'.');}
+  return {browserName,browserVersion,osName,osVersion};
+}
+async function browserEnvironmentFingerprint(){
+  const fallback=fallbackBrowserEnvironment();
+  if(!navigator.userAgentData?.getHighEntropyValues) return JSON.stringify(fallback);
+  try{
+    const data=await navigator.userAgentData.getHighEntropyValues(['fullVersionList','platformVersion']);
+    const brands=data.fullVersionList||data.brands||[];
+    const preferred=brands.find(item=>!/chromium|not.?a.?brand/i.test(item.brand))||brands.find(item=>!/not.?a.?brand/i.test(item.brand));
+    return JSON.stringify({
+      browserName:preferred?.brand||fallback.browserName,
+      browserVersion:preferred?.version||fallback.browserVersion,
+      osName:data.platform||fallback.osName,
+      osVersion:data.platformVersion||fallback.osVersion
+    });
+  }catch(e){ return JSON.stringify(fallback); }
+}
+async function acquireDailyChallengeLock(dateKey){
+  if(!currentPlayerAccount?.session_token) return {accepted:false,reason:'account_required'};
+  const fingerprint=await browserEnvironmentFingerprint();
+  return supabaseRpc('orapa_acquire_daily_lock',{
+    p_session_token:currentPlayerAccount.session_token,
+    p_daily_date:dateKey,
+    p_browser_fingerprint:fingerprint
+  });
+}
+async function releaseDailyChallengeLock(identity,dateKey){
+  if(!identity?.sessionToken||!dateKey) return;
+  try{await supabaseRpc('orapa_release_daily_lock',{p_session_token:identity.sessionToken,p_daily_date:dateKey});}
+  catch(error){console.warn('Libération du verrou du défi impossible :',error);}
+}
+async function startDailyChallenge(){
   const { dateKey, alreadyPlayed, attempt } = dailyStatusToday();
   if(alreadyPlayed){
     alert(`Tu as déjà joué le défi du jour (${attempt.result==='win'?'réussi 🏆':'raté 💥'}). Reviens demain pour un nouveau défi !`);
+    return;
+  }
+  try{
+    const lock=await acquireDailyChallengeLock(dateKey);
+    if(lock?.accepted===false){
+      if(lock.reason==='already_played') alert('Ce défi du jour a déjà été terminé avec ce compte. Reviens demain pour un nouveau défi !');
+      else alert('Défi déjà commencé ailleurs\n\nCe défi du jour a déjà été lancé depuis un autre navigateur. Veuillez reprendre la partie sur le navigateur depuis lequel elle a été commencée.');
+      return;
+    }
+  }catch(error){
+    alert('Impossible de vérifier la disponibilité du défi du jour. Vérifie ta connexion puis réessaie.');
     return;
   }
   const daily = generateDailyLayout(dateKey);
