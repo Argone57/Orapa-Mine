@@ -675,6 +675,10 @@ async function submitGlobalDailyScore(entry, identity){
       p_coord_count:Number(entry.coordCount)||0,
       p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))
     });
+    if(row?.accepted===false&&row?.reason==='already_played'){
+      showToast('Ce défi du jour est déjà enregistré avec ce compte.');
+      return row;
+    }
     if(row?.id!=null) rememberGlobalScoreId(entry.dailyDate,row.id);
     delete globalRankingCache[entry.dailyDate]; globalAllScoresCache=null;
     showToast('🌍 Score ajouté au classement global');
@@ -1258,11 +1262,13 @@ function currentEntryForDisplay(){
 function openVictoryModal(){
   const entry = currentEntryForDisplay();
   $('#victoryScoreLine').textContent = formatScoreLine(entry);
-  $('#victoryRankLine').textContent = lastScoreResult && lastScoreResult.madeList
-    ? `Classé #${lastScoreResult.rank} dans « ${lastScoreResult.key} »`
-    : (state.isDaily ? '' : (state.gridUnrankedReason==='creator_protected'
+  $('#victoryRankLine').textContent = lastScoreResult?.alreadyPlayed
+    ? 'Ce défi avait déjà été terminé avec ce compte sur un autre appareil. Cette tentative n’a pas été enregistrée.'
+    : (lastScoreResult && lastScoreResult.madeList
+      ? `Classé #${lastScoreResult.rank} dans « ${lastScoreResult.key} »`
+      : (state.isDaily ? '' : (state.gridUnrankedReason==='creator_protected'
       ? '⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.'
-      : (state.gridUnrankedReason==='already_played' ? 'Cette grille a déjà été classée avec ce profil.' : '')));
+      : (state.gridUnrankedReason==='already_played' ? 'Cette grille a déjà été classée avec ce profil.' : ''))));
   $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${state.dailyDate})` : (state.gridId || '');
   $('#btnVictoryGridRanking').style.display=(!state.isDaily&&state.gridId)?'':'none';
   $('#victoryModal').classList.add('open');
@@ -1277,9 +1283,15 @@ async function proposeSolution(){
     if(state.isDaily){
       const identity=await requestDailyIdentity();
       if(!identity){ state.soloOver=false; state.soloResult=null; return; }
-      const daily=recordDailyScore(identity.name||'Invité',state.dailyDate,true,elapsedMs);
-      if(identity.saveGlobal!==false) await submitGlobalDailyScore(daily.entry,identity);
-      lastScoreResult={key:'Défi du jour',entry:{...daily.entry,gridId:null,isDaily:true,dailyDate:state.dailyDate},rank:daily.rank,madeList:true};
+      const candidate={...currentEntryForDisplay(),name:identity.name||'Invité',success:true,gridId:null,isDaily:true,dailyDate:state.dailyDate};
+      const globalResult=identity.saveGlobal!==false?await submitGlobalDailyScore(candidate,identity):null;
+      state.dailyAlreadyRecorded=globalResult?.accepted===false&&globalResult?.reason==='already_played';
+      if(state.dailyAlreadyRecorded){
+        lastScoreResult={key:'Défi du jour',entry:candidate,rank:null,madeList:false,alreadyPlayed:true};
+      }else{
+        const daily=recordDailyScore(identity.name||'Invité',state.dailyDate,true,elapsedMs);
+        lastScoreResult={key:'Défi du jour',entry:{...daily.entry,gridId:null,isDaily:true,dailyDate:state.dailyDate},rank:globalResult?.rank||daily.rank,madeList:true};
+      }
       saveDailyAttempt({date:state.dailyDate,result:'win'});
     }else if(state.gridRanked){
       const identity=await requestGridIdentity();
@@ -1300,8 +1312,10 @@ async function proposeSolution(){
     if(state.isDaily){
       const identity=await requestDailyIdentity();
       if(!identity){ state.soloOver=false;state.soloResult=null;state.soloAttempts--;return; }
-      const daily=recordDailyScore(identity.name||'Invité',state.dailyDate,false,elapsedMs);
-      if(identity.saveGlobal!==false) await submitGlobalDailyScore(daily.entry,identity);
+      const candidate={...currentEntryForDisplay(),name:identity.name||'Invité',success:false,gridId:null,isDaily:true,dailyDate:state.dailyDate};
+      const globalResult=identity.saveGlobal!==false?await submitGlobalDailyScore(candidate,identity):null;
+      state.dailyAlreadyRecorded=globalResult?.accepted===false&&globalResult?.reason==='already_played';
+      if(!state.dailyAlreadyRecorded) recordDailyScore(identity.name||'Invité',state.dailyDate,false,elapsedMs);
       saveDailyAttempt({date:state.dailyDate,result:'lose'});
     }else if(state.gridRanked){
       const identity=await requestGridIdentity();
@@ -1314,6 +1328,7 @@ async function proposeSolution(){
     }
     saveState();renderAll();setTimeout(()=>{
       let message=state.isDaily?'💥 Solution incorrecte — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).':"💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).";
+      if(state.isDaily&&state.dailyAlreadyRecorded) message+='\n\nCe défi avait déjà été terminé avec ce compte sur un autre appareil. Cette nouvelle tentative n’a pas été enregistrée.';
       if(state.gridUnrankedReason==='creator_protected') message+='\n\n⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.';
       else if(state.gridUnrankedReason==='already_played') message+='\n\nCette grille avait déjà été classée avec ce profil.';
       alert(message);
