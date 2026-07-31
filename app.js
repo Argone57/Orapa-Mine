@@ -3314,7 +3314,7 @@ async function renderGlobalStatsView(force=false){
 async function openGlobalStats(){
   const selected=$('#rankingConfigSelect').value||'';
   const selectedDate=selected.startsWith('GLOBAL:') ? selected.slice(7) : parisDateKey();
-  globalStatsMode='daily';
+  globalStatsMode='all';
   $('#globalStatsDateSelect').innerHTML=statsDateOptions(selectedDate);
   $('#globalStatsDateSelect').value=selectedDate;
   $('#globalStatsModal').classList.add('open');
