@@ -3446,7 +3446,7 @@ $('#statsModeDaily').addEventListener('click', ()=>{ globalStatsMode='daily'; re
 $('#statsModeAll').addEventListener('click', ()=>{ globalStatsMode='all'; renderGlobalStatsView(); });
 $('#globalStatsDateSelect').addEventListener('change', ()=> renderGlobalStatsView());
 $('#rankingsFab').addEventListener('click', ()=>{
-  setRankingView(state.isDaily ? 'global' : 'solo');
+  setRankingView('global');
   $('#rankingsModal').classList.add('open');
 });
 $('#closeRankings').addEventListener('click', ()=> $('#rankingsModal').classList.remove('open'));
