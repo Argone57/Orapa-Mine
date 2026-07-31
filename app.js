@@ -3248,7 +3248,7 @@ function aggregatePlayers(rows){
 function statsPlayerButtons(rows, daily=false){
   const players=aggregatePlayers(rows);
   if(!players.length) return '';
-  return `<div class="stats-section-title"><h3>${daily?'Joueurs du défi':'Statistiques par pseudo'}</h3><small>Clique un nom</small></div><div class="stats-player-list">${players.map(player=>{
+  return `<div class="stats-section-title"><h3>${daily?'Joueurs du défi':'Statistiques par pseudo'}</h3><small>Clique sur un pseudo</small></div><div class="stats-player-list">${players.map(player=>{
     const wins=player.rows.filter(r=>r.success).length;
     const rate=Math.round(wins/player.rows.length*100);
     return `<button class="stats-player" data-player-key="${escapeHtml(player.key)}"><span>${escapeHtml(player.name)}</span><b>${player.rows.length} partie${player.rows.length>1?'s':''}</b><em>${rate} % de réussite</em></button>`;
