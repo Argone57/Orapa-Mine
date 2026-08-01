@@ -272,7 +272,7 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </section>
   <header>
     <h1>💎 Orapa Mine</h1>
-    <div class="subtitle">Console du maître du jeu</div>
+    <div class="subtitle" id="masterSubtitle">Console du maître du jeu</div>
     <div id="modePill" class="mode-pill"><span class="dot"></span><span>Placement des gemmes</span></div>
     <div id="gridIdRow" style="display:none;align-items:center;gap:8px;font-size:.75rem;color:var(--text-dim);">
       <span>Grille : <b id="gridIdText" style="color:var(--gold-bright);font-family:'Cinzel',serif;"></b></span>
@@ -567,6 +567,18 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
+<div class="modal-backdrop" id="dailyAlreadyPlayedModal">
+  <div class="modal">
+    <button class="close-x" id="closeDailyAlreadyPlayed">×</button>
+    <h2>📅 Défi du jour déjà joué</h2>
+    <p id="dailyAlreadyPlayedMessage">Tu as déjà terminé le défi du jour. Reviens demain pour un nouveau défi !</p>
+    <div class="controls" style="justify-content:flex-end;margin-top:16px;">
+      <button id="dailyReviewGrid" class="primary">👁 Revoir ma grille</button>
+      <button id="dailyAlreadyPlayedClose" class="ghost">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="victoryModal">
   <div class="modal">
     <button class="close-x" id="closeVictory">×</button>
@@ -585,6 +597,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-  <script src="app.js?v=20260801-0058"></script>
+  <script src="app.js?v=20260801-0059"></script>
 </body>
 </html>

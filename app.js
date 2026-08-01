@@ -180,10 +180,30 @@ function recordScore(name, elapsedMsOverride, success=true){
 // ---------------------------------------------------------------------
 const DAILY_ATTEMPT_KEY = 'orapaMineDailyAttemptV1';
 const DAILY_RANKINGS_KEY = 'orapaMineDailyRankingsV1';
+const DAILY_FINAL_SNAPSHOTS_KEY = 'orapaMineDailyFinalSnapshotsV1';
 function loadDailyAttempt(){
   try{ const raw = localStorage.getItem(DAILY_ATTEMPT_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
 }
 function saveDailyAttempt(a){ try{ localStorage.setItem(DAILY_ATTEMPT_KEY, JSON.stringify(a)); }catch(e){} }
+function dailySnapshotAccountKey(){
+  return String(currentPlayerAccount?.id || currentPlayerAccount?.display_name || 'local');
+}
+function dailySnapshotKey(dateKey){ return `${dailySnapshotAccountKey()}::${dateKey}`; }
+function loadDailyFinalSnapshots(){
+  try{ const raw=localStorage.getItem(DAILY_FINAL_SNAPSHOTS_KEY); return raw?JSON.parse(raw):{}; }catch(e){ return {}; }
+}
+function saveDailyFinalSnapshot(){
+  if(!state.isDaily || !state.dailyDate || !state.soloOver) return;
+  try{
+    const snapshots=loadDailyFinalSnapshots();
+    snapshots[dailySnapshotKey(state.dailyDate)]={state:JSON.parse(JSON.stringify(state)),lastScoreResult:JSON.parse(JSON.stringify(lastScoreResult))};
+    localStorage.setItem(DAILY_FINAL_SNAPSHOTS_KEY,JSON.stringify(snapshots));
+  }catch(e){}
+}
+function loadDailyFinalSnapshot(dateKey){
+  const snapshot=loadDailyFinalSnapshots()[dailySnapshotKey(dateKey)];
+  return snapshot?.state?.isDaily && snapshot.state.soloOver ? snapshot : null;
+}
 function loadDailyBoards(){
   try{ const raw = localStorage.getItem(DAILY_RANKINGS_KEY); return raw ? JSON.parse(raw) : {}; }catch(e){ return {}; }
 }
@@ -821,6 +841,7 @@ function loadState(){
   }catch(e){ return false; }
 }
 function resetAll(){
+  if(state.isDaily && state.soloOver) saveDailyFinalSnapshot();
   const g = state.includeGray, o = state.includeOnyx, s2 = state.includeSapphire;
   state = { mode:'gm', started:false, includeGray:g, includeOnyx:o, includeSapphire:s2, pieces:[], secretPieces:[],
             soloAttempts:0, soloOver:false, soloResult:null, soloShowGuess:true, soloShowSecret:true, history:[],
@@ -1257,6 +1278,35 @@ function dailyStatusToday(){
   const attempt = loadDailyAttempt();
   return { dateKey, alreadyPlayed: !!(attempt && attempt.date===dateKey), attempt: (attempt && attempt.date===dateKey) ? attempt : null };
 }
+function formatDailyDate(dateKey){
+  const match=String(dateKey||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : String(dateKey||'');
+}
+function closeDailyAlreadyPlayedModal(){
+  $('#dailyAlreadyPlayedModal').classList.remove('open');
+  document.body.classList.remove('solo-menu-open');
+}
+function openDailyAlreadyPlayedModal(dateKey,attempt){
+  const snapshot=loadDailyFinalSnapshot(dateKey);
+  const result=attempt ? ` (${attempt.result==='win'?'réussi 🏆':'raté 💥'})` : '';
+  $('#dailyAlreadyPlayedMessage').textContent=`Tu as déjà terminé le défi du ${formatDailyDate(dateKey)}${result}. Reviens demain pour un nouveau défi !`;
+  $('#dailyReviewGrid').style.display=snapshot?'':'none';
+  $('#dailyReviewGrid').dataset.dailyDate=dateKey;
+  document.body.classList.add('solo-menu-open');
+  $('#dailyAlreadyPlayedModal').classList.add('open');
+}
+function reviewDailyFinalGrid(dateKey){
+  const snapshot=loadDailyFinalSnapshot(dateKey);
+  if(!snapshot){ showToast('La grille finale n’est plus disponible sur ce navigateur.'); return; }
+  state=JSON.parse(JSON.stringify(snapshot.state));
+  lastScoreResult=snapshot.lastScoreResult?JSON.parse(JSON.stringify(snapshot.lastScoreResult)):null;
+  pieceIdSeq=1+state.pieces.concat(state.secretPieces||[]).reduce((max,piece)=>Math.max(max,parseInt((piece.id||'p0').slice(1))||0),0);
+  saveState();
+  closeDailyAlreadyPlayedModal();
+  closeSoloChoiceModal();
+  showGame();
+  renderAll();
+}
 function fallbackBrowserEnvironment(){
   const ua=navigator.userAgent||'';
   let browserName='Navigateur',browserVersion='inconnue',osName='Système',osVersion='inconnue',match;
@@ -1303,13 +1353,14 @@ async function releaseDailyChallengeLock(identity,dateKey){
 async function startDailyChallenge(){
   const { dateKey, alreadyPlayed, attempt } = dailyStatusToday();
   if(alreadyPlayed){
-    alert(`Tu as déjà joué le défi du jour (${attempt.result==='win'?'réussi 🏆':'raté 💥'}). Reviens demain pour un nouveau défi !`);
+    closeSoloChoiceModal();
+    openDailyAlreadyPlayedModal(dateKey,attempt);
     return;
   }
   try{
     const lock=await acquireDailyChallengeLock(dateKey);
     if(lock?.accepted===false){
-      if(lock.reason==='already_played') alert('Ce défi du jour a déjà été terminé avec ce compte. Reviens demain pour un nouveau défi !');
+      if(lock.reason==='already_played') openDailyAlreadyPlayedModal(dateKey,loadDailyAttempt());
       else alert('Défi déjà commencé ailleurs\n\nCe défi du jour a déjà été lancé depuis un autre navigateur. Veuillez reprendre la partie sur le navigateur depuis lequel elle a été commencée.');
       return;
     }
@@ -1442,6 +1493,7 @@ async function proposeSolution(){
         if(globalResult?.reason){ state.gridUnrankedReason=globalResult.reason; state.gridRanked=false; }
       }
     }else lastScoreResult=null;
+    if(state.isDaily) saveDailyFinalSnapshot();
     saveState();renderAll();setTimeout(()=>openVictoryModal(),60);return;
   }
   state.soloAttempts++;
@@ -1465,6 +1517,7 @@ async function proposeSolution(){
         if(globalResult?.reason){ state.gridUnrankedReason=globalResult.reason; state.gridRanked=false; }
       }
     }
+    if(state.isDaily) saveDailyFinalSnapshot();
     saveState();renderAll();setTimeout(()=>{
       let message=state.isDaily?'💥 Solution incorrecte — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).':"💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).";
       if(state.isDaily&&state.dailyAlreadyRecorded) message+='\n\nCe défi avait déjà été terminé avec ce compte sur un autre appareil. Cette nouvelle tentative n’a pas été enregistrée.';
@@ -2140,7 +2193,7 @@ function renderModePill(){
       }
       cls = state.soloResult==='win' ? 'win' : 'lose';
     } else {
-      text = state.isDaily ? '📅 Défi du jour — devine la grille' : 'Mode solo — devine la grille';
+      text = state.isDaily ? `📅 Défi du jour — ${formatDailyDate(state.dailyDate)}` : 'Mode solo — devine la grille';
       cls = 'live';
     }
   } else {
@@ -2151,6 +2204,7 @@ function renderModePill(){
   pill.querySelector('span:last-child').textContent = text;
 }
 function renderControls(){
+  $('#masterSubtitle').style.display=state.isDaily?'none':'';
   const gmPreStart = state.mode==='gm' && !state.started;
   $('#btnRandom').style.display = gmPreStart ? '' : 'none';
   $('#btnStart').style.display = state.mode==='gm' ? '' : 'none';
@@ -3005,6 +3059,10 @@ $('#dailyRulesModal').addEventListener('click', e=>{
     openSoloChoiceModal();
   }
 });
+$('#closeDailyAlreadyPlayed').addEventListener('click',closeDailyAlreadyPlayedModal);
+$('#dailyAlreadyPlayedClose').addEventListener('click',closeDailyAlreadyPlayedModal);
+$('#dailyAlreadyPlayedModal').addEventListener('click',e=>{if(e.target.id==='dailyAlreadyPlayedModal')closeDailyAlreadyPlayedModal();});
+$('#dailyReviewGrid').addEventListener('click',e=>reviewDailyFinalGrid(e.currentTarget.dataset.dailyDate));
 $('#soloChoiceRandom').addEventListener('click', ()=>{ closeSoloChoiceModal(); openSoloSetupModal(); });
 $('#soloChoiceById').addEventListener('click', ()=> promptLoadGridById());
 function promptLoadGridById(){
