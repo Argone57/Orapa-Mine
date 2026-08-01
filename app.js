@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260801-0066';
+const APP_VERSION = '20260802-0067';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -489,18 +489,22 @@ function gridRankingRows(rows){
   const myAccountName=currentPlayerAccount?.display_name?.trim().toLocaleLowerCase('fr-FR')||'';
   return rows.map(row=>{
     const mine=!!myAccountName&&String(row.player_name||'').trim().toLocaleLowerCase('fr-FR')===myAccountName;
-    return `<div class="ranking-row${mine?' ranking-mine':''}"><div class="ranking-row-top">
-    <span class="ranking-rank${Number(row.rank)===1?' top1':''}">${rankingMedal(Number(row.rank)-1)}</span>
-    <span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}
-    <span class="ranking-points">${row.cost} pts</span>
-    <span class="ranking-time">${formatDuration(row.time_ms)}</span>
-  </div><div class="ranking-row-detail">${row.ray_count||0} rayon${row.ray_count===1?'':'s'} 🔦 + ${row.coord_count||0} coordonnée${row.coord_count===1?'':'s'} 📍</div></div>`;
+    return `<div class="ranking-row grid-ranking-row one-line-ranking${mine?' ranking-mine':''}"><div class="ranking-row-top">
+    <span class="ranking-player-cell"><span class="ranking-rank${Number(row.rank)===1?' top1':''}">${rankingMedal(Number(row.rank)-1)}</span><span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}</span>
+    <span class="ranking-query-cell">${row.ray_count||0} 🔦 + ${row.coord_count||0} 📍</span>
+    <span class="ranking-score-cell"><span class="ranking-points">${row.cost} pts</span><span class="ranking-time">${formatDuration(row.time_ms)}</span></span>
+  </div></div>`;
   }).join('');
+}
+function gridRankingIntro(gridId,copyButtonId,returnToVictory=false){
+  const decoded=decodeGridId(gridId);
+  const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
+  return `<div class="grid-ranking-idline"><p>Grille <b>${escapeHtml(gridId)}</b></p><span class="ranking-gems">${gems}</span></div><div class="controls ranked-grid-actions"><button id="${copyButtonId}" class="ghost">📋 Copier l’ID de la grille</button>${returnToVictory?'<button id="gridResultBack" class="ghost">← Retour au résultat</button>':''}</div>`;
 }
 async function openGridRanking(gridId,returnToAccount=false,returnToVictory=false){
   if(!gridId) return;
   if(returnToAccount&&$('#gridDataModal').classList.contains('open')){
-    $('#nestedGridRankingIntro').innerHTML=`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls ranked-grid-actions"><button id="copyNestedRankedGridId" class="ghost">📋 Copier l’ID de la grille</button></div>`;
+    $('#nestedGridRankingIntro').innerHTML=gridRankingIntro(gridId,'copyNestedRankedGridId');
     $('#nestedGridRankingContent').innerHTML='<div class="history-empty">Chargement…</div>';
     $('#nestedGridRankingModal').classList.add('open');
     $('#copyNestedRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
@@ -514,7 +518,7 @@ async function openGridRanking(gridId,returnToAccount=false,returnToVictory=fals
     }
     return;
   }
-  openGridDataShell('🏆 Classement de la grille',`<p>Grille <b>${escapeHtml(gridId)}</b></p><div class="controls ranked-grid-actions"><button id="copyRankedGridId" class="ghost">📋 Copier l’ID de la grille</button>${returnToVictory?'<button id="gridResultBack" class="ghost">← Retour au résultat</button>':''}</div>`,returnToAccount,returnToVictory);
+  openGridDataShell('🏆 Classement de la grille',gridRankingIntro(gridId,'copyRankedGridId',returnToVictory),returnToAccount,returnToVictory);
   $('#copyRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
   if(returnToVictory) $('#gridResultBack').onclick=()=>closeGridDataModal(true);
   try{
@@ -3380,21 +3384,12 @@ async function renderGlobalRanking(dateKey, force=false){
     const wins = rows.filter(r=>r.success).length;
     el.innerHTML = `<div class="global-ranking-summary daily-ranking-summary"><span class="summary-stat" title="Participants"><b>${rows.length}</b> 👥</span><span class="summary-separator">·</span><span class="summary-stat"><b>${wins}</b> réussite${wins>1?'s':''}</span><span class="summary-gems">${gems}</span></div>` + rows.map((raw,i)=>{
       const e=globalEntryToLocal(raw);
-      const expanded=expandedScores.has(`g${e.id}`);
       const mine=String(e.id)===String(myId) || (!!myAccountName && String(e.name||'').trim().toLocaleLowerCase('fr-FR')===myAccountName);
       const failTag=e.success ? '' : '<span class="ranking-fail">Échec</span>';
-      const detail=expanded ? `<div class="ranking-row-detail">${e.rayCount} rayon${e.rayCount===1?'':'s'} 🔦 + ${e.coordCount} coordonnée${e.coordCount===1?'':'s'} 📍 · ${formatDuration(e.timeMs)}</div><div class="controls" style="justify-content:flex-start;gap:8px;margin:8px 0 2px 34px;"><button class="ranking-copy-summary" data-global-idx="${i}">📋 Copier le résumé</button></div>` : '';
-      return `<div class="ranking-row global-row${expanded?' expanded':''}${mine?' ranking-mine':''}" data-global-id="${e.id}"><div class="ranking-row-top"><span class="ranking-rank${i===0?' top1':''}">${rankingMedal(i)}</span><span class="ranking-name">${escapeHtml(e.name||'Anonyme')}</span>${failTag}<span class="ranking-points">${e.cost} pts</span><span class="ranking-time">${formatDuration(e.timeMs)}</span></div>${detail}</div>`;
+      return `<div class="ranking-row global-row one-line-ranking${mine?' ranking-mine':''}" data-global-idx="${i}"><div class="ranking-row-top"><span class="ranking-player-cell"><span class="ranking-rank${i===0?' top1':''}">${rankingMedal(i)}</span><span class="ranking-name">${escapeHtml(e.name||'Anonyme')}</span>${failTag}</span><span class="ranking-query-cell">${e.rayCount} 🔦 + ${e.coordCount} 📍</span><span class="ranking-score-cell"><span class="ranking-points">${e.cost} pts</span><span class="ranking-time">${formatDuration(e.timeMs)}</span></span></div></div>`;
     }).join('');
-    el.querySelectorAll('.global-row').forEach(row=>row.addEventListener('click',ev=>{
-      if(ev.target.closest('.ranking-copy-summary')) return;
-      const k=`g${row.dataset.globalId}`;
-      if(expandedScores.has(k)) expandedScores.delete(k); else expandedScores.add(k);
-      renderGlobalRanking(dateKey);
-    }));
-    el.querySelectorAll('[data-global-idx]').forEach(btn=>btn.addEventListener('click',ev=>{
-      ev.stopPropagation();
-      const entry=globalEntryToLocal(rows[Number(btn.dataset.globalIdx)]);
+    el.querySelectorAll('.global-row').forEach(row=>row.addEventListener('click',()=>{
+      const entry=globalEntryToLocal(rows[Number(row.dataset.globalIdx)]);
       navigator.clipboard?.writeText(formatShareText(entry)).then(()=>showToast('Résumé copié !'));
     }));
   }catch(err){
