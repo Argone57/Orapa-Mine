@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260802-0070';
+const APP_VERSION = '20260802-0071';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3461,21 +3461,20 @@ function bindStatsPlayerButtons(){
   $('#globalStatsContent').querySelectorAll('[data-player-key]').forEach(button=>button.addEventListener('click',()=>renderPlayerStats(button.dataset.playerKey)));
 }
 function renderPlayerStats(playerKey){
-  const content=$('#globalStatsContent');
+  const content=$('#playerStatsContent');
   const playerRows=globalStatsRows.filter(row=>statsPlayerKey(row.player_name)===playerKey);
   if(!playerRows.length) return;
   const name=(playerRows[0].player_name||'Anonyme').trim()||'Anonyme';
   const dates=playerRows.map(row=>row.daily_date).filter(Boolean).sort();
   const uniqueDays=new Set(dates).size;
-  content.innerHTML=`<button class="ghost stats-back" id="backToGlobalStats">← Retour aux statistiques</button>
-    <h3>${escapeHtml(name)}</h3><p class="stats-subtitle">Statistiques associées à ce pseudo, sans compte ni vérification d'identité.</p>
+  content.innerHTML=`<h3>${escapeHtml(name)}</h3><p class="stats-subtitle">Statistiques associées à ce pseudo, sans compte ni vérification d'identité.</p>
     ${statsSummaryCards(playerRows)}
     <div class="stats-details">
       <div><span>Défis différents</span><b>${uniqueDays}</b></div>
       <div><span>Première participation</span><b>${dates.length?formatStatsDate(dates[0]):'—'}</b></div>
       <div><span>Dernière participation</span><b>${dates.length?formatStatsDate(dates[dates.length-1]):'—'}</b></div>
     </div>${statsDetails(playerRows)}`;
-  $('#backToGlobalStats').addEventListener('click',renderGlobalStatsView);
+  $('#playerStatsModal').classList.add('open');
 }
 async function renderGlobalStatsView(force=false){
   const modal=$('#globalStatsModal');
@@ -3652,8 +3651,10 @@ $('#btnRefreshGlobal').addEventListener('click', ()=>{
 });
 $('#gridSearchForm').addEventListener('submit',event=>{event.preventDefault();searchGridCatalog($('#gridSearchInput').value);});
 $('#btnStatsGlobal').addEventListener('click', openGlobalStats);
-$('#closeGlobalStats').addEventListener('click', ()=> $('#globalStatsModal').classList.remove('open'));
+$('#closeGlobalStats').addEventListener('click', ()=>{ $('#playerStatsModal').classList.remove('open'); $('#globalStatsModal').classList.remove('open'); });
 $('#globalStatsModal').addEventListener('click', e=>{ if(e.target.id==='globalStatsModal') $('#globalStatsModal').classList.remove('open'); });
+$('#closePlayerStats').addEventListener('click',()=>$('#playerStatsModal').classList.remove('open'));
+$('#playerStatsModal').addEventListener('click',e=>{if(e.target.id==='playerStatsModal')$('#playerStatsModal').classList.remove('open');});
 $('#statsModeDaily').addEventListener('click', ()=>{ globalStatsMode='daily'; renderGlobalStatsView(); });
 $('#statsModeAll').addEventListener('click', ()=>{ globalStatsMode='all'; renderGlobalStatsView(); });
 $('#globalStatsDateSelect').addEventListener('change', ()=> renderGlobalStatsView());
