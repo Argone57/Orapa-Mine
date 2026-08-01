@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260801-0064';
+const APP_VERSION = '20260801-0065';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3295,24 +3295,10 @@ function setRankingView(view){
   if(view!=='grids') buildRankingConfigOptions();
   if(view==='solo') $('#rankingConfigSelect').value = 'GLOBAL_SOLO:ALL';
   if(view==='global') picker.value=($('#rankingConfigSelect').value||'').replace('GLOBAL:','')||parisDateKey();
-  if(view==='grids') updateGridCatalogTabs();
   renderRankingList();
 }
 let expandedScores = new Set();
-const GRID_CATALOG_PAGE_SIZE=10;
-let gridCatalogView='popular';
-let gridCatalogState={popular:null,recent:[],recentHasMore:true,searched:null,searchError:''};
-function updateGridCatalogTabs(){
-  $('#gridCatalogTabPopular').classList.toggle('active',gridCatalogView==='popular');
-  $('#gridCatalogTabRecent').classList.toggle('active',gridCatalogView==='recent');
-  $('#gridCatalogTabSearch').classList.toggle('active',gridCatalogView==='search');
-  $('#gridSearchForm').style.display=gridCatalogView==='search'?'grid':'none';
-}
-function setGridCatalogView(view){
-  gridCatalogView=view;
-  updateGridCatalogTabs();
-  renderGridCatalog();
-}
+let gridCatalogState={popular:null,searched:null,searchError:''};
 async function fetchGridCatalog(sort,limit,offset=0){
   const rows=await supabaseRpc('orapa_get_grid_catalog',{p_sort:sort,p_limit:limit,p_offset:offset});
   return Array.isArray(rows)?rows:[];
@@ -3323,9 +3309,9 @@ function gridCatalogCard(row,section,index){
   const count=Number(row.participation_count)||0,wins=Number(row.success_count)||0,rate=count?Math.round(wins/count*100):0;
   const key=`gridcatalog:${section}:${id}`,expanded=expandedScores.has(key);
   const lastDate=row.last_played_at?new Date(row.last_played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
-  const label=section==='popular'?`${rankingMedal(index)} Grille populaire`:section==='search'?'Grille recherchée':'Dernière partie';
+  const label=section==='popular'?`${rankingMedal(index)} <span class="ranking-gems">${gems}</span>`:`Grille recherchée <span class="ranking-gems">${gems}</span>`;
   const detail=expanded?`<div class="grid-catalog-detail"><div class="grid-catalog-id">ID : ${escapeHtml(id)}</div><div>${wins} réussite${wins===1?'':'s'} · ${count-wins} échec${count-wins===1?'':'s'} · meilleur score : <b>${row.best_score==null?'—':row.best_score+' pts'}</b> · meilleur temps : <b>${row.best_time_ms==null?'—':formatDuration(Number(row.best_time_ms))}</b> · dernière partie : ${lastDate}</div></div><div class="controls grid-catalog-actions"><button class="grid-catalog-copy ghost" data-grid-id="${escapeHtml(id)}">📋 Copier l’ID</button><button class="grid-catalog-ranking primary" data-grid-id="${escapeHtml(id)}">🏆 Classement</button></div>`:'';
-  return `<div class="ranking-row grid-catalog-row${expanded?' expanded':''}" data-grid-catalog-key="${escapeHtml(key)}"><div class="ranking-row-top"><span class="grid-catalog-label">${label}<small>${gems}</small></span><span class="grid-catalog-count">${count} 👥</span><span class="grid-catalog-rate">${count?rate+' %':'—'}</span></div>${detail}</div>`;
+  return `<div class="ranking-row grid-catalog-row${expanded?' expanded':''}" data-grid-catalog-key="${escapeHtml(key)}"><div class="ranking-row-top"><span class="grid-catalog-label">${label}</span><span class="grid-catalog-count">${count} 👥</span><span class="grid-catalog-rate">${count?rate+' %':'—'}</span></div>${detail}</div>`;
 }
 function bindGridCatalogActions(){
   const el=$('#rankingList');
@@ -3337,51 +3323,23 @@ function bindGridCatalogActions(){
   });
   el.querySelectorAll('.grid-catalog-copy').forEach(button=>button.onclick=event=>{event.stopPropagation();navigator.clipboard?.writeText(button.dataset.gridId).then(()=>showToast('Identifiant copié : '+button.dataset.gridId));});
   el.querySelectorAll('.grid-catalog-ranking').forEach(button=>button.onclick=event=>{event.stopPropagation();openGridRanking(button.dataset.gridId);});
-  $('#gridCatalogLoadMore')?.addEventListener('click',loadMoreGridCatalog);
 }
 async function renderGridCatalog(force=false){
   const el=$('#rankingList'),savedScrollTop=el.scrollTop;
   $('#btnResetRanking').style.display='none';
-  if(force&&gridCatalogView==='popular')gridCatalogState.popular=null;
-  if(force&&gridCatalogView==='recent'){gridCatalogState.recent=[];gridCatalogState.recentHasMore=true;}
-  if(force&&gridCatalogView==='search'&&gridCatalogState.searched)return searchGridCatalog(gridCatalogState.searched.grid_id);
+  if(force)gridCatalogState.popular=null;
   try{
-    if(gridCatalogView==='popular'){
-      if(!gridCatalogState.popular){
-        el.innerHTML='<div class="history-empty">Chargement des grilles les plus jouées…</div>';
-        gridCatalogState.popular=await fetchGridCatalog('popular',10);
-        if(rankingView!=='grids'||gridCatalogView!=='popular')return;
-      }
-      const html=gridCatalogState.popular.length?gridCatalogState.popular.map((row,index)=>gridCatalogCard(row,'popular',index)).join(''):'<div class="history-empty grid-catalog-empty">Aucune grille jouée.</div>';
-      el.innerHTML=`<section class="grid-catalog-section"><h3 class="grid-catalog-title">Les 10 grilles les plus jouées</h3>${html}</section>`;
-    }else if(gridCatalogView==='recent'){
-      if(!gridCatalogState.recent.length&&gridCatalogState.recentHasMore){
-        el.innerHTML='<div class="history-empty">Chargement des dernières grilles…</div>';
-        const recentPage=await fetchGridCatalog('recent',GRID_CATALOG_PAGE_SIZE+1);
-        if(rankingView!=='grids'||gridCatalogView!=='recent')return;
-      gridCatalogState.recent=recentPage.slice(0,GRID_CATALOG_PAGE_SIZE);
-      gridCatalogState.recentHasMore=recentPage.length>GRID_CATALOG_PAGE_SIZE;
-      }
-      const html=gridCatalogState.recent.length?gridCatalogState.recent.map((row,index)=>gridCatalogCard(row,'recent',index)).join(''):'<div class="history-empty grid-catalog-empty">Aucune partie enregistrée.</div>';
-      const more=gridCatalogState.recentHasMore?'<button id="gridCatalogLoadMore" class="ghost solo-load-more">Afficher les grilles suivantes</button>':'';
-      el.innerHTML=`<section class="grid-catalog-section"><h3 class="grid-catalog-title">Dernières grilles jouées</h3>${html}${more}</section>`;
-    }else{
-      if(gridCatalogState.searchError)el.innerHTML=`<div class="grid-search-error">${escapeHtml(gridCatalogState.searchError)}</div>`;
-      else if(gridCatalogState.searched)el.innerHTML=`<section class="grid-catalog-section"><h3 class="grid-catalog-title">Résultat de la recherche</h3>${gridCatalogCard(gridCatalogState.searched,'search',0)}</section>`;
-      else el.innerHTML='<div class="history-empty">Saisis l’identifiant d’une grille pour afficher ses informations et son classement.</div>';
+    if(!gridCatalogState.popular){
+      el.innerHTML='<div class="history-empty">Chargement des grilles les plus jouées…</div>';
+      gridCatalogState.popular=await fetchGridCatalog('popular',10);
+      if(rankingView!=='grids')return;
     }
+    const searched=gridCatalogState.searchError?`<div class="grid-search-error">${escapeHtml(gridCatalogState.searchError)}</div>`:gridCatalogState.searched?`<section class="grid-catalog-section"><h3 class="grid-catalog-title">Résultat de la recherche</h3>${gridCatalogCard(gridCatalogState.searched,'search',0)}</section>`:'';
+    const popular=gridCatalogState.popular.length?gridCatalogState.popular.map((row,index)=>gridCatalogCard(row,'popular',index)).join(''):'<div class="history-empty grid-catalog-empty">Aucune grille jouée.</div>';
+    el.innerHTML=`${searched}<section class="grid-catalog-section"><h3 class="grid-catalog-title">Les 10 grilles les plus jouées</h3>${popular}</section>`;
     bindGridCatalogActions();
     el.scrollTop=savedScrollTop;
   }catch(error){el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
-}
-async function loadMoreGridCatalog(){
-  const button=$('#gridCatalogLoadMore');if(button){button.disabled=true;button.textContent='Chargement…';}
-  try{
-    const page=await fetchGridCatalog('recent',GRID_CATALOG_PAGE_SIZE+1,gridCatalogState.recent.length);
-    gridCatalogState.recent.push(...page.slice(0,GRID_CATALOG_PAGE_SIZE));
-    gridCatalogState.recentHasMore=page.length>GRID_CATALOG_PAGE_SIZE;
-    renderGridCatalog();
-  }catch(error){showToast('Chargement impossible : '+error.message);if(button)button.disabled=false;}
 }
 async function searchGridCatalog(input){
   const decoded=decodeGridId(input);
@@ -3552,7 +3510,10 @@ async function renderGlobalStatsView(force=false){
       globalStatsRows=rows;
       const uniquePlayers=aggregatePlayers(rows).length;
       const uniqueDays=new Set(rows.map(row=>row.daily_date)).size;
-      const extra=`<div class="stats-details"><div><span>Pseudos différents</span><b>${uniquePlayers}</b></div><div><span>Défis enregistrés</span><b>${uniqueDays}</b></div></div>`;
+      const participantsByDay=new Map();
+      rows.forEach(row=>participantsByDay.set(row.daily_date,(participantsByDay.get(row.daily_date)||0)+1));
+      const maxDailyParticipants=participantsByDay.size?Math.max(...participantsByDay.values()):0;
+      const extra=`<div class="stats-details"><div><span>Pseudos différents</span><b>${uniquePlayers}</b></div><div><span>Défis enregistrés</span><b>${uniqueDays}</b></div><div><span>Record de participation à un défi</span><b>${maxDailyParticipants} joueur${maxDailyParticipants>1?'s':''}</b></div></div>`;
       content.innerHTML=`<h3>Depuis le début</h3><p class="stats-subtitle">Toutes les participations enregistrées.</p>${rows.length ? statsSummaryCards(rows)+extra+statsDetails(rows)+statsPlayerButtons(rows,false) : '<div class="history-empty">Aucune participation enregistrée.</div>'}`;
     }
     bindStatsPlayerButtons();
@@ -3689,9 +3650,6 @@ function renderRankingList(){
 $('#rankingTabSolo').addEventListener('click', ()=> setRankingView('solo'));
 $('#rankingTabDaily').addEventListener('click', ()=> setRankingView('grids'));
 $('#rankingTabGlobal').addEventListener('click', ()=> setRankingView('global'));
-$('#gridCatalogTabPopular').addEventListener('click',()=>setGridCatalogView('popular'));
-$('#gridCatalogTabRecent').addEventListener('click',()=>setGridCatalogView('recent'));
-$('#gridCatalogTabSearch').addEventListener('click',()=>setGridCatalogView('search'));
 $('#btnRefreshGlobal').addEventListener('click', ()=>{
   if(rankingView==='grids'){renderGridCatalog(true);return;}
   const key=$('#rankingConfigSelect').value;
