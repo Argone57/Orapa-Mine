@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260801-0062';
+const APP_VERSION = '20260801-0063';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3295,11 +3295,24 @@ function setRankingView(view){
   if(view!=='grids') buildRankingConfigOptions();
   if(view==='solo') $('#rankingConfigSelect').value = 'GLOBAL_SOLO:ALL';
   if(view==='global') picker.value=($('#rankingConfigSelect').value||'').replace('GLOBAL:','')||parisDateKey();
+  if(view==='grids') updateGridCatalogTabs();
   renderRankingList();
 }
 let expandedScores = new Set();
 const GRID_CATALOG_PAGE_SIZE=10;
+let gridCatalogView='popular';
 let gridCatalogState={popular:null,recent:[],recentHasMore:true,searched:null,searchError:''};
+function updateGridCatalogTabs(){
+  $('#gridCatalogTabPopular').classList.toggle('active',gridCatalogView==='popular');
+  $('#gridCatalogTabRecent').classList.toggle('active',gridCatalogView==='recent');
+  $('#gridCatalogTabSearch').classList.toggle('active',gridCatalogView==='search');
+  $('#gridSearchForm').style.display=gridCatalogView==='search'?'grid':'none';
+}
+function setGridCatalogView(view){
+  gridCatalogView=view;
+  updateGridCatalogTabs();
+  renderGridCatalog();
+}
 async function fetchGridCatalog(sort,limit,offset=0){
   const rows=await supabaseRpc('orapa_get_grid_catalog',{p_sort:sort,p_limit:limit,p_offset:offset});
   return Array.isArray(rows)?rows:[];
@@ -3329,21 +3342,34 @@ function bindGridCatalogActions(){
 async function renderGridCatalog(force=false){
   const el=$('#rankingList'),savedScrollTop=el.scrollTop;
   $('#btnResetRanking').style.display='none';
-  if(force) gridCatalogState={popular:null,recent:[],recentHasMore:true,searched:gridCatalogState.searched,searchError:gridCatalogState.searchError};
-  if(!gridCatalogState.popular) el.innerHTML='<div class="history-empty">Chargement des grilles…</div>';
+  if(force&&gridCatalogView==='popular')gridCatalogState.popular=null;
+  if(force&&gridCatalogView==='recent'){gridCatalogState.recent=[];gridCatalogState.recentHasMore=true;}
+  if(force&&gridCatalogView==='search'&&gridCatalogState.searched)return searchGridCatalog(gridCatalogState.searched.grid_id);
   try{
-    if(!gridCatalogState.popular){
-      const [popular,recentPage]=await Promise.all([fetchGridCatalog('popular',3),fetchGridCatalog('recent',GRID_CATALOG_PAGE_SIZE+1)]);
-      if(rankingView!=='grids')return;
-      gridCatalogState.popular=popular;
+    if(gridCatalogView==='popular'){
+      if(!gridCatalogState.popular){
+        el.innerHTML='<div class="history-empty">Chargement des grilles les plus jouées…</div>';
+        gridCatalogState.popular=await fetchGridCatalog('popular',10);
+        if(rankingView!=='grids'||gridCatalogView!=='popular')return;
+      }
+      const html=gridCatalogState.popular.length?gridCatalogState.popular.map((row,index)=>gridCatalogCard(row,'popular',index)).join(''):'<div class="history-empty grid-catalog-empty">Aucune grille jouée.</div>';
+      el.innerHTML=`<section class="grid-catalog-section"><h3 class="grid-catalog-title">Les 10 grilles les plus jouées</h3>${html}</section>`;
+    }else if(gridCatalogView==='recent'){
+      if(!gridCatalogState.recent.length&&gridCatalogState.recentHasMore){
+        el.innerHTML='<div class="history-empty">Chargement des dernières grilles…</div>';
+        const recentPage=await fetchGridCatalog('recent',GRID_CATALOG_PAGE_SIZE+1);
+        if(rankingView!=='grids'||gridCatalogView!=='recent')return;
       gridCatalogState.recent=recentPage.slice(0,GRID_CATALOG_PAGE_SIZE);
       gridCatalogState.recentHasMore=recentPage.length>GRID_CATALOG_PAGE_SIZE;
+      }
+      const html=gridCatalogState.recent.length?gridCatalogState.recent.map((row,index)=>gridCatalogCard(row,'recent',index)).join(''):'<div class="history-empty grid-catalog-empty">Aucune partie enregistrée.</div>';
+      const more=gridCatalogState.recentHasMore?'<button id="gridCatalogLoadMore" class="ghost solo-load-more">Afficher les grilles suivantes</button>':'';
+      el.innerHTML=`<section class="grid-catalog-section"><h3 class="grid-catalog-title">Dernières grilles jouées</h3>${html}${more}</section>`;
+    }else{
+      if(gridCatalogState.searchError)el.innerHTML=`<div class="grid-search-error">${escapeHtml(gridCatalogState.searchError)}</div>`;
+      else if(gridCatalogState.searched)el.innerHTML=`<section class="grid-catalog-section"><h3 class="grid-catalog-title">Résultat de la recherche</h3>${gridCatalogCard(gridCatalogState.searched,'search',0)}</section>`;
+      else el.innerHTML='<div class="history-empty">Saisis l’identifiant d’une grille pour afficher ses informations et son classement.</div>';
     }
-    const searchHtml=gridCatalogState.searchError?`<div class="grid-search-error">${escapeHtml(gridCatalogState.searchError)}</div>`:gridCatalogState.searched?`<section class="grid-catalog-section"><h3 class="grid-catalog-title">Résultat de la recherche</h3>${gridCatalogCard(gridCatalogState.searched,'search',0)}</section>`:'';
-    const popularHtml=gridCatalogState.popular.length?gridCatalogState.popular.map((row,index)=>gridCatalogCard(row,'popular',index)).join(''):'<div class="history-empty grid-catalog-empty">Aucune grille jouée.</div>';
-    const recentHtml=gridCatalogState.recent.length?gridCatalogState.recent.map((row,index)=>gridCatalogCard(row,'recent',index)).join(''):'<div class="history-empty grid-catalog-empty">Aucune partie enregistrée.</div>';
-    const more=gridCatalogState.recentHasMore?'<button id="gridCatalogLoadMore" class="ghost solo-load-more">Afficher les grilles suivantes</button>':'';
-    el.innerHTML=`${searchHtml}<section class="grid-catalog-section"><h3 class="grid-catalog-title">Les 3 grilles les plus jouées</h3>${popularHtml}</section><section class="grid-catalog-section"><h3 class="grid-catalog-title">Dernières grilles jouées</h3>${recentHtml}${more}</section>`;
     bindGridCatalogActions();
     el.scrollTop=savedScrollTop;
   }catch(error){el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
@@ -3663,6 +3689,9 @@ function renderRankingList(){
 $('#rankingTabSolo').addEventListener('click', ()=> setRankingView('solo'));
 $('#rankingTabDaily').addEventListener('click', ()=> setRankingView('grids'));
 $('#rankingTabGlobal').addEventListener('click', ()=> setRankingView('global'));
+$('#gridCatalogTabPopular').addEventListener('click',()=>setGridCatalogView('popular'));
+$('#gridCatalogTabRecent').addEventListener('click',()=>setGridCatalogView('recent'));
+$('#gridCatalogTabSearch').addEventListener('click',()=>setGridCatalogView('search'));
 $('#btnRefreshGlobal').addEventListener('click', ()=>{
   if(rankingView==='grids'){renderGridCatalog(true);return;}
   const key=$('#rankingConfigSelect').value;
