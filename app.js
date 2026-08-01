@@ -1,4 +1,49 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
+const APP_VERSION = '20260801-0060';
+let publishedAppVersion = null;
+let lastVersionCheckAt = 0;
+let versionCheckPromise = null;
+
+async function fetchPublishedAppVersion(force=false){
+  const now=Date.now();
+  if(!force && publishedAppVersion && now-lastVersionCheckAt<60000) return publishedAppVersion;
+  if(versionCheckPromise) return versionCheckPromise;
+  versionCheckPromise=(async()=>{
+    const response=await fetch(`version.json?_=${now}`,{cache:'no-store'});
+    if(!response.ok) throw new Error(`Version inaccessible (${response.status})`);
+    const data=await response.json();
+    if(!data?.version) throw new Error('Version publiée invalide');
+    publishedAppVersion=String(data.version);
+    lastVersionCheckAt=Date.now();
+    return publishedAppVersion;
+  })();
+  try{return await versionCheckPromise;}finally{versionCheckPromise=null;}
+}
+function openAppUpdateModal(kind='outdated'){
+  const unavailable=kind==='unavailable';
+  $('#appUpdateMessage').textContent=unavailable
+    ? 'Impossible de vérifier que le défi du jour utilise la dernière version. Vérifie ta connexion puis réessaie.'
+    : 'Une nouvelle version d’Orapa Mine est disponible. La mise à jour est nécessaire pour accéder au défi du jour.';
+  $('#appUpdateConfirm').textContent=unavailable?'Réessayer':'Mettre à jour';
+  $('#appUpdateConfirm').dataset.action=unavailable?'retry':'update';
+  $('#appUpdateModal').classList.add('open');
+}
+function closeAppUpdateModal(){ $('#appUpdateModal').classList.remove('open'); }
+async function ensureCurrentAppVersion(required=false,force=false){
+  try{
+    const remoteVersion=await fetchPublishedAppVersion(force);
+    if(remoteVersion!==APP_VERSION){ openAppUpdateModal('outdated'); return false; }
+    return true;
+  }catch(error){
+    if(required) openAppUpdateModal('unavailable');
+    return !required;
+  }
+}
+function reloadLatestAppVersion(){
+  const url=new URL(window.location.href);
+  url.searchParams.set('update',publishedAppVersion||Date.now());
+  window.location.replace(url.toString());
+}
 // =====================================================================
 // ORAPA MINE — Console du maître du jeu (v3)
 // =====================================================================
@@ -1357,6 +1402,7 @@ async function startDailyChallenge(){
     openDailyAlreadyPlayedModal(dateKey,attempt);
     return;
   }
+  if(!await ensureCurrentAppVersion(true,true)) return;
   try{
     const lock=await acquireDailyChallengeLock(dateKey);
     if(lock?.accepted===false){
@@ -3032,12 +3078,13 @@ function openSoloChoiceModal(){
 function closeSoloChoiceModal(){ $('#soloChoiceModal').classList.remove('open'); document.body.classList.remove('solo-menu-open'); }
 $('#soloChoiceCancel').addEventListener('click', closeSoloChoiceModal);
 $('#soloChoiceModal').addEventListener('click', e=>{ if(e.target.id==='soloChoiceModal') closeSoloChoiceModal(); });
-$('#soloChoiceDaily').addEventListener('click', ()=>{
+$('#soloChoiceDaily').addEventListener('click', async()=>{
   const { alreadyPlayed } = dailyStatusToday();
   if(alreadyPlayed){
     startDailyChallenge();
     return;
   }
+  if(!await ensureCurrentAppVersion(true,true)) return;
   closeSoloChoiceModal();
   document.body.classList.add('solo-menu-open');
   $('#dailyRulesModal').classList.add('open');
@@ -3063,6 +3110,13 @@ $('#closeDailyAlreadyPlayed').addEventListener('click',closeDailyAlreadyPlayedMo
 $('#dailyAlreadyPlayedClose').addEventListener('click',closeDailyAlreadyPlayedModal);
 $('#dailyAlreadyPlayedModal').addEventListener('click',e=>{if(e.target.id==='dailyAlreadyPlayedModal')closeDailyAlreadyPlayedModal();});
 $('#dailyReviewGrid').addEventListener('click',e=>reviewDailyFinalGrid(e.currentTarget.dataset.dailyDate));
+$('#appUpdateLater').addEventListener('click',closeAppUpdateModal);
+$('#appUpdateConfirm').addEventListener('click',async e=>{
+  if(e.currentTarget.dataset.action==='update'){ reloadLatestAppVersion(); return; }
+  closeAppUpdateModal();
+  if(await ensureCurrentAppVersion(true,true)) showToast('La version du site est à jour.');
+});
+$('#appUpdateModal').addEventListener('click',e=>{if(e.target.id==='appUpdateModal')closeAppUpdateModal();});
 $('#soloChoiceRandom').addEventListener('click', ()=>{ closeSoloChoiceModal(); openSoloSetupModal(); });
 $('#soloChoiceById').addEventListener('click', ()=> promptLoadGridById());
 function promptLoadGridById(){
@@ -3562,3 +3616,6 @@ function init(){
   if(!hasActiveGame) showHome();
 }
 init();
+ensureCurrentAppVersion(false,true);
+window.addEventListener('pageshow',()=>ensureCurrentAppVersion(false,true));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ensureCurrentAppVersion(false,true);});
