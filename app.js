@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260801-0061';
+const APP_VERSION = '20260801-0062';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3279,22 +3279,95 @@ function buildRankingConfigOptions(){
 function setRankingView(view){
   rankingView = view;
   $('#rankingTabSolo').classList.toggle('active', view==='solo');
-  $('#rankingTabDaily').classList.toggle('active', view==='daily');
+  $('#rankingTabDaily').classList.toggle('active', view==='grids');
   $('#rankingTabGlobal').classList.toggle('active', view==='global');
   $('#rankingSoloIntro').style.display = view==='solo' ? '' : 'none';
-  $('#rankingDailyIntro').style.display = view==='daily' ? '' : 'none';
+  $('#rankingDailyIntro').style.display = view==='grids' ? '' : 'none';
   $('#rankingGlobalIntro').style.display = view==='global' ? '' : 'none';
-  $('#btnRefreshGlobal').style.display = view==='global' ? '' : 'none';
+  $('#rankingDateControls').style.display=view==='grids'?'none':'grid';
+  $('#rankingList').style.maxHeight=view==='grids'?'480px':'320px';
+  $('#btnRefreshGlobal').style.display = (view==='global'||view==='grids') ? '' : 'none';
+  $('#btnRefreshGlobal').textContent=view==='grids'?'↻ Actualiser les grilles':'↻ Actualiser';
   $('#btnStatsGlobal').style.display = view==='global' ? '' : 'none';
   const picker=$('#rankingDatePicker');
   $('#rankingDatePickerWrap').style.display=view==='global'?'flex':'none';
   picker.max=parisDateKey();
-  buildRankingConfigOptions();
+  if(view!=='grids') buildRankingConfigOptions();
   if(view==='solo') $('#rankingConfigSelect').value = 'GLOBAL_SOLO:ALL';
   if(view==='global') picker.value=($('#rankingConfigSelect').value||'').replace('GLOBAL:','')||parisDateKey();
   renderRankingList();
 }
 let expandedScores = new Set();
+const GRID_CATALOG_PAGE_SIZE=10;
+let gridCatalogState={popular:null,recent:[],recentHasMore:true,searched:null,searchError:''};
+async function fetchGridCatalog(sort,limit,offset=0){
+  const rows=await supabaseRpc('orapa_get_grid_catalog',{p_sort:sort,p_limit:limit,p_offset:offset});
+  return Array.isArray(rows)?rows:[];
+}
+function gridCatalogCard(row,section,index){
+  const id=String(row.grid_id||''),decoded=decodeGridId(id);
+  const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
+  const count=Number(row.participation_count)||0,wins=Number(row.success_count)||0,rate=count?Math.round(wins/count*100):0;
+  const key=`gridcatalog:${section}:${id}`,expanded=expandedScores.has(key);
+  const lastDate=row.last_played_at?new Date(row.last_played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
+  const label=section==='popular'?`${rankingMedal(index)} Grille populaire`:section==='search'?'Grille recherchée':'Dernière partie';
+  const detail=expanded?`<div class="grid-catalog-detail"><div class="grid-catalog-id">ID : ${escapeHtml(id)}</div><div>${wins} réussite${wins===1?'':'s'} · ${count-wins} échec${count-wins===1?'':'s'} · meilleur score : <b>${row.best_score==null?'—':row.best_score+' pts'}</b> · meilleur temps : <b>${row.best_time_ms==null?'—':formatDuration(Number(row.best_time_ms))}</b> · dernière partie : ${lastDate}</div></div><div class="controls grid-catalog-actions"><button class="grid-catalog-copy ghost" data-grid-id="${escapeHtml(id)}">📋 Copier l’ID</button><button class="grid-catalog-ranking primary" data-grid-id="${escapeHtml(id)}">🏆 Classement</button></div>`:'';
+  return `<div class="ranking-row grid-catalog-row${expanded?' expanded':''}" data-grid-catalog-key="${escapeHtml(key)}"><div class="ranking-row-top"><span class="grid-catalog-label">${label}<small>${gems}</small></span><span class="grid-catalog-count">${count} 👥</span><span class="grid-catalog-rate">${count?rate+' %':'—'}</span></div>${detail}</div>`;
+}
+function bindGridCatalogActions(){
+  const el=$('#rankingList');
+  el.querySelectorAll('[data-grid-catalog-key]').forEach(row=>row.onclick=event=>{
+    if(event.target.closest('button'))return;
+    const key=row.dataset.gridCatalogKey;
+    expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);
+    renderGridCatalog();
+  });
+  el.querySelectorAll('.grid-catalog-copy').forEach(button=>button.onclick=event=>{event.stopPropagation();navigator.clipboard?.writeText(button.dataset.gridId).then(()=>showToast('Identifiant copié : '+button.dataset.gridId));});
+  el.querySelectorAll('.grid-catalog-ranking').forEach(button=>button.onclick=event=>{event.stopPropagation();openGridRanking(button.dataset.gridId);});
+  $('#gridCatalogLoadMore')?.addEventListener('click',loadMoreGridCatalog);
+}
+async function renderGridCatalog(force=false){
+  const el=$('#rankingList'),savedScrollTop=el.scrollTop;
+  $('#btnResetRanking').style.display='none';
+  if(force) gridCatalogState={popular:null,recent:[],recentHasMore:true,searched:gridCatalogState.searched,searchError:gridCatalogState.searchError};
+  if(!gridCatalogState.popular) el.innerHTML='<div class="history-empty">Chargement des grilles…</div>';
+  try{
+    if(!gridCatalogState.popular){
+      const [popular,recentPage]=await Promise.all([fetchGridCatalog('popular',3),fetchGridCatalog('recent',GRID_CATALOG_PAGE_SIZE+1)]);
+      if(rankingView!=='grids')return;
+      gridCatalogState.popular=popular;
+      gridCatalogState.recent=recentPage.slice(0,GRID_CATALOG_PAGE_SIZE);
+      gridCatalogState.recentHasMore=recentPage.length>GRID_CATALOG_PAGE_SIZE;
+    }
+    const searchHtml=gridCatalogState.searchError?`<div class="grid-search-error">${escapeHtml(gridCatalogState.searchError)}</div>`:gridCatalogState.searched?`<section class="grid-catalog-section"><h3 class="grid-catalog-title">Résultat de la recherche</h3>${gridCatalogCard(gridCatalogState.searched,'search',0)}</section>`:'';
+    const popularHtml=gridCatalogState.popular.length?gridCatalogState.popular.map((row,index)=>gridCatalogCard(row,'popular',index)).join(''):'<div class="history-empty grid-catalog-empty">Aucune grille jouée.</div>';
+    const recentHtml=gridCatalogState.recent.length?gridCatalogState.recent.map((row,index)=>gridCatalogCard(row,'recent',index)).join(''):'<div class="history-empty grid-catalog-empty">Aucune partie enregistrée.</div>';
+    const more=gridCatalogState.recentHasMore?'<button id="gridCatalogLoadMore" class="ghost solo-load-more">Afficher les grilles suivantes</button>':'';
+    el.innerHTML=`${searchHtml}<section class="grid-catalog-section"><h3 class="grid-catalog-title">Les 3 grilles les plus jouées</h3>${popularHtml}</section><section class="grid-catalog-section"><h3 class="grid-catalog-title">Dernières grilles jouées</h3>${recentHtml}${more}</section>`;
+    bindGridCatalogActions();
+    el.scrollTop=savedScrollTop;
+  }catch(error){el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
+}
+async function loadMoreGridCatalog(){
+  const button=$('#gridCatalogLoadMore');if(button){button.disabled=true;button.textContent='Chargement…';}
+  try{
+    const page=await fetchGridCatalog('recent',GRID_CATALOG_PAGE_SIZE+1,gridCatalogState.recent.length);
+    gridCatalogState.recent.push(...page.slice(0,GRID_CATALOG_PAGE_SIZE));
+    gridCatalogState.recentHasMore=page.length>GRID_CATALOG_PAGE_SIZE;
+    renderGridCatalog();
+  }catch(error){showToast('Chargement impossible : '+error.message);if(button)button.disabled=false;}
+}
+async function searchGridCatalog(input){
+  const decoded=decodeGridId(input);
+  if(!decoded){gridCatalogState.searched=null;gridCatalogState.searchError='Identifiant de grille incorrect.';renderGridCatalog();return;}
+  gridCatalogState.searchError='';
+  $('#rankingList').innerHTML='<div class="history-empty">Recherche de la grille…</div>';
+  try{
+    const rows=await supabaseRpc('orapa_get_grid_overview',{p_grid_id:decoded.id});
+    gridCatalogState.searched=Array.isArray(rows)&&rows[0]?rows[0]:{grid_id:decoded.id,participation_count:0,success_count:0,best_score:null,best_time_ms:null,last_played_at:null};
+    renderGridCatalog();
+  }catch(error){gridCatalogState.searched=null;gridCatalogState.searchError='Recherche impossible : '+error.message;renderGridCatalog();}
+}
 function rankingMedal(i){ return ['🥇','🥈','🥉'][i] || `#${i+1}`; }
 function globalEntryToLocal(e){
   return {
@@ -3548,6 +3621,10 @@ async function renderGlobalSoloScores(filterKey='ALL'){
 }
 
 function renderRankingList(){
+  if(rankingView==='grids'){
+    renderGridCatalog();
+    return;
+  }
   const key = $('#rankingConfigSelect').value || '';
   if(key.startsWith('GLOBAL_SOLO:')){
     renderGlobalSoloScores(key.slice(12));
@@ -3584,12 +3661,14 @@ function renderRankingList(){
   el.querySelectorAll('.ranking-copy-summary').forEach(btn=>btn.addEventListener('click',ev=>{ev.stopPropagation();const entry=list[Number(btn.dataset.idx)];navigator.clipboard?.writeText(formatShareText(entry)).then(()=>showToast('Résumé copié !'));}));
 }
 $('#rankingTabSolo').addEventListener('click', ()=> setRankingView('solo'));
-$('#rankingTabDaily').addEventListener('click', ()=> setRankingView('daily'));
+$('#rankingTabDaily').addEventListener('click', ()=> setRankingView('grids'));
 $('#rankingTabGlobal').addEventListener('click', ()=> setRankingView('global'));
 $('#btnRefreshGlobal').addEventListener('click', ()=>{
+  if(rankingView==='grids'){renderGridCatalog(true);return;}
   const key=$('#rankingConfigSelect').value;
   if(key.startsWith('GLOBAL:')) renderGlobalRanking(key.slice(7),true);
 });
+$('#gridSearchForm').addEventListener('submit',event=>{event.preventDefault();searchGridCatalog($('#gridSearchInput').value);});
 $('#btnStatsGlobal').addEventListener('click', openGlobalStats);
 $('#closeGlobalStats').addEventListener('click', ()=> $('#globalStatsModal').classList.remove('open'));
 $('#globalStatsModal').addEventListener('click', e=>{ if(e.target.id==='globalStatsModal') $('#globalStatsModal').classList.remove('open'); });
