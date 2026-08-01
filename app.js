@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260802-0069';
+const APP_VERSION = '20260802-0070';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -492,7 +492,7 @@ function gridRankingRows(rows){
     return `<div class="ranking-row grid-ranking-row one-line-ranking${mine?' ranking-mine':''}"><div class="ranking-row-top">
     <span class="ranking-player-cell"><span class="ranking-rank${Number(row.rank)===1?' top1':''}">${rankingMedal(Number(row.rank)-1)}</span><span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}</span>
     <span class="ranking-query-cell">${row.ray_count||0} 🔦 + ${row.coord_count||0} 📍</span>
-    <span class="ranking-score-cell"><span class="ranking-points">${row.cost} pts</span><span class="ranking-time">${formatDuration(row.time_ms)}</span></span>
+    <span class="ranking-points">${row.cost} pts</span><span class="ranking-time">${formatDuration(row.time_ms)}</span>
   </div></div>`;
   }).join('');
 }
@@ -3386,7 +3386,7 @@ async function renderGlobalRanking(dateKey, force=false){
       const e=globalEntryToLocal(raw);
       const mine=String(e.id)===String(myId) || (!!myAccountName && String(e.name||'').trim().toLocaleLowerCase('fr-FR')===myAccountName);
       const failTag=e.success ? '' : '<span class="ranking-fail">Échec</span>';
-      return `<div class="ranking-row global-row one-line-ranking${mine?' ranking-mine':''}" data-global-idx="${i}"><div class="ranking-row-top"><span class="ranking-player-cell"><span class="ranking-rank${i===0?' top1':''}">${rankingMedal(i)}</span><span class="ranking-name">${escapeHtml(e.name||'Anonyme')}</span>${failTag}</span><span class="ranking-query-cell">${e.rayCount} 🔦 + ${e.coordCount} 📍</span><span class="ranking-score-cell"><span class="ranking-points">${e.cost} pts</span><span class="ranking-time">${formatDuration(e.timeMs)}</span></span></div></div>`;
+      return `<div class="ranking-row global-row one-line-ranking${mine?' ranking-mine':''}" data-global-idx="${i}"><div class="ranking-row-top"><span class="ranking-player-cell"><span class="ranking-rank${i===0?' top1':''}">${rankingMedal(i)}</span><span class="ranking-name">${escapeHtml(e.name||'Anonyme')}</span>${failTag}</span><span class="ranking-query-cell">${e.rayCount} 🔦 + ${e.coordCount} 📍</span><span class="ranking-points">${e.cost} pts</span><span class="ranking-time">${formatDuration(e.timeMs)}</span></div></div>`;
     }).join('');
     el.querySelectorAll('.global-row').forEach(row=>row.addEventListener('click',()=>{
       const entry=globalEntryToLocal(rows[Number(row.dataset.globalIdx)]);
