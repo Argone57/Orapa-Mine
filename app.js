@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260801-0060';
+const APP_VERSION = '20260801-0061';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -226,10 +226,13 @@ function recordScore(name, elapsedMsOverride, success=true){
 const DAILY_ATTEMPT_KEY = 'orapaMineDailyAttemptV1';
 const DAILY_RANKINGS_KEY = 'orapaMineDailyRankingsV1';
 const DAILY_FINAL_SNAPSHOTS_KEY = 'orapaMineDailyFinalSnapshotsV1';
+let remoteDailyStatusCache = null;
+let remoteDailyStatusPromise = null;
 function loadDailyAttempt(){
   try{ const raw = localStorage.getItem(DAILY_ATTEMPT_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
 }
 function saveDailyAttempt(a){ try{ localStorage.setItem(DAILY_ATTEMPT_KEY, JSON.stringify(a)); }catch(e){} }
+function dailyAttemptAccountKey(){ return String(currentPlayerAccount?.id || currentPlayerAccount?.display_name || 'local'); }
 function dailySnapshotAccountKey(){
   return String(currentPlayerAccount?.id || currentPlayerAccount?.display_name || 'local');
 }
@@ -1321,7 +1324,31 @@ async function startSoloGame(explicitId){
 function dailyStatusToday(){
   const dateKey = parisDateKey();
   const attempt = loadDailyAttempt();
-  return { dateKey, alreadyPlayed: !!(attempt && attempt.date===dateKey), attempt: (attempt && attempt.date===dateKey) ? attempt : null };
+  const accountKey=dailyAttemptAccountKey();
+  const localAttempt=attempt && attempt.date===dateKey
+    && (attempt.accountId===accountKey || (!attempt.accountId && accountKey==='local')) ? attempt : null;
+  const remoteAttempt=remoteDailyStatusCache?.dateKey===dateKey && remoteDailyStatusCache.accountKey===accountKey
+    ? remoteDailyStatusCache.attempt : null;
+  const currentAttempt=localAttempt||remoteAttempt;
+  return {dateKey,alreadyPlayed:!!currentAttempt,attempt:currentAttempt};
+}
+async function refreshDailyStatusFromSupabase(force=false){
+  if(!currentPlayerAccount?.session_token) return dailyStatusToday();
+  const dateKey=parisDateKey(),accountKey=dailyAttemptAccountKey();
+  if(!force && remoteDailyStatusCache?.dateKey===dateKey && remoteDailyStatusCache.accountKey===accountKey && Date.now()-remoteDailyStatusCache.checkedAt<30000){
+    return dailyStatusToday();
+  }
+  if(remoteDailyStatusPromise) return remoteDailyStatusPromise;
+  remoteDailyStatusPromise=(async()=>{
+    const response=await supabaseRpc('orapa_my_daily_history',{p_session_token:currentPlayerAccount.session_token,p_limit:1,p_offset:0});
+    const row=(Array.isArray(response)?response:[]).find(item=>String(item.daily_date).slice(0,10)===dateKey);
+    remoteDailyStatusCache={
+      dateKey,accountKey,checkedAt:Date.now(),
+      attempt:row?{date:dateKey,result:row.success?'win':'lose',accountId:accountKey,source:'supabase'}:null
+    };
+    return dailyStatusToday();
+  })();
+  try{return await remoteDailyStatusPromise;}finally{remoteDailyStatusPromise=null;}
 }
 function formatDailyDate(dateKey){
   const match=String(dateKey||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -1528,7 +1555,7 @@ async function proposeSolution(){
         const daily=recordDailyScore(identity.name||'Invité',state.dailyDate,true,elapsedMs);
         lastScoreResult={key:'Défi du jour',entry:{...daily.entry,gridId:null,isDaily:true,dailyDate:state.dailyDate},rank:globalResult?.rank||daily.rank,madeList:true};
       }
-      saveDailyAttempt({date:state.dailyDate,result:'win'});
+      saveDailyAttempt({date:state.dailyDate,result:'win',accountId:dailyAttemptAccountKey()});
     }else if(state.gridRanked){
       const identity=await requestGridIdentity();
       if(!identity){ state.soloOver=false; state.soloResult=null; return; }
@@ -1553,7 +1580,7 @@ async function proposeSolution(){
       const globalResult=identity.saveGlobal!==false?await submitGlobalDailyScore(candidate,identity):null;
       state.dailyAlreadyRecorded=globalResult?.accepted===false&&globalResult?.reason==='already_played';
       if(!state.dailyAlreadyRecorded) recordDailyScore(identity.name||'Invité',state.dailyDate,false,elapsedMs);
-      saveDailyAttempt({date:state.dailyDate,result:'lose'});
+      saveDailyAttempt({date:state.dailyDate,result:'lose',accountId:dailyAttemptAccountKey()});
     }else if(state.gridRanked){
       const identity=await requestGridIdentity();
       if(!identity){ state.soloOver=false;state.soloResult=null;state.soloAttempts--;return; }
@@ -3063,24 +3090,36 @@ $('#btnReset').addEventListener('click', ()=>{
   resetAll();
 });
 
-function openSoloChoiceModal(){
+function renderDailyStatusLine(status){
+  const line=$('#dailyStatusLine');
+  if(status?.alreadyPlayed){
+    line.textContent=`Défi du jour déjà joué aujourd'hui (${status.attempt.result==='win'?'réussi 🏆':'raté 💥'}) — reviens demain.`;
+    line.style.display='block';
+  }else line.style.display='none';
+}
+async function openSoloChoiceModal(){
   document.body.classList.add('solo-menu-open');
-  const { alreadyPlayed, attempt } = dailyStatusToday();
   const line = $('#dailyStatusLine');
-  if(alreadyPlayed){
-    line.textContent = `Défi du jour déjà joué aujourd'hui (${attempt.result==='win'?'réussi 🏆':'raté 💥'}) — reviens demain.`;
-    line.style.display = 'block';
-  } else {
-    line.style.display = 'none';
-  }
+  renderDailyStatusLine(dailyStatusToday());
   $('#soloChoiceModal').classList.add('open');
+  if(!dailyStatusToday().alreadyPlayed && currentPlayerAccount){
+    line.textContent='Vérification du défi du jour…';
+    line.style.display='block';
+    try{
+      const status=await refreshDailyStatusFromSupabase(true);
+      if($('#soloChoiceModal').classList.contains('open')) renderDailyStatusLine(status);
+    }catch(error){
+      if($('#soloChoiceModal').classList.contains('open')) renderDailyStatusLine(dailyStatusToday());
+    }
+  }
 }
 function closeSoloChoiceModal(){ $('#soloChoiceModal').classList.remove('open'); document.body.classList.remove('solo-menu-open'); }
 $('#soloChoiceCancel').addEventListener('click', closeSoloChoiceModal);
 $('#soloChoiceModal').addEventListener('click', e=>{ if(e.target.id==='soloChoiceModal') closeSoloChoiceModal(); });
 $('#soloChoiceDaily').addEventListener('click', async()=>{
-  const { alreadyPlayed } = dailyStatusToday();
-  if(alreadyPlayed){
+  try{await refreshDailyStatusFromSupabase();}catch(error){}
+  const status=dailyStatusToday();
+  if(status.alreadyPlayed){
     startDailyChallenge();
     return;
   }
