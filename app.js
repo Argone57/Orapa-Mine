@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260802-0080';
+const APP_VERSION = '20260802-0081';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -327,7 +327,7 @@ async function supabaseRpc(fn,params={}){
   return data;
 }
 let achievementCatalogCache=null,achievementExpanded=new Set(),achievementMode='list',achievementSort='order',achievementFilter='all',achievementReverse=false,achievementQueueBusy=false;
-const ACHIEVEMENT_NAMES={welcome:'Bienvenue',good_student:'Bon élève',first_step:'Premier pas',first_win:'Première victoire',founder:'Fondateur',ancestor:'Ancêtre',adventurous:'Aventureux',adventurous_victorious:'Aventureux et victorieux',meticulous:'Méticuleux',diamond:'Diamant',black_body:'Corps noir',sky_sapphire:'Saphir bleu ciel',curious:'Curieux',challenger:'Défieur'};
+const ACHIEVEMENT_NAMES={welcome:'Bienvenue',good_student:'Bon élève',first_step:'Premier pas',first_win:'Première victoire',founder:'Fondateur',ancestor:'Ancêtre',adventurous:'Aventureux',adventurous_victorious:'Aventureux et victorieux',meticulous:'Méticuleux',diamond:'Diamant',black_body:'Corps noir',sky_sapphire:'Saphir bleu ciel',curious:'Curieux',architect:'Architecte',challenger:'Défieur',mine_regular:'Habitué de la mine',confirmed_miner:'Mineur confirmé',first_try:'Du premier coup',economical:'Économe',mole_eye:'Œil de taupe',back_to_mine:'Retour au fond de la mine',regular:'Régulier',challenge_week:'Une semaine de défis',always_present:'Toujours présent',assiduous:'Assidu',winning_streak:'Série victorieuse',perfect_week:'Semaine parfaite',podium:'Sur le podium',number_one:'Numéro un',next_day_revenge:'La revanche du lendemain',photofinish:'Photofinish',copycat:'Copie conforme',first_visitor:'Premier visiteur',deja_vu:'Une impression de déjà-vu'};
 async function refreshAchievements(eventKey=null){
   if(!currentPlayerAccount?.session_token)return null;
   try{
@@ -371,7 +371,7 @@ function sortedAchievements(rows,myOnly=false){
 function meticulousProgress(row){const won=new Set((row.progress_data||[]).map(Number));return `<div style="display:grid;gap:3px;margin-top:7px">${Array.from({length:8},(_,mask)=>`<div>${won.has(mask)?'✅':'⬜'} ${gemFlagsEmojiLine(!!(mask&1),!!(mask&2),!!(mask&4))}</div>`).sort((a,b)=>(a.startsWith('✅')?1:0)-(b.startsWith('✅')?1:0)).join('')}</div>`;}
 function achievementRowsHtml(rows,myOnly=false){
   const sorted=sortedAchievements(rows,myOnly);if(!sorted.length)return '<div class="history-empty">Aucun succès dans cette sélection.</div>';
-  return `<div class="achievement-list">${sorted.map(row=>{const expanded=achievementExpanded.has(row.achievement_key),secret=row.visibility==='hidden',star=Number(row.points||0)===0&&(secret||row.visibility==='masked'),progress=row.progress_target?`<div class="achievement-progress"><i style="width:${Math.min(100,100*Number(row.progress_value||0)/Number(row.progress_target))}%"></i></div><small>${row.progress_value||0} / ${row.progress_target}</small>${row.achievement_key==='meticulous'?meticulousProgress(row):''}`:'',date=row.unlocked_at?new Date(row.unlocked_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';return `<div class="achievement-row ${row.unlocked?'unlocked':'locked'}${secret?' hidden-achievement':''}${expanded?' expanded':''}" data-achievement-key="${row.achievement_key}"><div class="achievement-row-top"><span class="achievement-title-cell"><span class="achievement-status">${row.unlocked?'✓':'○'}</span><span class="achievement-name">${escapeHtml(row.name)}</span></span><span class="achievement-date">${date}</span><span class="achievement-count">👥 ${row.unlock_count||0}</span><span class="achievement-points">${star?'<span class="achievement-star" aria-label="Succès sans points">★</span>':row.points+' pts'}</span></div><div class="achievement-detail"><div>${escapeHtml(row.description)}</div>${progress}<div class="achievement-actions"><button class="ghost achievement-unlockers" data-achievement-key="${row.achievement_key}">Voir les joueurs</button></div></div></div>`;}).join('')}</div>`;
+  return `<div class="achievement-list">${sorted.map(row=>{const expanded=achievementExpanded.has(row.achievement_key),secret=row.visibility==='hidden',star=Number(row.points||0)===0&&(secret||row.visibility==='masked'),showProgress=row.progress_target&&(row.visibility!=='masked'||row.unlocked),progress=showProgress?`<div class="achievement-progress"><i style="width:${Math.min(100,100*Number(row.progress_value||0)/Number(row.progress_target))}%"></i></div><small>${row.progress_value||0} / ${row.progress_target}</small>${row.achievement_key==='meticulous'?meticulousProgress(row):''}`:'',date=row.unlocked_at?new Date(row.unlocked_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';return `<div class="achievement-row ${row.unlocked?'unlocked':'locked'}${secret?' hidden-achievement':''}${expanded?' expanded':''}" data-achievement-key="${row.achievement_key}"><div class="achievement-row-top"><span class="achievement-title-cell"><span class="achievement-status">${row.unlocked?'✓':'○'}</span><span class="achievement-name">${escapeHtml(row.name)}</span></span><span class="achievement-date">${date}</span><span class="achievement-count">👥 ${row.unlock_count||0}</span><span class="achievement-points">${star?'<span class="achievement-star" aria-label="Succès sans points">★</span>':row.points+' pts'}</span></div><div class="achievement-detail"><div>${escapeHtml(row.description)}</div>${progress}<div class="achievement-actions"><button class="ghost achievement-unlockers" data-achievement-key="${row.achievement_key}">Voir les joueurs</button></div></div></div>`;}).join('')}</div>`;
 }
 function bindAchievementList(container,rows,myOnly=false){
   container.querySelectorAll('[data-achievement-key].achievement-row').forEach(row=>row.onclick=event=>{if(event.target.closest('button'))return;const key=row.dataset.achievementKey;achievementExpanded.has(key)?achievementExpanded.delete(key):achievementExpanded.add(key);renderAchievementsInto(container,rows,myOnly);});
@@ -833,10 +833,12 @@ async function submitGlobalDailyScore(entry, identity){
 }
 async function shareGridGlobally(gridId){
   if(!gridId) return null;
-  return supabaseRpc('orapa_share_grid',{
+  const result=await supabaseRpc('orapa_share_grid',{
     p_grid_id:gridId,
     p_session_token:currentPlayerAccount?.session_token||''
   });
+  if(currentPlayerAccount?.session_token) refreshAchievements();
+  return result;
 }
 async function submitGlobalGridScore(entry, identity){
   if(!entry?.gridId || !identity?.sessionToken) return null;
@@ -850,8 +852,8 @@ async function submitGlobalGridScore(entry, identity){
       p_coord_count:Number(entry.coordCount)||0,
       p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))
     });
-    if(row?.accepted){invalidateGlobalSoloScores();refreshAchievements();}
-    if(row?.reason==='already_played') showToast('Cette grille a déjà été classée avec ce profil.');
+    if(row?.accepted){invalidateGlobalSoloScores();refreshAchievements(entry.firstTry?'first_try':null);}
+    if(row?.reason==='already_played'){showToast('Cette grille a déjà été classée avec ce profil.');refreshAchievements('deja_vu');}
     else if(row?.reason==='creator_protected') showToast('⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.');
     else showToast(row?.rank ? `🌍 Première tentative enregistrée · rang #${row.rank}` : '🌍 Première tentative enregistrée');
     return row;
@@ -1601,6 +1603,7 @@ function currentEntryForDisplay(){
     isDaily: state.isDaily,
     dailyDate: state.dailyDate,
     success: state.soloResult==='win',
+    firstTry: state.soloResult==='win'&&state.soloAttempts===0,
     date: (lastScoreResult && lastScoreResult.entry.date) || Date.now()
   };
 }
