@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260802-0073';
+const APP_VERSION = '20260802-0074';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1472,9 +1472,7 @@ async function startDailyChallenge(){
   showGame();
   renderAll();
 }
-function polygonsMatch(pA, pB, tol){
-  tol = tol || 1e-3;
-  const vA = pieceVertices(pA), vB = pieceVertices(pB);
+function polygonVertexSetsMatch(vA,vB,tol=1e-3){
   if(vA.length !== vB.length) return false;
   const used = new Array(vB.length).fill(false);
   for(const va of vA){
@@ -1487,12 +1485,38 @@ function polygonsMatch(pA, pB, tol){
   }
   return true;
 }
+function polygonsMatch(pA,pB,tol=1e-3){
+  return polygonVertexSetsMatch(pieceVertices(pA),pieceVertices(pB),tol);
+}
+function normalizedClippedPieceVertices(piece,tol=1e-7){
+  const board=ensureCCW([{x:0,y:0},{x:COLS,y:0},{x:COLS,y:ROWS},{x:0,y:ROWS}]);
+  let vertices=clipPolygon(ensureCCW(pieceVertices(piece)),board);
+  vertices=vertices.filter((point,index)=>{
+    const previous=vertices[(index+vertices.length-1)%vertices.length];
+    return Math.hypot(point.x-previous.x,point.y-previous.y)>tol;
+  });
+  let changed=true;
+  while(changed&&vertices.length>2){
+    changed=false;
+    vertices=vertices.filter((point,index)=>{
+      const previous=vertices[(index+vertices.length-1)%vertices.length];
+      const next=vertices[(index+1)%vertices.length];
+      const collinear=Math.abs(cross2(previous,point,next))<=tol;
+      if(collinear)changed=true;
+      return !collinear;
+    });
+  }
+  return vertices;
+}
+function visiblePolygonsMatch(pA,pB,tol=1e-3){
+  return polygonVertexSetsMatch(normalizedClippedPieceVertices(pA),normalizedClippedPieceVertices(pB),tol);
+}
 function evaluateGuess(){
   for(const type of allTypes()){
     const s = state.secretPieces.find(p=>p.type===type);
     const g = state.pieces.find(p=>p.type===type && p.center);
     if(!s || !g) return false;
-    if(!polygonsMatch(s,g)) return false;
+    if(state.isDaily ? !visiblePolygonsMatch(s,g) : !polygonsMatch(s,g)) return false;
   }
   return true;
 }
