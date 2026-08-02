@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260802-0071';
+const APP_VERSION = '20260802-0072';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1358,19 +1358,6 @@ function formatDailyDate(dateKey){
   const match=String(dateKey||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return match ? `${match[3]}/${match[2]}/${match[1]}` : String(dateKey||'');
 }
-function closeDailyAlreadyPlayedModal(){
-  $('#dailyAlreadyPlayedModal').classList.remove('open');
-  document.body.classList.remove('solo-menu-open');
-}
-function openDailyAlreadyPlayedModal(dateKey,attempt){
-  const snapshot=loadDailyFinalSnapshot(dateKey);
-  const result=attempt ? ` (${attempt.result==='win'?'réussi 🏆':'raté 💥'})` : '';
-  $('#dailyAlreadyPlayedMessage').textContent=`Tu as déjà terminé le défi du ${formatDailyDate(dateKey)}${result}. Reviens demain pour un nouveau défi !`;
-  $('#dailyReviewGrid').style.display=snapshot?'':'none';
-  $('#dailyReviewGrid').dataset.dailyDate=dateKey;
-  document.body.classList.add('solo-menu-open');
-  $('#dailyAlreadyPlayedModal').classList.add('open');
-}
 function reviewDailyFinalGrid(dateKey){
   const snapshot=loadDailyFinalSnapshot(dateKey);
   if(!snapshot){ showToast('La grille finale n’est plus disponible sur ce navigateur.'); return; }
@@ -1378,7 +1365,6 @@ function reviewDailyFinalGrid(dateKey){
   lastScoreResult=snapshot.lastScoreResult?JSON.parse(JSON.stringify(snapshot.lastScoreResult)):null;
   pieceIdSeq=1+state.pieces.concat(state.secretPieces||[]).reduce((max,piece)=>Math.max(max,parseInt((piece.id||'p0').slice(1))||0),0);
   saveState();
-  closeDailyAlreadyPlayedModal();
   closeSoloChoiceModal();
   showGame();
   renderAll();
@@ -1429,15 +1415,14 @@ async function releaseDailyChallengeLock(identity,dateKey){
 async function startDailyChallenge(){
   const { dateKey, alreadyPlayed, attempt } = dailyStatusToday();
   if(alreadyPlayed){
-    closeSoloChoiceModal();
-    openDailyAlreadyPlayedModal(dateKey,attempt);
+    reviewDailyFinalGrid(dateKey);
     return;
   }
   if(!await ensureCurrentAppVersion(true,true)) return;
   try{
     const lock=await acquireDailyChallengeLock(dateKey);
     if(lock?.accepted===false){
-      if(lock.reason==='already_played') openDailyAlreadyPlayedModal(dateKey,loadDailyAttempt());
+      if(lock.reason==='already_played') reviewDailyFinalGrid(dateKey);
       else alert('Défi déjà commencé ailleurs\n\nCe défi du jour a déjà été lancé depuis un autre navigateur. Veuillez reprendre la partie sur le navigateur depuis lequel elle a été commencée.');
       return;
     }
@@ -3096,6 +3081,8 @@ $('#btnReset').addEventListener('click', ()=>{
 
 function renderDailyStatusLine(status){
   const line=$('#dailyStatusLine');
+  const button=$('#soloChoiceDaily');
+  button.classList.toggle('review-available',!!status?.alreadyPlayed);
   if(status?.alreadyPlayed){
     line.textContent=`Défi du jour déjà joué aujourd'hui (${status.attempt.result==='win'?'réussi 🏆':'raté 💥'}) — reviens demain.`;
     line.style.display='block';
@@ -3124,7 +3111,7 @@ $('#soloChoiceDaily').addEventListener('click', async()=>{
   try{await refreshDailyStatusFromSupabase();}catch(error){}
   const status=dailyStatusToday();
   if(status.alreadyPlayed){
-    startDailyChallenge();
+    reviewDailyFinalGrid(status.dateKey);
     return;
   }
   if(!await ensureCurrentAppVersion(true,true)) return;
@@ -3149,10 +3136,6 @@ $('#dailyRulesModal').addEventListener('click', e=>{
     openSoloChoiceModal();
   }
 });
-$('#closeDailyAlreadyPlayed').addEventListener('click',closeDailyAlreadyPlayedModal);
-$('#dailyAlreadyPlayedClose').addEventListener('click',closeDailyAlreadyPlayedModal);
-$('#dailyAlreadyPlayedModal').addEventListener('click',e=>{if(e.target.id==='dailyAlreadyPlayedModal')closeDailyAlreadyPlayedModal();});
-$('#dailyReviewGrid').addEventListener('click',e=>reviewDailyFinalGrid(e.currentTarget.dataset.dailyDate));
 $('#appUpdateLater').addEventListener('click',closeAppUpdateModal);
 $('#appUpdateConfirm').addEventListener('click',async e=>{
   if(e.currentTarget.dataset.action==='update'){ reloadLatestAppVersion(); return; }

@@ -128,6 +128,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .mix-name{color:var(--text);font-weight:600;}
 .mix-section-title{display:flex;align-items:center;gap:7px;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}.mix-section-title .mix-icon{flex:0 0 22px}.mix-option-text{margin:3px 0 10px;color:var(--text-dim);font-size:.76rem;line-height:1.5}.mix-reminder{margin:2px 0 10px;color:var(--text-dim);font-size:.76rem;line-height:1.5}.mix-warning{display:flex;align-items:flex-start;gap:7px;color:var(--gold-bright)}.mix-warning span:first-child{flex:0 0 auto}.mix-onyx-example{display:block;width:min(100%,180px);height:auto;margin:10px auto 2px;border:1px solid var(--vein);border-radius:8px}
 .daily-special-rules{margin:12px 0 4px;padding:11px 12px;border:1px solid var(--vein);border-radius:10px;background:rgba(230,194,122,.045)}.daily-special-rules h3{margin:0 0 7px;color:var(--gold-bright);font-family:'Cinzel',serif;font-size:.84rem}.daily-special-rules ul{margin:5px 0 8px;padding-left:20px}.daily-special-rules p{margin:7px 0 0}
+.solo-choice-daily{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}.solo-choice-daily small{display:none;margin-top:3px;font-size:.64rem;font-weight:500;color:var(--text-dim)}.solo-choice-daily.review-available small{display:block}
 .help-fab{position:fixed;bottom:18px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);font-family:'Cinzel',serif;font-weight:700;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:1.15rem;line-height:1;padding:0;}
 .rankings-fab{left:18px;right:auto;}
 .ranking-tabs{display:flex;gap:8px;margin:12px 0;}
@@ -536,7 +537,7 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
     <p>Comment veux-tu générer la grille secrète ?</p>
     <div class="controls" style="justify-content:center;margin:16px 0 6px;">
       <button id="soloChoiceRandom" class="primary">🎲 Aléatoire</button>
-      <button id="soloChoiceDaily" class="ghost">📅 Défi du jour</button>
+      <button id="soloChoiceDaily" class="ghost solo-choice-daily"><span>📅 Défi du jour</span><small>Revoir la grille</small></button>
       <button id="soloChoiceById" class="ghost">🔑 Par identifiant</button>
     </div>
     <div id="dailyStatusLine" style="display:none;text-align:center;font-size:.75rem;color:var(--text-faint);margin-top:-4px;"></div>
@@ -589,18 +590,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-<div class="modal-backdrop" id="dailyAlreadyPlayedModal">
-  <div class="modal">
-    <button class="close-x" id="closeDailyAlreadyPlayed">×</button>
-    <h2>📅 Défi du jour déjà joué</h2>
-    <p id="dailyAlreadyPlayedMessage">Tu as déjà terminé le défi du jour. Reviens demain pour un nouveau défi !</p>
-    <div class="controls" style="justify-content:flex-end;margin-top:16px;">
-      <button id="dailyReviewGrid" class="primary">👁 Revoir ma grille</button>
-      <button id="dailyAlreadyPlayedClose" class="ghost">Fermer</button>
-    </div>
-  </div>
-</div>
-
 <div class="modal-backdrop" id="appUpdateModal">
   <div class="modal">
     <h2>🔄 Mise à jour nécessaire</h2>
@@ -630,6 +619,6 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
   </div>
 </div>
 
-  <script src="app.js?v=20260802-0071"></script>
+  <script src="app.js?v=20260802-0072"></script>
 </body>
 </html>
