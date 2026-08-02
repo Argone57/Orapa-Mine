@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260802-0077';
+const APP_VERSION = '20260802-0078';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2727,11 +2727,19 @@ async function enterSolo(){
   openSoloChoiceModal();
 }
 $('#homeSolo').addEventListener('click', enterSolo);
+const TUTORIAL_PROGRESS_KEY='orapaTutorialProgressV1';
 let tutorialActive=false,tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null,tutorialPlacementEnds=[],tutorialStepNumber=0,tutorialStepKey='';
-function tutorialClearTargets(){ document.querySelectorAll('.tutorial-target').forEach(el=>el.classList.remove('tutorial-target')); }
+function tutorialLoadProgress(){try{const data=JSON.parse(localStorage.getItem(TUTORIAL_PROGRESS_KEY)||'null');return data?.version===1&&data.state?data:null;}catch(e){return null;}}
+function tutorialSaveProgress(){
+  if(!tutorialActive)return;
+  try{localStorage.setItem(TUTORIAL_PROGRESS_KEY,JSON.stringify({version:1,state,tutorialStage,tutorialTargetLabel,tutorialTargetCell,tutorialWrongPieceId,tutorialLastResult,tutorialRayIndex,tutorialPlacementIndex,tutorialPlacementPieceId,tutorialStepNumber,tutorialStepKey}));}catch(e){}
+}
+function tutorialClearProgress(){try{localStorage.removeItem(TUTORIAL_PROGRESS_KEY);}catch(e){}}
+function tutorialClearTargets(){document.querySelectorAll('.tutorial-target').forEach(el=>el.classList.remove('tutorial-target'));document.querySelectorAll('.tutorial-placement-target').forEach(el=>el.remove());}
 function tutorialCoach(title,text,actionLabel=''){
   tutorialClearTargets();
   const coach=$('#tutorialCoach');
+  coach.classList.remove('minimized');
   coach.classList.toggle('tutorial-coach-top',![8,11,12].includes(tutorialStage));
   $('#tutorialCoachTitle').innerHTML=title;
   $('#tutorialCoachText').innerHTML=text;
@@ -2741,6 +2749,7 @@ function tutorialCoach(title,text,actionLabel=''){
   $('#tutorialCoachAction').innerHTML=actionLabel;
   $('#tutorialCoachAction').style.display=actionLabel?'':'none';
   $('#tutorialCoachStep').style.display=([9,10].includes(tutorialStage)||tutorialStage>=13)?'none':'';
+  tutorialSaveProgress();
   setTimeout(tutorialHighlightTarget,40);
 }
 function tutorialHighlightTarget(){
@@ -2756,7 +2765,12 @@ function tutorialHighlightTarget(){
     target=document.querySelector(`#palette [data-id="${tutorialPlacementPieceId}"]`);
     tutorialDrawPlacementTarget();
   }else if(tutorialStage===8) target=$('#btnPropose');
-  if(target){target.classList.add('tutorial-target');target.scrollIntoView({behavior:'smooth',block:'center'});}
+  if(target){
+    target.classList.add('tutorial-target');
+    if(tutorialStage===11||tutorialStage===12)$('#paletteTitle').scrollIntoView({behavior:'smooth',block:'start'});
+    else if(tutorialStage===8)window.scrollTo({top:0,behavior:'smooth'});
+    else target.scrollIntoView({behavior:'smooth',block:'center'});
+  }
 }
 function tutorialFindUnusedLabel(){
   for(const [side,count] of [['top',COLS],['right',ROWS],['bottom',COLS],['left',ROWS]]){
@@ -2920,7 +2934,7 @@ function tutorialAfterPiecePlacement(piece){
   const secret=state.secretPieces.find(p=>p.type===piece.type);
   if(!secret||!piece.center)return;
   const close=Math.hypot(piece.center.x-secret.center.x,piece.center.y-secret.center.y)<1.1;
-  if(!close){piece.center=null;showToast('Place la gemme dans la zone mise en \u00e9vidence.');renderPalette();renderPieces();tutorialHighlightTarget();return;}
+  if(!close){piece.center=null;showToast('Place la gemme dans la zone mise en \u00e9vidence.');renderPalette();renderPieces();tutorialShowStage();return;}
   piece.center={...secret.center};
   renderPalette();renderPieces();renderTraces();
   if(polygonsMatch(piece,secret))tutorialCompletePlacement();
@@ -3027,8 +3041,8 @@ function tutorialPrepareSolution(){
   tutorialWrongPieceId=wrong.id;
   renderPalette();renderPieces();
 }
-function startInteractiveTutorial(){
-  if(state.mode==='solo'&&!state.soloOver&&!confirm('Quitter la partie solo en cours pour lancer le tutoriel ?')) return;
+function beginInteractiveTutorial(){
+  if(state.mode==='solo'&&!state.soloOver&&state.gridUnrankedReason!=='tutorial'&&!confirm('Quitter la partie solo en cours pour lancer le tutoriel ?')) return;
   state.includeGray=false;state.includeOnyx=false;state.includeSapphire=false;
   const lesson=tutorialFixedLesson();
   if(!lesson.pieces||lesson.examples.length<11){showToast('Le tutoriel est momentan\u00e9ment indisponible.');return;}
@@ -3039,7 +3053,18 @@ function startInteractiveTutorial(){
   state.gridId=null;state.gridRanked=false;state.gridUnrankedReason='tutorial';state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;state.isDaily=false;state.dailyDate=null;state.history=[];state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.coordDots=[];
   showGame();setTimeout(tutorialShowStage,80);
 }
-function exitInteractiveTutorial(){tutorialActive=false;document.body.classList.remove('tutorial-active');tutorialClearTargets();resetAll();showHome();}
+function startInteractiveTutorial(){
+  if(tutorialLoadProgress()){$('#tutorialResumeModal').classList.add('open');return;}
+  beginInteractiveTutorial();
+}
+function resumeInteractiveTutorial(){
+  const saved=tutorialLoadProgress();if(!saved)return beginInteractiveTutorial();
+  state=saved.state;tutorialStage=saved.tutorialStage;tutorialTargetLabel=saved.tutorialTargetLabel;tutorialTargetCell=saved.tutorialTargetCell;tutorialWrongPieceId=saved.tutorialWrongPieceId;tutorialLastResult=saved.tutorialLastResult;tutorialRayIndex=saved.tutorialRayIndex||0;tutorialPlacementIndex=saved.tutorialPlacementIndex||0;tutorialPlacementPieceId=saved.tutorialPlacementPieceId||null;tutorialStepNumber=saved.tutorialStepNumber||0;tutorialStepKey=saved.tutorialStepKey||'';
+  pieceIdSeq=1+state.pieces.concat(state.secretPieces).reduce((max,piece)=>Math.max(max,parseInt((piece.id||'p0').slice(1))||0),0);
+  const lesson=tutorialFixedLesson();tutorialRayExamples=lesson.examples;tutorialPlacementEnds=lesson.ends;tutorialActive=true;document.body.classList.add('tutorial-active');
+  $('#tutorialResumeModal').classList.remove('open');showGame();setTimeout(tutorialShowStage,100);
+}
+function exitInteractiveTutorial(completed=false){tutorialActive=false;document.body.classList.remove('tutorial-active');tutorialClearTargets();if(completed)tutorialClearProgress();resetAll();showHome();}
 function tutorialAfterRay(result){tutorialLastResult=result;tutorialStage=2;tutorialShowStage();}
 function tutorialAfterCell(){
   if(tutorialStage===15)tutorialStage=16;
@@ -3048,7 +3073,8 @@ function tutorialAfterCell(){
   tutorialShowStage();
 }
 function tutorialAfterPieceAction(piece){
-  if(!tutorialActive||tutorialStage!==12||piece.id!==tutorialPlacementPieceId)return;
+  if(!tutorialActive||![11,12].includes(tutorialStage)||piece.id!==tutorialPlacementPieceId)return;
+  if(tutorialStage===11){tutorialShowStage();return;}
   const secret=state.secretPieces.find(p=>p.type===piece.type);
   if(secret&&polygonsMatch(piece,secret))tutorialCompletePlacement();
   else tutorialShowStage();
@@ -3059,7 +3085,18 @@ function tutorialPropose(){
   tutorialStage=19;tutorialClearTargets();tutorialShowStage();
 }
 $('#homeLearn').addEventListener('click',startInteractiveTutorial);
-$('#tutorialCoachClose').addEventListener('click',exitInteractiveTutorial);
+$('#tutorialCoachClose').addEventListener('click',()=>$('#tutorialExitModal').classList.add('open'));
+$('#tutorialCoachMinimize').addEventListener('click',event=>{event.stopPropagation();$('#tutorialCoach').classList.add('minimized');});
+$('#tutorialCoach').addEventListener('click',event=>{if($('#tutorialCoach').classList.contains('minimized')&&!event.target.closest('.tutorial-coach-close'))$('#tutorialCoach').classList.remove('minimized');});
+const closeTutorialExit=()=>$('#tutorialExitModal').classList.remove('open');
+$('#tutorialExitContinue').addEventListener('click',closeTutorialExit);$('#tutorialExitContinueX').addEventListener('click',closeTutorialExit);
+$('#tutorialExitModal').addEventListener('click',event=>{if(event.target.id==='tutorialExitModal')closeTutorialExit();});
+$('#tutorialExitConfirm').addEventListener('click',()=>{closeTutorialExit();exitInteractiveTutorial(false);});
+const cancelTutorialResume=()=>$('#tutorialResumeModal').classList.remove('open');
+$('#tutorialResumeCancel').addEventListener('click',cancelTutorialResume);$('#tutorialResumeCancelX').addEventListener('click',cancelTutorialResume);
+$('#tutorialResumeModal').addEventListener('click',event=>{if(event.target.id==='tutorialResumeModal')cancelTutorialResume();});
+$('#tutorialResumeContinue').addEventListener('click',resumeInteractiveTutorial);
+$('#tutorialResumeRestart').addEventListener('click',()=>{tutorialClearProgress();cancelTutorialResume();beginInteractiveTutorial();});
 $('#tutorialCoachAction').addEventListener('click',()=>{
   if(tutorialStage===0){tutorialStage=24;tutorialShowStage();}
   else if(tutorialStage===24){tutorialStage=1;renderLabels();tutorialShowStage();}
@@ -3078,7 +3115,7 @@ $('#tutorialCoachAction').addEventListener('click',()=>{
   else if(tutorialStage===20){tutorialStage=21;tutorialShowStage();}
   else if(tutorialStage===21){tutorialStage=22;tutorialShowStage();}
   else if(tutorialStage===22){tutorialStage=23;refreshAchievements('tutorial_complete');tutorialShowStage();}
-  else if(tutorialStage===23) exitInteractiveTutorial();
+  else if(tutorialStage===23) exitInteractiveTutorial(true);
 });
 $('#closeSoloAccountPrompt').addEventListener('click',()=>$('#soloAccountPromptModal').classList.remove('open'));
 $('#soloAccountPromptModal').addEventListener('click',e=>{if(e.target.id==='soloAccountPromptModal')$('#soloAccountPromptModal').classList.remove('open');});
@@ -3816,7 +3853,7 @@ function init(){
   computeCellSize();
   renderAll();
   const hasActiveGame = state.mode==='solo' || state.started || state.history.length>0;
-  if(!hasActiveGame) showHome();
+  if(tutorialLoadProgress()||!hasActiveGame) showHome();
 }
 init();
 ensureCurrentAppVersion(false,true);
