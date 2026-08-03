@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260803-0082';
+const APP_VERSION = '20260803-0083';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3862,6 +3862,8 @@ function init(){
   renderAll();
   const hasActiveGame = state.mode==='solo' || state.started || state.history.length>0;
   if(tutorialLoadProgress()||!hasActiveGame) showHome();
+  else showGame();
+  requestAnimationFrame(()=>document.body.classList.remove('app-loading'));
 }
 init();
 ensureCurrentAppVersion(false,true);
