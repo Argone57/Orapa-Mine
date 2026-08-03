@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260803-0083';
+const APP_VERSION = '20260803-0084';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -400,6 +400,7 @@ async function validateSavedAccount(){
   try{
     const data=await supabaseRpc('orapa_get_account',{p_session_token:currentPlayerAccount.session_token});
     savePlayerAccount({...currentPlayerAccount,id:data.id,display_name:data.display_name});
+    try{await supabaseRpc('orapa_sync_profile_name',{p_session_token:currentPlayerAccount.session_token});}catch(syncError){console.error('Synchronisation du pseudo impossible :',syncError);}
   }catch(e){ savePlayerAccount(null); setTrustedDevice(false); }
 }
 async function loadMyAccountStats(){
@@ -521,7 +522,12 @@ function showRenameAccount(){
     accountError('#accountRenameError',''); const name=$('#accountNewName').value.trim(),pin=$('#accountRenamePin').value;
     if(!name||!validPin(pin)){accountError('#accountRenameError','Saisis le nouveau pseudo et ton code actuel.');return;}
     if(looksLikeEmailAddress(name)){accountError('#accountRenameError',EMAIL_AS_PSEUDO_WARNING);return;}
-    try{const d=await supabaseRpc('orapa_rename_profile',{p_session_token:currentPlayerAccount.session_token,p_pin:pin,p_new_name:name});savePlayerAccount({...currentPlayerAccount,display_name:d.display_name});globalAllScoresCache=null;globalRankingCache={};showToast('Pseudo modifié');renderAccountHome();}catch(e){accountError('#accountRenameError',e.message);}
+    try{
+      const d=await supabaseRpc('orapa_rename_profile',{p_session_token:currentPlayerAccount.session_token,p_pin:pin,p_new_name:name});
+      savePlayerAccount({...currentPlayerAccount,display_name:d.display_name});
+      try{await supabaseRpc('orapa_sync_profile_name',{p_session_token:currentPlayerAccount.session_token});}catch(syncError){console.error('Synchronisation du pseudo impossible :',syncError);}
+      globalAllScoresCache=null;globalRankingCache={};showToast('Pseudo modifié');renderAccountHome();
+    }catch(e){accountError('#accountRenameError',e.message);}
   };
 }
 function showChangePin(){
