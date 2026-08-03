@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260803-0084';
+const APP_VERSION = '20260803-0085';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -815,6 +815,7 @@ function supabaseHeaders(extra={}){
 async function submitGlobalDailyScore(entry, identity){
   if(!entry || !entry.dailyDate || !identity) return null;
   try{
+    const dailyFlags=generateDailyLayout(entry.dailyDate)?.flags||{};
     const row=await supabaseRpc('orapa_submit_daily_score',{
       p_name:identity.name,
       p_pin:identity.pin||'',
@@ -824,7 +825,8 @@ async function submitGlobalDailyScore(entry, identity){
       p_cost:Number(entry.cost)||0,
       p_ray_count:Number(entry.rayCount)||0,
       p_coord_count:Number(entry.coordCount)||0,
-      p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))
+      p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0)),
+      p_option_mask:(dailyFlags.gray?1:0)+(dailyFlags.onyx?2:0)+(dailyFlags.sapphire?4:0)
     });
     await releaseDailyChallengeLock(identity,entry.dailyDate);
     if(row?.accepted===false&&row?.reason==='already_played'){
