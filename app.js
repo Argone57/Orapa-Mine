@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260802-0081';
+const APP_VERSION = '20260803-0082';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -384,6 +384,8 @@ async function openAchievementUnlockers(key,name){
 }
 async function openMyAchievements(){openGridDataShell('🏆 Mes succès','',true);await refreshAchievements();try{const rows=await getAchievementCatalog(true);renderAchievementsInto($('#gridDataContent'),rows,false);}catch(e){$('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;}}
 function validPin(pin){ return /^\d{4}$/.test(pin||''); }
+function looksLikeEmailAddress(name){ return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test((name||'').trim()); }
+const EMAIL_AS_PSEUDO_WARNING='Attention, il semble que vous ayez saisi une adresse mail à la place d’un pseudo.';
 function accountError(id,msg){
   const el=$(id);
   if(!el) return;
@@ -444,6 +446,7 @@ function showAccountCreate(){
     accountError('#accountCreateError','');
     const name=$('#accountCreateName').value.trim(), pin=$('#accountCreatePin').value, confirmPin=$('#accountCreatePinConfirm').value;
     if(!name){accountError('#accountCreateError','Saisis un pseudo.');return;}
+    if(looksLikeEmailAddress(name)){accountError('#accountCreateError',EMAIL_AS_PSEUDO_WARNING);return;}
     if(!validPin(pin)){accountError('#accountCreateError','Le code doit contenir exactement 4 chiffres.');return;}
     if(pin!==confirmPin){accountError('#accountCreateError','Les deux codes ne correspondent pas.');return;}
     try{
@@ -465,7 +468,7 @@ async function renderAccountHome(){
       <button class="ghost" id="accountDailyHistoryBtn">📅 Historique des défis</button>
       <button class="ghost" id="accountGridHistoryBtn">🕘 Historique des grilles</button>
       <button class="ghost" id="accountSharedGridsBtn">📤 Mes grilles partagées</button>
-      <button class="ghost" id="accountRenameBtn">✏️ Renommer</button>
+      <button class="ghost" id="accountRenameBtn">✏️ Changer le pseudo</button>
       <button class="ghost" id="accountPinBtn">🔢 Modifier le code</button>
       <button class="danger" id="accountLogoutBtn">🚪 Se déconnecter</button>
     </div>`;
@@ -517,6 +520,7 @@ function showRenameAccount(){
   $('#accountRenameSave').onclick=async()=>{
     accountError('#accountRenameError',''); const name=$('#accountNewName').value.trim(),pin=$('#accountRenamePin').value;
     if(!name||!validPin(pin)){accountError('#accountRenameError','Saisis le nouveau pseudo et ton code actuel.');return;}
+    if(looksLikeEmailAddress(name)){accountError('#accountRenameError',EMAIL_AS_PSEUDO_WARNING);return;}
     try{const d=await supabaseRpc('orapa_rename_profile',{p_session_token:currentPlayerAccount.session_token,p_pin:pin,p_new_name:name});savePlayerAccount({...currentPlayerAccount,display_name:d.display_name});globalAllScoresCache=null;globalRankingCache={};showToast('Pseudo modifié');renderAccountHome();}catch(e){accountError('#accountRenameError',e.message);}
   };
 }
@@ -763,6 +767,7 @@ function renderScoreInlineLogin(resolve,create=false,switching=false){
     accountError('#scoreIdentityError','');
     const name=$('#scoreInlineName').value.trim(),pin=$('#scoreInlinePin').value;
     if(!name){accountError('#scoreIdentityError','Saisis un pseudo.');return;}
+    if(create&&looksLikeEmailAddress(name)){accountError('#scoreIdentityError',EMAIL_AS_PSEUDO_WARNING);return;}
     if(!validPin(pin)){accountError('#scoreIdentityError','Le code doit contenir exactement 4 chiffres.');return;}
     if(create && pin!==$('#scoreInlinePinConfirm').value){accountError('#scoreIdentityError','Les deux codes ne correspondent pas.');return;}
     try{
