@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260803-0085';
+const APP_VERSION = '20260805-0086';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -327,7 +327,7 @@ async function supabaseRpc(fn,params={}){
   return data;
 }
 let achievementCatalogCache=null,achievementExpanded=new Set(),achievementMode='list',achievementSort='order',achievementFilter='all',achievementReverse=false,achievementQueueBusy=false;
-const ACHIEVEMENT_NAMES={welcome:'Bienvenue',good_student:'Bon élève',first_step:'Premier pas',first_win:'Première victoire',founder:'Fondateur',ancestor:'Ancêtre',adventurous:'Aventureux',adventurous_victorious:'Aventureux et victorieux',meticulous:'Méticuleux',diamond:'Diamant',black_body:'Corps noir',sky_sapphire:'Saphir bleu ciel',curious:'Curieux',architect:'Architecte',challenger:'Défieur',mine_regular:'Habitué de la mine',confirmed_miner:'Mineur confirmé',first_try:'Du premier coup',economical:'Économe',mole_eye:'Œil de taupe',back_to_mine:'Retour au fond de la mine',regular:'Régulier',challenge_week:'Une semaine de défis',always_present:'Toujours présent',assiduous:'Assidu',winning_streak:'Série victorieuse',perfect_week:'Semaine parfaite',podium:'Sur le podium',number_one:'Numéro un',next_day_revenge:'La revanche du lendemain',photofinish:'Photofinish',copycat:'Copie conforme',first_visitor:'Premier visiteur',deja_vu:'Une impression de déjà-vu'};
+const ACHIEVEMENT_NAMES={welcome:'Bienvenue',good_student:'Bon élève',first_step:'Premier pas',first_win:'Première victoire',founder:'Fondateur',ancestor:'Ancêtre',adventurous:'Aventureux',adventurous_victorious:'Aventureux et victorieux',meticulous:'Méticuleux',diamond:'Diamant',black_body:'Corps noir',sky_sapphire:'Saphir bleu ciel',curious:'Curieux',architect:'Architecte',challenger:'Défieur',mine_regular:'Habitué de la mine',confirmed_miner:'Mineur confirmé',first_try:'Du premier coup',economical:'Économe',mole_eye:'Œil de taupe',back_to_mine:'Retour au fond de la mine',regular:'Régulier',challenge_week:'Une semaine de défis',always_present:'Toujours présent',assiduous:'Assidu',winning_streak:'Série victorieuse',perfect_week:'Semaine parfaite',podium:'Sur le podium',number_one:'Numéro un',next_day_revenge:'La revanche du lendemain',photofinish:'Photofinish',copycat:'Copie conforme',first_visitor:'Premier visiteur',deja_vu:'Une impression de déjà-vu',two_waves_late:'Deux ondes de retard'};
 async function refreshAchievements(eventKey=null){
   if(!currentPlayerAccount?.session_token)return null;
   try{
@@ -1256,7 +1256,7 @@ function sideTouchPairs(pieces){
 // Depuis le 30/07/2026, les deux exceptions sont tirées explicitement :
 // dépassement seul, contact seul, ou les deux. Dans ce dernier cas, le contact
 // peut concerner la gemme qui dépasse ou deux autres gemmes.
-function tryDailyLayoutV2(rngFn){
+function createDailyLayoutV2Plan(rngFn){
   const flags={gray:rngFn()<0.5,onyx:rngFn()<0.5,sapphire:rngFn()<0.5};
   const types=seededShuffle(dailyTypesForFlags(flags.gray,flags.onyx,flags.sapphire),rngFn);
   const modes=['partialOut','sideTouch','both'];
@@ -1269,10 +1269,35 @@ function tryDailyLayoutV2(rngFn){
     const touchPool=seededShuffle(types,rngFn);
     touchTypes=[touchPool[0],touchPool[1]];
   }
+  return {flags,types,exceptionRule,needsPartial,needsTouch,partialType,touchTypes};
+}
+function rerollDailyLayoutV2Roles(plan,rngFn){
+  const {flags,types,exceptionRule,needsPartial,needsTouch}=plan;
+  const keepPartialInPair=exceptionRule==='both'&&plan.touchTypes.includes(plan.partialType);
+  const partialType=needsPartial ? types[Math.floor(rngFn()*types.length)] : null;
+  let touchTypes=[];
+  if(needsTouch){
+    if(exceptionRule==='both'){
+      if(keepPartialInPair){
+        const partners=seededShuffle(types.filter(type=>type!==partialType),rngFn);
+        touchTypes=seededShuffle([partialType,partners[0]],rngFn);
+      }else{
+        touchTypes=seededShuffle(types.filter(type=>type!==partialType),rngFn).slice(0,2);
+      }
+    }else{
+      touchTypes=seededShuffle(types,rngFn).slice(0,2);
+    }
+  }
+  return {flags,types,exceptionRule,needsPartial,needsTouch,partialType,touchTypes};
+}
+function tryDailyLayoutV2(rngFn,useUniqueTemporaryIds=false,fixedPlan=null){
+  const plan=fixedPlan||createDailyLayoutV2Plan(rngFn);
+  const {flags,types,exceptionRule,needsPartial,needsTouch,partialType,touchTypes}=plan;
   const placed=[];
   if(needsPartial){
     const partial=findForcedPartialOut(partialType,placed,rngFn);
     if(!partial) return null;
+    if(useUniqueTemporaryIds) partial.id='daily_partial_'+partialType;
     placed.push(partial);
   }
   if(needsTouch){
@@ -1281,6 +1306,7 @@ function tryDailyLayoutV2(rngFn){
       const otherType=touchTypes.find(type=>type!==partialType);
       const touching=findForcedSideTouch(otherType,placed,rngFn);
       if(!touching) return null;
+      if(useUniqueTemporaryIds) touching.id='daily_touch_'+otherType;
       placed.push(touching);
     }else{
       const anchor=placeDailyRegularPiece(touchTypes[0],placed,rngFn);
@@ -1288,6 +1314,7 @@ function tryDailyLayoutV2(rngFn){
       placed.push(anchor);
       const touching=findForcedSideTouch(touchTypes[1],placed,rngFn);
       if(!touching) return null;
+      if(useUniqueTemporaryIds) touching.id='daily_touch_'+touchTypes[1];
       placed.push(touching);
     }
   }
@@ -1299,8 +1326,11 @@ function tryDailyLayoutV2(rngFn){
   }
   const partialCount=placed.filter(pieceIsPartiallyOutside).length;
   const touches=sideTouchPairs(placed);
-  if(needsPartial ? partialCount<1 : partialCount!==0) return null;
-  if(needsTouch ? touches.length<1 : touches.length!==0) return null;
+  if(needsPartial ? partialCount!==1 : partialCount!==0) return null;
+  if(useUniqueTemporaryIds&&needsTouch){
+    const expected=touchTypes.slice().sort().join('|');
+    if(touches.length!==1||touches[0].slice().sort().join('|')!==expected) return null;
+  }else if(needsTouch ? touches.length<1 : touches.length!==0) return null;
   if(unreachablePieces(placed).length>0) return null;
   return {
     pieces:placed.map(p=>({id:'p'+(pieceIdSeq++),type:p.type,center:p.center,rotation:p.rotation,flipped:p.flipped})),
@@ -1309,9 +1339,15 @@ function tryDailyLayoutV2(rngFn){
 }
 function generateDailyLayout(dateKey){
   const useV2=dateKey>='2026-07-30';
+  const useUniqueTemporaryIds=dateKey>='2026-08-06';
   const rngFn = mulberry32(seedFromString((useV2?'DAILY-V2-':'DAILY-')+dateKey));
-  for(let attempt=0; attempt<200; attempt++){
-    const result = useV2 ? tryDailyLayoutV2(rngFn) : tryDailyLayout(rngFn);
+  let fixedPlan=useUniqueTemporaryIds?createDailyLayoutV2Plan(rngFn):null;
+  const maxAttempts=120;
+  for(let attempt=0; attempt<maxAttempts; attempt++){
+    if(useUniqueTemporaryIds&&attempt>0&&attempt%8===0){
+      fixedPlan=rerollDailyLayoutV2Roles(fixedPlan,rngFn);
+    }
+    const result = useV2 ? tryDailyLayoutV2(rngFn,useUniqueTemporaryIds,fixedPlan) : tryDailyLayout(rngFn);
     if(result) return result;
   }
   return null;
