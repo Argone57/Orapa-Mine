@@ -1,18 +1,20 @@
-# Orapa Mine — Console du maître du jeu
+﻿# Orapa Mine — Console du maître du jeu
 
-## Mise à jour Supabase V2
+## Mises à jour Supabase
 
-Avant de publier cette version du site, exécute le fichier
-`Supabase/01_grilles_classements_et_statistiques.sql` dans **Supabase → SQL Editor**.
-Il ajoute les grilles partagées, leur classement global, la protection du créateur
-pendant 7 jours, une seule première tentative terminée par compte et les statistiques associées.
-Le script est réexécutable et ne supprime aucune donnée existante.
+Les évolutions de la base sont rangées dans le dossier `Supabase` et numérotées dans
+l’ordre d’exécution. Sur une base déjà utilisée, exécute uniquement les scripts qui
+n’ont pas encore été appliqués, dans l’ordre `01` à `06`.
+
+Ces fichiers complètent une installation Supabase existante. Les fonctions historiques
+de création de compte, de connexion, de changement de pseudo et de statistiques du
+compte ne sont pas encore regroupées dans un script d’installation initiale autonome.
 
 Application web (fichiers statiques, aucune dépendance à installer) pour animer une partie d'Orapa Mine en tant que maître du jeu, utilisable sur iPhone.
 
 ## Mettre en ligne sur GitHub Pages
 
-1. Ajoute tous les fichiers de ce dossier (`index.html`, `app.js`, `manifest.json`, `favicon.ico`, `icon-*.png`) à la racine de ton dépôt GitHub, commit/push.
+1. Ajoute tous les fichiers de ce dossier (`index.html`, `app.js`, `version.json`, `manifest.json`, `favicon.ico`, `icon-*.png`) à la racine de ton dépôt GitHub, commit/push.
 2. **Settings → Pages → Build and deployment → Source : Deploy from a branch**, branche `main`, dossier `/ (root)`, Save.
 3. L'app est disponible à `https://<ton-pseudo>.github.io/<ton-repo>/`.
 4. Sur iPhone (Safari) : **Partager → Sur l'écran d'accueil** pour l'installer en plein écran avec l'icône de la boîte du jeu.
@@ -25,43 +27,43 @@ Application web (fichiers statiques, aucune dépendance à installer) pour anime
 - Gauche : lettres **A → H**
 - Droite : chiffres **11 → 18**
 
-Chaque bord est un point d'entrée indépendant pour un rayon (une même ligne a une entrée « lettre » à gauche et une entrée « chiffre » à droite ; une même colonne a une entrée « chiffre » en haut et une entrée « lettre » en bas).
+Chaque bord est un point d'entrée indépendant pour une onde (une même ligne a une entrée « lettre » à gauche et une entrée « chiffre » à droite ; une même colonne a une entrée « chiffre » en haut et une entrée « lettre » en bas).
 
 ## Les pièces
 
 Triangle blanc, Losange blanc, Triangle bleu, Triangle jaune, Diamant, Corps noir, Trapèze rouge, Saphir bleu ciel — de vraies formes, chacune en un seul exemplaire.
 - Triangle jaune : triangle rectangle, cathètes de 2 cases.
 - Triangle blanc / Triangle bleu : triangle isocèle, base de 4 cases, hauteur 2 cases.
-- Diamant : même famille, base de 2 cases, hauteur 1 case (ne colore jamais le rayon).
-- Losange blanc : losange 2×2. Corps noir : rectangle 2×1 (arrête le rayon). Trapèze rouge : parallélogramme.
-- **Saphir bleu ciel** : carré plein 1×1. Chaque contact compte comme s'il touchait à la fois une gemme bleue ET une gemme blanche (donne « Bleu ciel » seul, ou se combine avec les autres couleurs touchées selon la table habituelle). **Doit être placé de façon à être atteint directement, sans rebond, par au moins 3 rayons** (au lieu d'1 seul pour les autres gemmes) — un placement qui ne laisse que 1 ou 2 accès directs est refusé.
+- Diamant : même famille, base de 2 cases, hauteur 1 case (ne colore jamais l'onde).
+- Losange blanc : losange 2×2. Corps noir : rectangle 2×1 (arrête l'onde). Trapèze rouge : parallélogramme.
+- **Saphir bleu ciel** : carré plein 1×1. Chaque contact compte comme s'il touchait à la fois une gemme bleue ET une gemme blanche (donne « Bleu ciel » seul, ou se combine avec les autres couleurs touchées selon la table habituelle). **Il doit pouvoir être atteint directement, sans rebond, par au moins 3 ondes différentes**, contre une seule pour les autres gemmes. Un placement qui ne laisse que 1 ou 2 accès directs est refusé.
 
 - Glisse une pièce sur la grille : elle s'aimante à la position valide la plus proche.
 - Tape une pièce posée : elle pivote de **90°**.
 - Reste appuyé un peu plus longtemps : elle se **retourne en miroir** (utile surtout pour le trapèze rouge, seule pièce asymétrique).
-- **Les pièces ne peuvent se toucher que par un coin, et chaque gemme doit rester atteignable sans rebond** (3 rayons minimum pour le Saphir, 1 pour les autres). Ces règles ne bloquent plus le placement en temps réel (ça pouvait ralentir l'app sur certains appareils) : tu peux poser une gemme n'importe où, et si son placement enfreint une règle, elle **s'affiche en rouge** ainsi que les pièces concernées, tant que ce n'est pas corrigé. « Démarrer la partie » reste désactivé (avec un message explicatif) tant qu'il reste une gemme en rouge ou une gemme non placée. *Ces règles ne s'appliquent qu'à la grille du maître du jeu.*
+- **Les pièces ne peuvent se toucher que par un coin, et chaque gemme doit rester atteignable sans rebond** (3 ondes minimum pour le Saphir, 1 pour les autres). Ces règles ne bloquent plus le placement en temps réel (ça pouvait ralentir l'app sur certains appareils) : tu peux poser une gemme n'importe où, et si son placement enfreint une règle, elle **s'affiche en rouge** ainsi que les pièces concernées, tant que ce n'est pas corrigé. « Démarrer la partie » reste désactivé (avec un message explicatif) tant qu'il reste une gemme en rouge ou une gemme non placée. *Ces règles ne s'appliquent qu'à la grille du maître du jeu.*
 - **En mode solo**, ces deux règles ne s'appliquent pas à tes propres gemmes (ta grille de réponse) : tu places librement tes hypothèses, à toi de te débrouiller. La grille secrète générée, elle, respecte toujours ces règles pour rester résoluble.
 - Les cases à cocher permettent d'inclure ou non le **Diamant**, le **Corps noir** et le **Saphir bleu ciel**.
-- **« 🎲 Aléatoire »** place automatiquement les gemmes de base (+ extensions cochées) sur la grille en respectant les règles ci-dessus. Chaque clic tire une nouvelle disposition (peut prendre quelques tentatives en interne si le Saphir est activé, sa contrainte des 3 rayons étant plus stricte — invisible pour toi, ça reste quasi instantané).
+- **« 🎲 Aléatoire »** place automatiquement les gemmes de base (+ extensions cochées) sur la grille en respectant les règles ci-dessus. Chaque clic tire une nouvelle disposition (peut prendre quelques tentatives en interne si le Saphir est activé, sa contrainte des 3 ondes étant plus stricte — invisible pour toi, ça reste quasi instantané).
 - « Démarrer la partie » verrouille tout. « Recommencer » efface placement + historique (confirmation demandée).
 
 ## Pendant la partie
 
-- Clique une lettre/chiffre en bordure : un rayon est lancé, sa trajectoire réelle (rebonds sur les arêtes des pièces) est calculée, et le résultat s'ajoute à l'historique au format `Entrée — Sortie — Couleur`. Les deux lettres/chiffres concernés se colorent en pastille pleine (texte clair ou foncé selon la couleur pour rester lisible). Si le rayon ressort par son point d'entrée, un symbole ↔ apparaît. **Une lettre/chiffre déjà utilisé — comme entrée ou comme sortie — ne peut plus être recliqué.**
-- Si le rayon atteint le Corps noir, l'historique n'indique que `Entrée — Absorbé`.
+- Clique une lettre ou un chiffre en bordure : une onde est envoyée, sa trajectoire réelle (rebonds sur les arêtes des pièces) est calculée et le résultat s'ajoute à l'historique au format `Entrée — Sortie — Couleur`. Les deux entrées concernées se colorent en pastille pleine. Si l'onde revient à son point de départ, un symbole ↔ apparaît. **Une entrée déjà utilisée — au départ ou à la sortie — ne peut pas servir à envoyer une nouvelle onde.**
+- Si l'onde atteint le Corps noir, l'historique n'indique que `Entrée — Absorbé`.
 - Clique une case intérieure (ex. B3) : l'historique indique seulement `Vide` (avec une croix qui reste affichée) ou `Occupée` (sans révéler la pièce). **Une case déjà interrogée ne peut plus être recliquée.** *(En mode solo, ce comportement change — voir plus bas.)*
-- Le trajet de chaque rayon reste tracé sur le plateau, en surbrillance pour bien le voir.
-- Une lettre/chiffre déjà utilisé reste cliquable : ça n'relance pas de rayon, mais affiche une petite bulle rappelant où il était ressorti (ou « Absorbé », ou « Ressort ici même »).
+- Le trajet de chaque onde reste tracé sur le plateau, en surbrillance pour bien le voir.
+- Une entrée déjà utilisée reste cliquable : cela n'envoie pas de nouvelle onde, mais affiche une petite bulle rappelant sa sortie, ou les mentions « Absorbé » ou « Ressort ici même ».
 
 Tout est sauvegardé automatiquement dans le navigateur (localStorage) : un rafraîchissement ne fait rien perdre.
 
-## Physique du rayon
+## Physique de l'onde
 
-Le rayon est simulé en géométrie réelle (pas case par case) : il avance en ligne droite et rebondit sur la première arête de pièce rencontrée.
-- **Arête droite** (horizontale/verticale, ex. les côtés d'angle droit d'un triangle) → renvoie le rayon en sens inverse.
-- **Arête oblique** (45°, ex. l'hypoténuse) → dévie le rayon à angle droit.
-- **Diamant** → dévie normalement mais ne colore jamais le rayon (résultat « Transparent » si c'est tout ce qu'il touche).
-- **Corps noir** → dès que le rayon l'atteint, son parcours s'arrête (aucune sortie), quelle que soit l'orientation.
+L'onde est simulée en géométrie réelle, et non case par case : elle avance en ligne droite et rebondit sur la première arête de pièce rencontrée.
+- **Arête droite** (horizontale ou verticale, par exemple les côtés d'angle droit d'un triangle) → renvoie l'onde en sens inverse.
+- **Arête oblique** (45°, par exemple l'hypoténuse) → dévie l'onde à angle droit.
+- **Diamant** → dévie normalement l'onde, mais ne modifie jamais sa couleur (résultat « Transparent » si elle ne rencontre que lui).
+- **Corps noir** → absorbe l'onde dès qu'elle l'atteint : son parcours s'arrête, sans sortie, quelle que soit l'orientation.
 
 ## Table de mélange des couleurs
 
@@ -76,14 +78,14 @@ Pour ajuster une teinte exacte, modifie l'objet `CONFIG.MIX` en haut de `app.js`
 
 ## Ajuster la forme ou la taille d'une pièce
 
-Tout est centralisé dans l'objet `SHAPES` en haut de `app.js` : chaque pièce est une liste de sommets `[x,y]` relatifs à son centre (unité = 1 case). Modifie ces coordonnées si une forme ou une taille ne correspond pas exactement à ton exemplaire physique — le reste du moteur (rotation, miroir, calcul du rayon) s'adapte automatiquement.
+Tout est centralisé dans l'objet `SHAPES` en haut de `app.js` : chaque pièce est une liste de sommets `[x,y]` relatifs à son centre (unité = 1 case). Modifie ces coordonnées si une forme ou une taille ne correspond pas exactement à ton exemplaire physique — le reste du moteur (rotation, miroir et calcul de l'onde) s'adapte automatiquement.
 
 ## Mode solo
 
 Le bouton **🧩 Jouer en solo** demande d’abord une connexion par pseudo et code à 4 chiffres, sans adresse mail. Il ouvre ensuite le choix entre Défi du jour, Grille aléatoire et Par identifiant.
 
 - Les gemmes de la grille secrète ne sont **jamais affichées**.
-- Tu peux cliquer les bords (lettres/chiffres) comme d'habitude : le résultat (entrée/sortie/couleur) s'ajoute à l'historique, mais **le trajet du rayon n'est pas dessiné** sur la grille — seule l'info textuelle est donnée.
+- Tu peux cliquer les bords comme d'habitude : le résultat (entrée, sortie et couleur) s'ajoute à l'historique, mais **le trajet de l'onde n'est pas dessiné** sur la grille — seule l'information textuelle est donnée.
 - **Cliquer une case intérieure ne révèle plus rien directement.** Il faut d'abord activer **🔍 Demander un indice** (le bouton se met à pulser pour indiquer qu'il est actif). Le clic suivant sur une case demande confirmation (« Révéler le contenu de la case B3 ? ») :
   - Si tu confirmes, la case est révélée (comme en maître du jeu — `Vide` + croix, ou un **rond plein de la couleur** de la gemme touchée) et le mode indice se désactive automatiquement.
   - Si tu annules, rien ne se passe et le mode indice reste actif : tu peux cliquer une autre case.
@@ -98,31 +100,35 @@ Le bouton **🧩 Jouer en solo** demande d’abord une connexion par pseudo et c
 
 Le mode maître du jeu (placement manuel, bouton Aléatoire, Démarrer la partie) n'est pas affecté par cette fonctionnalité.
 
-## Classements solo
+## Classements et historiques
 
-Le bouton flottant **🏆** ouvre deux classements Supabase : **Parties solo** et **Défis du jour**. Il n’existe plus de classement quotidien local visible.
+Le bouton flottant **🏆** ouvre quatre sections Supabase :
 
-- Chaque rayon coûte **1 point** et chaque coordonnée révélée **3 points**.
-- Les réussites sont classées avant les échecs, puis le coût et le temps départagent les joueurs.
-- La première partie terminée d’un profil sur une grille est la seule enregistrée, qu’il s’agisse d’une réussite ou d’un échec.
-- Chaque résultat comporte un bouton **Classement de la grille**. Seul son propre résultat propose également **Copier le résumé**.
-- Le classement d’une grille affiche ses participants, permet de copier son identifiant et signale avec `*` le créateur ayant joué après la période de protection.
-- Les grilles aléatoires et celles chargées par identifiant utilisent le même système mondial de classement.
+- **Défis du jour** : classement quotidien et accès aux dates précédentes par le calendrier ;
+- **Grilles** : dix grilles les plus jouées et recherche directe par identifiant ;
+- **Historique** : dernières parties solo enregistrées, filtrables par configuration ;
+- **Succès** : catalogue des succès et classement par points cumulés.
+
+Chaque onde coûte **1 point** et chaque coordonnée révélée **3 points**. Les réussites
+passent avant les échecs, puis le score et le temps départagent les joueurs. La première
+partie terminée d’un profil sur une grille est conservée, qu’il s’agisse d’une réussite
+ou d’un échec. Les classements d’une grille et d’un défi mettent en évidence la ligne
+correspondant au compte connecté.
 
 ## Défi du jour
 
 Depuis le choix « 🧩 Jouer en solo », un 3ᵉ bouton **📅 Défi du jour** propose une grille spéciale, **identique pour tout le monde** ce jour-là (calculée à partir de la date, minuit à minuit heure de Paris) :
 
 - Entre **0 et 3 gemmes optionnelles** sont tirées au sort pour la journée (indépendamment de tes propres réglages).
-- **Une seule des deux règles de placement suivantes** s'applique, tirée au sort, à **une gemme au hasard** — sans indiquer laquelle des deux ni quelle gemme est concernée :
-  - Dans ta grille de réponse, les gemmes peuvent donc être placées partiellement hors du plateau afin de reproduire cette exception.
-  - soit elle touche une autre gemme par un côté (au lieu du contact coin-à-coin habituel) ;
-  - soit elle dépasse partiellement de la grille (en gardant au moins une case pleine dedans).
-
-  Dans tous les cas, deux gemmes ne se chevauchent jamais.
+- Une règle spéciale, ou les deux, est tirée aléatoirement :
+  - une gemme peut être partiellement en dehors de la grille ;
+  - une gemme peut partager un côté avec une autre gemme.
+- Lorsque les deux règles sont actives, elles sont attribuées indépendamment : la gemme
+  partiellement extérieure n’est donc pas nécessairement l’une des deux gemmes qui se touchent.
+- Dans tous les cas, deux gemmes ne se chevauchent jamais.
 - **Une seule proposition de solution** : la première réponse incorrecte termine immédiatement le défi. Une fois joué (victoire ou défaite), le défi du jour redevient inaccessible jusqu'au lendemain sur ce navigateur.
 - **Les échecs sont aussi enregistrés** dans le classement du jour, avec la mention « Échec », toujours classés après les réussites.
-- Le classement du jour reste consultable (verrouillé) jusqu'au lendemain 23h59, puis remplacé par celui du jour suivant — accessible depuis le classement (🏆), avec une entrée « Défi du jour » et, tant qu'il existe, « Défi d'hier ».
+- Les défis précédents restent consultables depuis le calendrier du classement.
 - Le bouton de partage indique **« Défi du jour (AAAA-MM-JJ) »** à la place d'un identifiant de grille.
 
 Le Défi du jour conserve un historique local sur l’appareil et envoie également les scores enregistrés au classement global Supabase.
@@ -144,14 +150,11 @@ Que ce soit dans le classement (ligne dépliée) ou dans le popup de victoire (r
   Orapa Mine · 💎 ✅ / ⬛️ ❌ / 🟦 ✅ · 12/07/2026
   Alice - 4 pts (1🔦/1📍) - ID: Q8RL5H-111
   ```
-- Chaque classement peut être **réinitialisé indépendamment** (bouton dédié, confirmation demandée).
 
 ## Fichiers
 
 - `index.html` — structure et styles.
-- `app.js` — toute la logique (état, formes, rendu, glisser-déposer, calcul géométrique des rayons).
+- `app.js` — toute la logique (état, formes, rendu, glisser-déposer, calcul géométrique des ondes).
+- `version.json` — version publiée utilisée pour empêcher le lancement d’un défi quotidien avec un ancien cache.
 - `manifest.json`, `favicon.ico`, `icon-*.png` — icône de l'app (recadrée depuis la boîte du jeu) pour l'écran d'accueil iPhone et l'onglet du navigateur.
 
-
-## Classement global Supabase
-Un troisième onglet **Global** affiche les scores partagés du défi du jour et de la veille. Le score est envoyé automatiquement après une victoire ou un échec. Le classement affiche les médailles, le nombre de participants, les réussites, le temps et met en évidence le score envoyé depuis ce navigateur.

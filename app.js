@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260805-0086';
+const APP_VERSION = '20260805-0087';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -47,12 +47,12 @@ function reloadLatestAppVersion(){
 // =====================================================================
 // ORAPA MINE — Console du maître du jeu (v3)
 // =====================================================================
-// Le rayon est simulé en géométrie continue : il avance en ligne droite et
+// L’onde est simulée en géométrie continue : elle avance en ligne droite et
 // rebondit sur la première arête de pièce rencontrée.
 //  - Arête droite (horizontale/verticale)  -> renvoie en sens inverse.
 //  - Arête oblique (45°)                   -> dévie à angle droit.
-//  - Corps noir       -> arrête le rayon dès contact (aucune sortie).
-//  - Diamant          -> dévie normalement mais ne colore jamais le rayon.
+//  - Corps noir       -> arrête l’onde dès contact (aucune sortie).
+//  - Diamant          -> dévie normalement mais ne colore jamais l’onde.
 // Les pièces ne peuvent se toucher que par un coin (jamais par un côté).
 // =====================================================================
 
@@ -147,10 +147,9 @@ let state = {
 let pieceIdSeq = 1;
 
 // ---------------------------------------------------------------------
-// CLASSEMENTS SOLO — persistés séparément (indépendants d'une partie en cours)
+// CLASSEMENTS SOLO
 // ---------------------------------------------------------------------
 const COST_RAY = 1, COST_COORD = 3;
-const RANKINGS_KEY = 'orapaMineRankingsV1';
 const RANKING_COMBOS = [
   [false,false,false],[true,false,false],[false,true,false],[false,false,true],
   [true,true,false],[true,false,true],[false,true,true],[true,true,true]
@@ -162,11 +161,6 @@ function configKey(g,o,s){
   if(s) parts.push('Saphir bleu ciel');
   return parts.length ? parts.join(' + ') : 'Aucune extension';
 }
-function loadRankings(){
-  try{ const raw = localStorage.getItem(RANKINGS_KEY); return raw ? JSON.parse(raw) : {}; }
-  catch(e){ return {}; }
-}
-function saveRankings(r){ try{ localStorage.setItem(RANKINGS_KEY, JSON.stringify(r)); }catch(e){} }
 function formatDuration(ms){
   const s = Math.max(0, Math.round(ms/1000));
   const m = Math.floor(s/60), sec = s%60;
@@ -197,27 +191,6 @@ function formatShareText(e){
   const idPart = `ID: ${e.gridId||'?'}`;
   return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}\nhttps://argone57.github.io/Orapa-Mine/`;
 }
-function recordScore(name, elapsedMsOverride, success=true){
-  const key = configKey(state.includeGray, state.includeOnyx, state.includeSapphire);
-  const rankings = loadRankings();
-  if(!rankings[key]) rankings[key] = [];
-  const elapsedMs = elapsedMsOverride!=null ? elapsedMsOverride : (state.firstActionTime ? (Date.now() - state.firstActionTime) : 0);
-  const entry = {
-    name: (name||'').trim().slice(0,24) || 'Anonyme',
-    cost: state.moveCost||0, timeMs: elapsedMs,
-    rayCount: state.rayCount||0, coordCount: state.coordCount||0,
-    gridId: state.gridId||null,
-    success:!!success,
-    date: Date.now()
-  };
-  rankings[key].push(entry);
-  rankings[key].sort((a,b)=> Number(b.success!==false)-Number(a.success!==false) || a.cost - b.cost || a.timeMs - b.timeMs);
-  rankings[key] = rankings[key].slice(0,10);
-  saveRankings(rankings);
-  const rank = rankings[key].indexOf(entry) + 1;
-  return { key, entry, rank, madeList: rank>0 };
-}
-
 // ---------------------------------------------------------------------
 // DÉFI DU JOUR — tentative unique (par navigateur) + classement journalier.
 // Le classement est stocké localement (voir le README pour la limite : sans
@@ -1753,14 +1726,8 @@ function pieceVertices(piece){
   const shape = SHAPES[piece.type];
   return shape.pts.map(v=> transformVertex(v, piece.flipped, piece.rotation, piece.center));
 }
-function pieceEdges(piece){
-  const v = pieceVertices(piece);
-  const edges = [];
-  for(let i=0;i<v.length;i++) edges.push([v[i], v[(i+1)%v.length]]);
-  return edges;
-}
-// Pour une gemme qui dépasse du plateau, seule sa partie visible participe au rayon.
-// Le contour créé par la limite du plateau devient donc une paroi droite : un rayon
+// Pour une gemme qui dépasse du plateau, seule sa partie visible participe à l’onde.
+// Le contour créé par la limite du plateau devient donc une paroi droite : une onde
 // qui entre exactement à cet endroit repart par sa propre entrée (N→N, O→O, etc.).
 function beamEdges(piece){
   const boardPoly = ensureCCW([{x:0,y:0},{x:COLS,y:0},{x:COLS,y:ROWS},{x:0,y:ROWS}]);
@@ -1775,10 +1742,6 @@ function boundingHalfExtents(piece){
   const pts = shape.pts.map(v=> transformVertex(v, piece.flipped, piece.rotation, {x:0,y:0}));
   const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
   return { hw:(Math.max(...xs)-Math.min(...xs))/2, hh:(Math.max(...ys)-Math.min(...ys))/2 };
-}
-function snapCoord(raw, halfExtent){
-  const frac = ((halfExtent % 1) + 1) % 1;
-  return Math.round(raw - frac) + frac;
 }
 // Aligne les SOMMETS de la gemme sur les intersections de la grille.
 // C'est plus fiable que l'alignement basé uniquement sur sa largeur/hauteur,
@@ -1820,15 +1783,6 @@ function snapPieceCenterWithinBounds(rawX, rawY, piece){
 function resnapAfterTransform(piece){
   if(!piece.center) return;
   piece.center = snapPieceCenterWithinBounds(piece.center.x, piece.center.y, piece);
-}
-function pointInPolygon(pt, poly){
-  let inside = false;
-  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-    const xi=poly[i].x, yi=poly[i].y, xj=poly[j].x, yj=poly[j].y;
-    const cross = ((yi>pt.y)!==(yj>pt.y)) && (pt.x < (xj-xi)*(pt.y-yi)/(yj-yi)+xi);
-    if(cross) inside = !inside;
-  }
-  return inside;
 }
 function pieceAtCell(row,col,piecesList){
   piecesList = piecesList || state.pieces;
@@ -1908,7 +1862,7 @@ function placementValid(candidate, excludeId, piecesList){
   return true;
 }
 
-// Chaque gemme posée doit pouvoir être touchée par au moins un rayon SANS rebond
+// Chaque gemme posée doit pouvoir être touchée par au moins une onde SANS rebond
 // (un tir direct depuis un bord qui l'atteint avant toute autre pièce).
 function firstHitPieceId(side, index, piecesList){
   piecesList = piecesList || state.pieces;
@@ -1971,7 +1925,7 @@ function computeInvalidPieceIds(piecesList){
 }
 
 // ---------------------------------------------------------------------
-// GEOMETRY — tracé du rayon
+// GEOMETRY — tracé de l’onde
 // ---------------------------------------------------------------------
 const EPS = 1e-6;
 function intersectRaySegment(pos, dir, A, B){
@@ -2508,7 +2462,7 @@ function buildMixBoard(){
     ${state.includeSapphire ? `
     <hr class="mix-sep">
     <div class="mix-section-title">${shapeIconSVG('sapphire')}<span>Saphir bleu ciel — compte comme bleu + blanc à chaque contact</span></div>
-    <p class="mix-reminder mix-warning"><span>⚠️</span><span>Le Saphir bleu ciel doit pouvoir être atteint directement par au moins 3 rayons différents, sans rebond.</span></p>
+    <p class="mix-reminder mix-warning"><span>⚠️</span><span>Le Saphir bleu ciel doit pouvoir être atteint directement par au moins 3 ondes différentes, sans rebond.</span></p>
     <div class="mix-quad">
       <div class="mix-block">
         ${row(['sapphire'],'blue+white')}
@@ -2524,12 +2478,12 @@ function buildMixBoard(){
     ${state.includeGray ? `
     <hr class="mix-sep">
     <div class="mix-section-title">${shapeIconSVG('gray')}<span>Diamant</span></div>
-    <p class="mix-option-text">Le diamant ne modifie pas la couleur du rayon.<br>Si le rayon vient heurter le diamant en plus des autres gemmes, sa couleur reste déterminée uniquement par les autres gemmes.</p>` : ''}
+    <p class="mix-option-text">Le diamant ne modifie pas la couleur de l’onde.<br>Si l’onde vient heurter le diamant en plus des autres gemmes, sa couleur reste déterminée uniquement par les autres gemmes.</p>` : ''}
     ${state.includeOnyx ? `
     <hr class="mix-sep">
     <div class="mix-section-title">${shapeIconSVG('onyx')}<span>Corps noir</span></div>
-    <p class="mix-option-text">Le corps noir absorbe le rayon sans le renvoyer.</p>
-    <img class="mix-onyx-example" src="onyx-absorption-example.png" alt="Exemple d’un rayon absorbé par le corps noir">` : ''}`;
+    <p class="mix-option-text">Le corps noir absorbe l’onde sans la renvoyer.</p>
+    <img class="mix-onyx-example" src="onyx-absorption-example.png" alt="Exemple d’une onde absorbée par le corps noir">` : ''}`;
 }
 
 // ---------------------------------------------------------------------
@@ -2824,12 +2778,6 @@ function tutorialHighlightTarget(){
     else target.scrollIntoView({behavior:'smooth',block:'center'});
   }
 }
-function tutorialFindUnusedLabel(){
-  for(const [side,count] of [['top',COLS],['right',ROWS],['bottom',COLS],['left',ROWS]]){
-    for(let index=0;index<count;index++) if(state.labelColor[side][index]===undefined) return {side,index};
-  }
-  return {side:'top',index:0};
-}
 function tutorialFindOccupiedCell(){
   for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(pieceAtCell(r,c,state.secretPieces)) return {r,c};
   return {r:3,c:4};
@@ -2837,96 +2785,6 @@ function tutorialFindOccupiedCell(){
 function tutorialFindEmptyCell(){
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(!pieceAtCell(r,c,state.secretPieces))return {r,c};
   return {r:0,c:0};
-}
-function tutorialResultTextLegacy(result){
-  if(result.absorbed) return `Le rayon a rencontrÃ© le <b>corps noir</b> et a Ã©tÃ© absorbÃ© : il nâ€™a donc aucune sortie.`;
-  const entry=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);
-  const bounced=result.exitSide===tutorialTargetLabel.side&&result.exitIndex===tutorialTargetLabel.index;
-  const route=bounced?`Il ressort par son point dâ€™entrÃ©e <b>${entry}</b>.`:`Il ressort en <b>${labelText(result.exitSide,result.exitIndex)}</b>.`;
-  return `${route} La couleur observÃ©e est <b>${result.color.name}</b>. Une gemme ne se laisse pas traverser : chacune de ses faces rÃ©flÃ©chit le rayon et modifie sa direction.`;
-}
-function tutorialShowStageLegacy(){
-  if(!tutorialActive) return;
-  if(tutorialStage===0) tutorialCoach('Bienvenue dans la partie-école','Une vraie grille est cachée. Tu vas effectuer quelques actions sur le plateau, puis reconstruire la solution. Aucun compte n’est nécessaire et cette partie ne sera pas classée.','Commencer');
-  else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);tutorialCoach('Lance ton premier rayon',`Touche l’entrée <b>${name}</b>, mise en évidence sur le bord de la mine. Un rayon coûte <b>1 point</b>.`);}
-  else if(tutorialStage===2) tutorialCoach('Lis le résultat du rayon',tutorialResultText(tutorialLastResult),'Essayer un autre rayon');
-  else if(tutorialStage===3){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);tutorialCoach('Compare avec un second indice',`Touche maintenant l’entrée <b>${name}</b>. En croisant plusieurs sorties et couleurs, tu élimines progressivement les placements impossibles.`);}
-  else if(tutorialStage===4) tutorialCoach('Les rayons donnent des contraintes',tutorialResultText(tutorialLastResult)+' Observe également le nouvel élément ajouté dans l’historique de la partie.','Vérifier une case');
-  else if(tutorialStage===5){const coord=LEFT_LABELS[tutorialTargetCell.r]+(tutorialTargetCell.c+1);tutorialCoach('Utilise une coordonnée',`Touche la case <b>${coord}</b>, mise en évidence. Une coordonnée révèle directement son contenu, mais coûte <b>3 points</b>.`);}
-  else if(tutorialStage===6) tutorialCoach('Un indice très précis',`La case interrogée est maintenant marquée sur le vrai plateau et son contenu figure dans l’historique. Les coordonnées sont utiles pour confirmer une hypothèse, mais elles coûtent trois fois plus qu’un rayon.`,'Reconstruire la grille');
-  else if(tutorialStage===7) tutorialCoach('Corrige la dernière gemme','Une solution presque complète vient d’être placée. La gemme mise en évidence est mal orientée : <b>touche-la une fois</b> pour la faire pivoter de 90°.');
-  else if(tutorialStage===8) tutorialCoach('Propose la solution','Toutes les gemmes correspondent maintenant aux indices. Touche <b>Proposer une solution</b> pour vérifier la disposition.');
-  else tutorialCoach('Tutoriel terminé !','Tu sais maintenant interroger la mine, lire les résultats, placer les gemmes et proposer une solution.<br><br><b>Sur l’accueil :</b> joue une grille aléatoire, le défi du jour ou un identifiant partagé ; crée tes propres grilles ; consulte tes historiques et les classements depuis ton compte.','Retour à l’accueil');
-}
-// Version textuelle normalisee : uniquement ASCII dans le fichier source pour
-// eviter tout double encodage lors du deploiement sur GitHub Pages.
-function tutorialAllRays(pieces){
-  const rows=[];
-  for(const [side,count] of [['top',COLS],['right',ROWS],['bottom',COLS],['left',ROWS]]){
-    for(let index=0;index<count;index++){
-      const result=simulateBeam(side,index,pieces);
-      const same=!result.absorbed&&result.exitSide===side&&result.exitIndex===index;
-      rows.push({side,index,result,same,colored:result.color.name!=='Transparent'});
-    }
-  }
-  return rows;
-}
-function tutorialSelectRayExamples(pieces){
-  const all=tutorialAllRays(pieces),picked=[],blocked=new Set();
-  const key=(side,index)=>side+':'+index;
-  const pick=test=>{
-    const item=all.find(ray=>!picked.includes(ray)&&!blocked.has(key(ray.side,ray.index))&&test(ray));
-    if(!item)return false;
-    picked.push(item);blocked.add(key(item.side,item.index));
-    if(!item.result.absorbed)blocked.add(key(item.result.exitSide,item.result.exitIndex));
-    return true;
-  };
-  const hits=ray=>ray.result.hitPieceIds||[];
-  const isPrimary=ray=>['Rouge','Jaune','Bleu','Blanc'].includes(ray.result.color.name);
-  const rayKeys=ray=>[key(ray.side,ray.index),key(ray.result.exitSide,ray.result.exitIndex)];
-  const compatible=(...rays)=>{const keys=rays.flatMap(rayKeys);return new Set(keys).size===keys.length;};
-  const clears=all.filter(ray=>!ray.result.absorbed&&hits(ray).length===0);
-  const singles=all.filter(ray=>!ray.result.absorbed&&hits(ray).length===1&&isPrimary(ray));
-  let opening=null;
-  for(const first of clears){
-    for(const second of singles.filter(ray=>ray.side===first.side&&Math.abs(ray.index-first.index)===1)){
-      const third=singles.find(ray=>ray!==second&&ray.side===second.side&&Math.abs(ray.index-second.index)===1&&ray.result.color.name!==second.result.color.name&&compatible(first,second,ray));
-      if(third&&compatible(first,second,third)){opening=[first,second,third];break;}
-    }
-    if(opening)break;
-  }
-  if(!opening)return {examples:[],ends:[]};
-  opening.forEach(chosen=>pick(ray=>ray===chosen));
-  pick(ray=>!ray.result.absorbed&&new Set(hits(ray)).size>=2&&!isPrimary(ray)&&ray.result.color.name!=='Transparent');
-  if(picked.length<4)return {examples:[],ends:[]};
-  const ends=[];
-  const placementPieces=['red','yellow','blue','white','rhombus'].map(type=>pieces.find(item=>item.type===type));
-  const raysNeeded=[2,3,2,3,0];
-  for(let placementIndex=0;placementIndex<placementPieces.length;placementIndex++){
-    const piece=placementPieces[placementIndex];
-    if(!piece)return {examples:[],ends:[]};
-    const before=picked.length;
-    pick(ray=>!ray.result.absorbed&&new Set(hits(ray)).size===1&&hits(ray).includes(piece.id));
-    while(picked.length<before+raysNeeded[placementIndex]){
-      const usedSides=new Set(picked.slice(before).map(ray=>ray.side));
-      if(!pick(ray=>!ray.result.absorbed&&new Set(hits(ray)).size===1&&hits(ray).includes(piece.id)&&!usedSides.has(ray.side)))
-        pick(ray=>!ray.result.absorbed&&new Set(hits(ray)).size===1&&hits(ray).includes(piece.id));
-      if(picked.length===before)return {examples:[],ends:[]};
-      if(picked.length<before+raysNeeded[placementIndex]&&!all.some(ray=>!picked.includes(ray)&&!blocked.has(key(ray.side,ray.index))&&!ray.result.absorbed&&new Set(hits(ray)).size===1&&hits(ray).includes(piece.id)))return {examples:[],ends:[]};
-    }
-    ends.push(picked.length-1);
-  }
-  return {examples:picked,ends};
-}
-function tutorialChooseLayout(){
-  let pieces=null;
-  for(let attempt=0;attempt<80;attempt++){
-    pieces=generateRandomLayout(35);
-    const lesson=pieces?tutorialSelectRayExamples(pieces):{examples:[],ends:[]};
-    if(lesson.examples.length>=14&&pieces.find(piece=>piece.type==='red')?.flipped)return {pieces,...lesson};
-  }
-  const lesson=tutorialSelectRayExamples(pieces||[]);
-  return {pieces,...lesson};
 }
 function tutorialFixedLesson(){
   const pieces=[
@@ -3001,47 +2859,6 @@ function tutorialCompletePlacement(){
   const ray=tutorialRayExamples[tutorialRayIndex];
   tutorialTargetLabel={side:ray.side,index:ray.index};tutorialStage=1;tutorialShowStage();
 }
-function tutorialResultText(result){
-  if(result.absorbed) return `Le rayon a rencontr&eacute; le <b>corps noir</b> et a &eacute;t&eacute; absorb&eacute; : il n&rsquo;a donc aucune sortie.`;
-  const entry=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);
-  const bounced=result.exitSide===tutorialTargetLabel.side&&result.exitIndex===tutorialTargetLabel.index;
-  const route=bounced?`Il est renvoy&eacute; vers son point d&rsquo;entr&eacute;e <b>${entry}</b>.`:`Il ressort en <b>${labelText(result.exitSide,result.exitIndex)}</b>.`;
-  const color=result.color.name==='Transparent'
-    ? `Le r&eacute;sultat est <b>Transparent</b> : aucune gemme color&eacute;e n&rsquo;a modifi&eacute; sa couleur.`
-    : `La couleur obtenue est <b>${result.color.name}</b>.`;
-  return `${route} ${color}`;
-}
-function tutorialShowStage(){
-  if(!tutorialActive) return;
-  if(tutorialStage===0) tutorialCoach('Bienvenue dans la partie-\u00e9cole','Une grille est cach&eacute;e. Tu vas utiliser les principales actions du jeu, puis apprendre &agrave; placer et valider une solution. Aucun compte n&rsquo;est n&eacute;cessaire et cette partie ne sera pas class&eacute;e.','Commencer');
-  else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);tutorialCoach('Lance ton premier rayon',`Touche l&rsquo;entr&eacute;e <b>${name}</b>, mise en &eacute;vidence sur le bord de la mine. Un rayon co&ucirc;te <b>1 point</b>.`);}
-  else if(tutorialStage===2) tutorialCoach('Lis le r\u00e9sultat du rayon',tutorialResultText(tutorialLastResult),'Essayer un autre rayon');
-  else if(tutorialStage===3){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);tutorialCoach('Compare avec un second rayon',`Touche maintenant l&rsquo;entr&eacute;e <b>${name}</b>. En croisant plusieurs sorties et couleurs, tu peux progressivement &eacute;liminer des placements.`);}
-  else if(tutorialStage===4) tutorialCoach('Passe au mode indice','Ces deux rayons servent uniquement d&rsquo;exemple : ils ne suffisent pas pour d&eacute;duire toute la grille. Dans une partie, continue tes recherches autant que n&eacute;cessaire.<br><br>Pour v&eacute;rifier une case, il faut d&rsquo;abord toucher le bouton <b>Demander un indice</b>. Le tutoriel va l&rsquo;activer pour toi.','Activer le mode indice');
-  else if(tutorialStage===5){const coord=LEFT_LABELS[tutorialTargetCell.r]+(tutorialTargetCell.c+1);tutorialCoach('V\u00e9rifie une coordonn\u00e9e',`Le mode indice est actif. Touche la case <b>${coord}</b>, mise en &eacute;vidence. Son contenu sera r&eacute;v&eacute;l&eacute; pour un co&ucirc;t de <b>3 points</b>.`);}
-  else if(tutorialStage===6) tutorialCoach('Lis le r\u00e9sultat de l\u2019indice',`La case interrog&eacute;e est maintenant marqu&eacute;e sur le plateau et son contenu figure dans l&rsquo;historique. Une coordonn&eacute;e permet de confirmer une hypoth&egrave;se, mais co&ucirc;te trois fois plus qu&rsquo;un rayon.`,'Apprendre \u00e0 placer la solution');
-  else if(tutorialStage===7) tutorialCoach('Corrige la derni\u00e8re gemme','Pour apprendre la manipulation sans te demander de r&eacute;soudre toute la grille, le tutoriel a pr&eacute;rempli la solution et laiss&eacute; volontairement une orientation incorrecte.<br><br><b>Touche une fois la gemme mise en &eacute;vidence</b> pour la faire pivoter de 90&deg;.');
-  else if(tutorialStage===8) tutorialCoach('Propose cette solution','La disposition pr&eacute;remplie est maintenant correcte. Dans une vraie partie, attends d&rsquo;avoir recueilli suffisamment d&rsquo;indices avant de proposer.<br><br>Ici, touche <b>Proposer une solution</b> pour d&eacute;couvrir la validation.');
-  else tutorialCoach('Tutoriel termin\u00e9 !','Tu as effectu&eacute; les principales actions d&rsquo;une partie : lancer des rayons, activer le mode indice, v&eacute;rifier une case, manipuler les gemmes et valider une proposition.<br><br><b>Sur l&rsquo;accueil :</b> joue une grille al&eacute;atoire, le d&eacute;fi du jour ou un identifiant partag&eacute; ; cr&eacute;e tes propres grilles ; consulte tes historiques et les classements depuis ton compte.','Retour \u00e0 l\u2019accueil');
-}
-function tutorialShowStage(){
-  if(!tutorialActive)return;
-  if(tutorialStage===0) tutorialCoach('Bienvenue dans le tutoriel','Une grille est cach&eacute;e. Tu vas essayer plusieurs rayons, utiliser un indice, puis apprendre &agrave; manipuler et valider une solution. Aucun compte n&rsquo;est n&eacute;cessaire et cette partie ne sera pas class&eacute;e.','Commencer');
-  else if(tutorialStage===1){
-    const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index);
-    tutorialCoach('Teste un rayon',`Touche l&rsquo;entr&eacute;e <b>${name}</b>, mise en &eacute;vidence sur le bord. Le moteur calculera r&eacute;ellement son trajet, sa sortie et sa couleur.`);
-  }else if(tutorialStage===2){
-    const more=tutorialRayIndex<tutorialRayExamples.length-1;
-    tutorialCoach('Observe ce r\u00e9sultat',tutorialResultText(tutorialLastResult),more?'Rayon suivant':'Voir l\u2019aide des couleurs');
-  }else if(tutorialStage===3) tutorialCoach('Comprends les couleurs','Un rayon peut rencontrer plusieurs gemmes au fil de ses d&eacute;viations. Le r&eacute;sultat combine alors leurs couleurs.<br><br>Ouvre l&rsquo;aide pour voir les m&eacute;langes possibles, puis ferme-la avec la croix.','Afficher l\u2019aide des couleurs');
-  else if(tutorialStage===4) tutorialCoach('Passe au mode indice','Les rayons pr&eacute;c&eacute;dents montrent plusieurs comportements possibles, mais ne suffisent pas &agrave; d&eacute;duire cette grille enti&egrave;re.<br><br>Dans une partie, pour v&eacute;rifier une case, touche d&rsquo;abord <b>Demander un indice</b>. Le tutoriel va activer ce mode pour toi.','Activer le mode indice');
-  else if(tutorialStage===5){const coord=LEFT_LABELS[tutorialTargetCell.r]+(tutorialTargetCell.c+1);tutorialCoach('V\u00e9rifie une coordonn\u00e9e',`Le mode indice est actif. Touche la case <b>${coord}</b>, mise en &eacute;vidence. Son contenu sera r&eacute;v&eacute;l&eacute; pour un co&ucirc;t de <b>3 points</b>.`);}
-  else if(tutorialStage===6) tutorialCoach('Lis le r\u00e9sultat de l\u2019indice','La case interrog&eacute;e est maintenant marqu&eacute;e sur le plateau et son contenu figure dans l&rsquo;historique. Une coordonn&eacute;e confirme une hypoth&egrave;se, mais co&ucirc;te trois fois plus qu&rsquo;un rayon.','Apprendre \u00e0 placer la solution');
-  else if(tutorialStage===7) tutorialCoach('Corrige la derni\u00e8re gemme','Pour apprendre la manipulation sans te demander de r&eacute;soudre toute la grille, le tutoriel a pr&eacute;rempli la solution et laiss&eacute; volontairement une orientation incorrecte.<br><br><b>Touche une fois la gemme mise en &eacute;vidence</b> pour la faire pivoter de 90&deg;.');
-  else if(tutorialStage===8) tutorialCoach('Propose cette solution','La disposition pr&eacute;remplie est maintenant correcte. Dans une vraie partie, attends d&rsquo;avoir recueilli suffisamment d&rsquo;indices avant de proposer.<br><br>Ici, touche <b>Proposer une solution</b> pour d&eacute;couvrir la validation.');
-  else if(tutorialStage===9) tutorialCoach('Les gemmes optionnelles','Certaines grilles ajoutent jusqu&rsquo;&agrave; trois gemmes :<br><br>💎 <b>Diamant</b> : d&eacute;vie le rayon sans ajouter de couleur.<br>⬛ <b>Corps noir</b> : absorbe le rayon, qui ne ressort pas.<br>🟦 <b>Saphir bleu ciel</b> : ajoute simultan&eacute;ment le bleu et le blanc au r&eacute;sultat.<br><br>Les classements s&eacute;parent les diff&eacute;rentes configurations.','Terminer');
-  else tutorialCoach('Tutoriel termin\u00e9 !','Tu as effectu&eacute; les principales actions d&rsquo;une partie et observ&eacute; plusieurs comportements possibles des rayons.<br><br><b>Sur l&rsquo;accueil :</b> joue une grille al&eacute;atoire, le d&eacute;fi du jour ou un identifiant partag&eacute; ; cr&eacute;e tes propres grilles ; consulte tes historiques et les classements depuis ton compte.','Retour \u00e0 l\u2019accueil');
-}
 function tutorialObservationText(result){
   const exit=labelText(result.exitSide,result.exitIndex),color=result.color.name;
   if((result.hitPieceIds||[]).length===0)return `L&rsquo;onde ressort en <b>${exit}</b>, toujours transparente : elle a travers&eacute; la mine en ligne droite sans rencontrer de gemme.`;
@@ -3085,13 +2902,6 @@ function tutorialShowStage(){
   else if(tutorialStage===21)tutorialCoach('Cr&eacute;er une grille','Cr&eacute;e tes propres grilles pour les utiliser avec le jeu physique ou les partager avec d&rsquo;autres joueurs.','Suivant');
   else if(tutorialStage===22)tutorialCoach('Le compte joueur','Le compte est n&eacute;cessaire pour jouer en solo, mais il suffit d&rsquo;un <b>pseudo</b> et d&rsquo;un <b>code &agrave; 4 chiffres</b> : aucune adresse e-mail n&rsquo;est demand&eacute;e. Il permet de retrouver ton profil depuis n&rsquo;importe quel navigateur.<br><br>Tu y retrouves ton historique de grilles, tes d&eacute;fis du jour, tes grilles partag&eacute;es et tes informations de joueur. Il permet aussi d&rsquo;identifier tes r&eacute;sultats dans les classements.','Terminer');
   else tutorialCoach('Tutoriel termin\u00e9 !','Tu connais maintenant les principes du jeu et les principales fonctions du site. Tu peux revenir au tutoriel &agrave; tout moment depuis l&rsquo;accueil.','Retour \u00e0 l\u2019accueil');
-}
-function tutorialPrepareSolution(){
-  state.pieces=state.secretPieces.map(p=>({...p,id:'p'+(pieceIdSeq++),center:{...p.center}}));
-  const wrong=state.pieces.find(p=>p.type==='red')||state.pieces[0];
-  wrong.rotation=(wrong.rotation+270)%360;
-  tutorialWrongPieceId=wrong.id;
-  renderPalette();renderPieces();
 }
 function beginInteractiveTutorial(){
   if(state.mode==='solo'&&!state.soloOver&&state.gridUnrankedReason!=='tutorial'&&!confirm('Quitter la partie solo en cours pour lancer le tutoriel ?')) return;
@@ -3424,20 +3234,12 @@ function globalDateLabel(dateKey, index){
 }
 function buildRankingConfigOptions(){
   const select = $('#rankingConfigSelect');
-  if(rankingView==='daily' || rankingView==='global'){
+  if(rankingView==='global'){
     const todayKey = parisDateKey();
-    const prefix = rankingView==='global' ? 'GLOBAL:' : 'DAILY:';
-    if(rankingView==='global'){
-      select.innerHTML = Array.from({length:7},(_,index)=>{
-        const dateKey = shiftDateKey(todayKey,-index);
-        return `<option value="${prefix}${dateKey}">${globalDateLabel(dateKey,index)}</option>`;
-      }).join('');
-    }else{
-      const yesterdayKey = shiftDateKey(todayKey,-1);
-      let options = `<option value="${prefix}${todayKey}">Défi du jour (${todayKey})</option>`;
-      if(pruneDailyBoards(loadDailyBoards())[yesterdayKey]) options += `<option value="${prefix}${yesterdayKey}">Défi d'hier (${yesterdayKey})</option>`;
-      select.innerHTML = options;
-    }
+    select.innerHTML = Array.from({length:7},(_,index)=>{
+      const dateKey = shiftDateKey(todayKey,-index);
+      return `<option value="GLOBAL:${dateKey}">${globalDateLabel(dateKey,index)}</option>`;
+    }).join('');
   } else {
     select.innerHTML = '<option value="GLOBAL_SOLO:ALL">Toutes les configurations</option>'+RANKING_COMBOS.map(([g,o,s])=>{
       const key=configKey(g,o,s);
@@ -3497,7 +3299,6 @@ function bindGridCatalogActions(){
 }
 async function renderGridCatalog(force=false){
   const el=$('#rankingList'),savedScrollTop=el.scrollTop;
-  $('#btnResetRanking').style.display='none';
   if(force)gridCatalogState.popular=null;
   try{
     if(!gridCatalogState.popular){
@@ -3723,7 +3524,6 @@ async function loadNextGlobalSoloPage(){
 async function renderGlobalSoloScores(filterKey='ALL'){
   const el=$('#rankingList');
   const savedScrollTop=el.scrollTop;
-  $('#btnResetRanking').style.display='none';
   if(!currentPlayerAccount){ el.innerHTML='<div class="history-empty">Connectez-vous pour consulter les résultats solo.</div>'; return; }
   if(!globalSoloScoresCache) el.innerHTML='<div class="history-empty">Chargement des résultats solo…</div>';
   try{
@@ -3777,7 +3577,7 @@ async function openPlayerAchievements(accountId,name){
   try{const rows=await supabaseRpc('orapa_player_achievements',{p_session_token:currentPlayerAccount.session_token,p_account_id:accountId});if(!rows?.length){$('#achievementDetailContent').innerHTML='<div class="history-empty">Aucun succès visible.</div>';return;}const normalized=rows.map((row,index)=>({...row,unlocked:true,display_order:Number(row.display_order||index+1),unlock_count:Number(row.unlock_count||0),has_progress:false,progress_value:null,progress_target:null}));renderAchievementsInto($('#achievementDetailContent'),normalized,false);}catch(e){$('#achievementDetailContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;}
 }
 async function renderAchievementsRankingView(){
-  $('#btnResetRanking').style.display='none';$('#btnRefreshGlobal').style.display='none';$('#btnStatsGlobal').style.display='none';
+  $('#btnRefreshGlobal').style.display='none';$('#btnStatsGlobal').style.display='none';
   if(!currentPlayerAccount){$('#rankingList').innerHTML='<div class="history-empty">Connecte-toi pour consulter les succès.</div>';return;}
   $('#achievementListTab').classList.toggle('active',achievementMode==='list');$('#achievementRankingTab').classList.toggle('active',achievementMode==='ranking');
   if(achievementMode==='ranking'){renderAchievementRanking();return;}
@@ -3795,34 +3595,9 @@ function renderRankingList(){
     return;
   }
   if(key.startsWith('GLOBAL:')){
-    $('#btnResetRanking').style.display='none';
     renderGlobalRanking(key.slice(7));
     return;
   }
-  const isDailyKey = key.startsWith('DAILY:');
-  const dailyDateKey = isDailyKey ? key.slice(6) : null;
-  const list = isDailyKey ? (pruneDailyBoards(loadDailyBoards())[dailyDateKey] || []) : (loadRankings()[key] || []);
-  const dailyLayout = isDailyKey ? generateDailyLayout(dailyDateKey) : null;
-  const dailyGems = dailyLayout ? gemFlagsEmojiLine(dailyLayout.flags.gray, dailyLayout.flags.onyx, dailyLayout.flags.sapphire) : '';
-  const el = $('#rankingList');
-  $('#btnResetRanking').style.display = isDailyKey ? 'none' : '';
-  if(list.length===0){
-    el.innerHTML = `<div class="history-empty">Aucun score enregistré ${isDailyKey?'pour ce défi':'pour cette configuration'}.</div>`;
-    return;
-  }
-  el.innerHTML = list.map((e,i)=>{
-    const d = new Date(e.date).toLocaleDateString('fr-FR');
-    const expanded = expandedScores.has(e.date);
-    const failTag = (isDailyKey && e.success===false) ? ' <span style="color:#e59c8c;">— Échec</span>' : '';
-    const detailHtml = expanded ? `<div class="ranking-row-detail">${e.rayCount||0} rayon${e.rayCount===1?'':'s'} 🔦 + ${e.coordCount||0} coordonnée${e.coordCount===1?'':'s'} 📍 · ${formatDuration(e.timeMs)}</div>${e.gridId ? `<div class="ranking-row-id">Grille : <b>${escapeHtml(e.gridId)}</b></div>` : ''}<div class="controls" style="justify-content:flex-start;gap:8px;margin:8px 0 2px 34px;">${isDailyKey ? '' : `<button class="ranking-copy-id" data-idx="${i}">📋 Copier ID</button>`}<button class="ranking-copy-summary" data-idx="${i}">📋 Copier le résumé</button></div>` : '';
-    return `<div class="ranking-row${expanded?' expanded':''}" data-date="${e.date}"><div class="ranking-row-top"><span class="ranking-rank${i===0?' top1':''}">${rankingMedal(i)}</span><span class="ranking-name">${escapeHtml(e.name||'Anonyme')}${failTag}</span>${isDailyKey ? `<span class="ranking-gems">${dailyGems}</span>` : ''}<span class="ranking-points">${e.cost} pts</span><span class="ranking-date">${d}</span></div>${detailHtml}</div>`;
-  }).join('');
-  el.querySelectorAll('.ranking-row').forEach(row=>row.addEventListener('click',ev=>{
-    if(ev.target.closest('.ranking-copy-id') || ev.target.closest('.ranking-copy-summary')) return;
-    const date=Number(row.dataset.date); if(expandedScores.has(date)) expandedScores.delete(date); else expandedScores.add(date); renderRankingList();
-  }));
-  el.querySelectorAll('.ranking-copy-id').forEach(btn=>btn.addEventListener('click',ev=>{ev.stopPropagation();const entry=list[Number(btn.dataset.idx)];navigator.clipboard?.writeText(entry.gridId||'').then(()=>showToast('Identifiant copié : '+entry.gridId));}));
-  el.querySelectorAll('.ranking-copy-summary').forEach(btn=>btn.addEventListener('click',ev=>{ev.stopPropagation();const entry=list[Number(btn.dataset.idx)];navigator.clipboard?.writeText(formatShareText(entry)).then(()=>showToast('Résumé copié !'));}));
 }
 $('#rankingTabSolo').addEventListener('click', ()=> setRankingView('solo'));
 $('#rankingTabDaily').addEventListener('click', ()=> setRankingView('grids'));
@@ -3874,13 +3649,6 @@ $('#rankingDatePicker').addEventListener('change',()=>{
   select.value=value;
   renderRankingList();
 });
-$('#btnResetRanking').addEventListener('click', ()=>{
-  const key = $('#rankingConfigSelect').value;
-  if(key.startsWith('DAILY:') || key.startsWith('GLOBAL:')) return;
-  if(!confirm(`Réinitialiser le classement « ${key} » ? Cette action est irréversible.`)) return;
-  const rankings = loadRankings(); rankings[key]=[]; saveRankings(rankings); renderRankingList();
-});
-
 $('#accountFab').addEventListener('click',openAccountModal);
 $('#closeAccount').addEventListener('click',()=>$('#accountModal').classList.remove('open'));
 $('#accountModal').addEventListener('click',e=>{if(e.target.id==='accountModal')$('#accountModal').classList.remove('open');});
