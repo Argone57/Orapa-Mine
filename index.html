@@ -297,7 +297,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
       <button id="btnPropose" class="primary" style="display:none;">✅ Proposer une solution</button>
       <button id="btnToggleGuess" class="ghost" style="display:none;">👁 Mes gemmes</button>
       <button id="btnToggleSecret" class="ghost" style="display:none;">👁 Gemmes à trouver</button>
-      <button id="btnReplayVictory" class="ghost" style="display:none;">🏆 Revoir la victoire</button>
+      <button id="btnReplayVictory" class="ghost" style="display:none;">📋 Afficher le résultat</button>
       <button id="btnReset" class="danger">Recommencer</button>
       <button id="btnBackToGM" class="ghost" style="display:none;">← Retour à l'accueil</button>
     </div>
@@ -571,7 +571,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
 <div class="modal-backdrop" id="victoryModal">
   <div class="modal">
     <button class="close-x" id="closeVictory">×</button>
-    <h2>🏆 Victoire !</h2>
+    <h2 id="resultModalTitle">🏆 Victoire !</h2>
     <p id="victoryMessage">Tu as retrouvé la disposition exacte !</p>
     <div class="ranking-row-detail" id="victoryScoreLine" style="margin-left:0;font-size:.85rem;"></div>
     <div id="victoryRankLine" style="margin-top:4px;color:var(--gold-bright);font-size:.83rem;"></div>
@@ -586,6 +586,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-  <script src="app.js?v=20260806-0089"></script>
+  <script src="app.js?v=20260807-0090"></script>
 </body>
 </html>

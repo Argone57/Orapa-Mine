@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260806-0089';
+const APP_VERSION = '20260807-0090';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1639,6 +1639,13 @@ function currentEntryForDisplay(){
 }
 function openVictoryModal(){
   const entry = currentEntryForDisplay();
+  const won = state.soloResult==='win';
+  $('#resultModalTitle').textContent = won ? '🏆 Victoire !' : '💥 Défaite';
+  $('#victoryMessage').textContent = won
+    ? 'Tu as retrouvé la disposition exacte !'
+    : (state.isDaily
+      ? 'Solution incorrecte : la grille secrète est révélée ci-dessous.'
+      : 'La seconde proposition est incorrecte : la grille secrète est révélée ci-dessous.');
   $('#victoryScoreLine').textContent = formatScoreLine(entry);
   $('#victoryRankLine').textContent = lastScoreResult?.alreadyPlayed
     ? 'Ce défi avait déjà été terminé avec ce compte sur un autre appareil. Cette tentative n’a pas été enregistrée.'
@@ -1706,13 +1713,7 @@ async function proposeSolution(){
       }
     }
     if(state.isDaily) saveDailyFinalSnapshot();
-    saveState();renderAll();setTimeout(()=>{
-      let message=state.isDaily?'💥 Solution incorrecte — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).':"💥 C'est encore faux — la grille secrète est révélée ci-dessous (tes gemmes apparaissent en contour).";
-      if(state.isDaily&&state.dailyAlreadyRecorded) message+='\n\nCe défi avait déjà été terminé avec ce compte sur un autre appareil. Cette nouvelle tentative n’a pas été enregistrée.';
-      if(state.gridUnrankedReason==='creator_protected') message+='\n\n⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.';
-      else if(state.gridUnrankedReason==='already_played') message+='\n\nCette grille avait déjà été classée avec ce profil.';
-      alert(message);
-    },60);
+    saveState();renderAll();setTimeout(()=>openVictoryModal(),60);
   }else{saveState();setTimeout(()=>alert("C'est faux ! Il te reste un essai avant l'échec."),60);}
 }
 // ---------------------------------------------------------------------
@@ -2405,7 +2406,7 @@ function renderControls(){
     $('#gridIdText').textContent = state.gridId;
     $('#btnCopyGridId').textContent = '📋 Copier';
   }
-  $('#btnReplayVictory').style.display = (state.mode==='solo' && state.soloOver && state.soloResult==='win') ? '' : 'none';
+  $('#btnReplayVictory').style.display = (state.mode==='solo' && state.soloOver) ? '' : 'none';
   $('#btnReset').style.display = state.isDaily ? 'none' : '';
 }
 function renderAll(){
