@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260806-0088';
+const APP_VERSION = '20260806-0089';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2527,6 +2527,7 @@ function onPieceDown(ev, piece, el){
   const startX=ev.clientX, startY=ev.clientY;
   let moved=false, longPressed=false, dragging=false;
   let ghost=null;
+  let ghostFrame=0, ghostX=startX, ghostY=startY, ghostHalfW=0, ghostHalfH=0;
   const boardRect = ()=> boardEl.getBoundingClientRect();
   const cs = ()=> boardRect().width / COLS;
 
@@ -2557,6 +2558,11 @@ function onPieceDown(ev, piece, el){
     const csVal = cs();
     ghost.style.width = ((w+2*pad)*csVal)+'px';
     ghost.style.height = ((h+2*pad)*csVal)+'px';
+    ghost.style.left='0';
+    ghost.style.top='0';
+    ghost.style.willChange='transform';
+    ghostHalfW=((w+2*pad)*csVal)/2;
+    ghostHalfH=((h+2*pad)*csVal)/2;
     const def = CONFIG.PIECES[piece.type];
     ghost.innerHTML = `<svg viewBox="${minX-pad} ${minY-pad} ${w+2*pad} ${h+2*pad}" width="100%" height="100%">
       <polygon points="${polyPointsAttr(pts)}" fill="${def.isDiamond?'rgba(207,216,220,0.55)':def.hex}" stroke="rgba(0,0,0,.4)" stroke-width="0.06"/>
@@ -2565,9 +2571,24 @@ function onPieceDown(ev, piece, el){
     positionGhost(ev.clientX, ev.clientY);
   }
   function positionGhost(x,y){
-    const gw = parseFloat(ghost.style.width), gh = parseFloat(ghost.style.height);
-    ghost.style.left = (x - gw/2)+'px';
-    ghost.style.top = (y - gh/2)+'px';
+    ghostX=x; ghostY=y;
+    if(ghostFrame) return;
+    ghostFrame=requestAnimationFrame(()=>{
+      ghostFrame=0;
+      if(!ghost?.isConnected) return;
+      ghost.style.transform=`translate3d(${ghostX-ghostHalfW}px,${ghostY-ghostHalfH}px,0)`;
+    });
+  }
+  function cleanupGesture(){
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onCancel);
+    window.removeEventListener('blur', onCancel);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    if(ghostFrame){cancelAnimationFrame(ghostFrame);ghostFrame=0;}
+  }
+  function onVisibilityChange(){
+    if(document.hidden) onCancel();
   }
   function onMove(e){
     const dx=e.clientX-startX, dy=e.clientY-startY;
@@ -2575,9 +2596,7 @@ function onPieceDown(ev, piece, el){
     if(dragging) positionGhost(e.clientX, e.clientY);
   }
   function onUp(e){
-    window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp);
-    window.removeEventListener('pointercancel', onCancel);
+    cleanupGesture();
     clearTimeout(longPressTimer);
     if(dragging){
       const rect = boardRect();
@@ -2608,9 +2627,7 @@ function onPieceDown(ev, piece, el){
     }
   }
   function onCancel(){
-    window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp);
-    window.removeEventListener('pointercancel', onCancel);
+    cleanupGesture();
     clearTimeout(longPressTimer);
     if(ghost?.isConnected) ghost.remove();
     el.classList.remove('dragging');
@@ -2621,6 +2638,8 @@ function onPieceDown(ev, piece, el){
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onCancel);
+  window.addEventListener('blur', onCancel);
+  document.addEventListener('visibilitychange', onVisibilityChange);
 }
 
 // ---------------------------------------------------------------------
