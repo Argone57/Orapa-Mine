@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260805-0087';
+const APP_VERSION = '20260806-0088';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -179,7 +179,9 @@ function formatScoreLine(e){
   return `${e.cost} pts (${e.rayCount||0}🔦 + ${e.coordCount||0}📍) · ${formatDuration(e.timeMs)}`;
 }
 function formatShareText(e){
-  const d = new Date(e.date).toLocaleDateString('fr-FR');
+  const d = e.isDaily && e.dailyDate
+    ? formatDailyDate(e.dailyDate)
+    : new Date(e.date).toLocaleDateString('fr-FR');
   if(e.isDaily){
     const failPart = e.success===false ? ' — Échec' : '';
     return `Orapa Mine · Défi du jour · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍)${failPart}\nhttps://argone57.github.io/Orapa-Mine/`;
@@ -904,13 +906,19 @@ function allTypes(){
 function freshPieceSet(){ return allTypes().map(t=> newPiece(t)); }
 function newPiece(type){ return { id:'p'+(pieceIdSeq++), type, center:null, rotation:0, flipped:false }; }
 
-function saveState(){ try{ localStorage.setItem('orapaMineStateV3', JSON.stringify(state)); }catch(e){} }
+function saveState(){
+  try{
+    localStorage.setItem('orapaMineStateV3',JSON.stringify({...state,savedScoreResult:lastScoreResult}));
+  }catch(e){}
+}
 function loadState(){
   try{
     const raw = localStorage.getItem('orapaMineStateV3');
     if(!raw) return false;
     const s = JSON.parse(raw);
     if(!s || !Array.isArray(s.pieces)) return false;
+    lastScoreResult = s.savedScoreResult || null;
+    delete s.savedScoreResult;
     state = s;
     state.mode = state.mode || 'gm';
     state.secretPieces = state.secretPieces || [];
@@ -1616,7 +1624,7 @@ function evaluateGuess(){
 let lastScoreResult = null;
 function currentEntryForDisplay(){
   return {
-    name: (lastScoreResult && lastScoreResult.entry.name) || 'Anonyme',
+    name: (lastScoreResult && lastScoreResult.entry.name) || currentPlayerAccount?.display_name || 'Anonyme',
     cost: state.moveCost||0,
     timeMs: state.finalTimeMs||0,
     rayCount: state.rayCount||0,
