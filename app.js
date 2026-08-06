@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260807-0090';
+const APP_VERSION = '20260807-0091';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1654,7 +1654,7 @@ function openVictoryModal(){
       : (state.isDaily ? '' : (state.gridUnrankedReason==='creator_protected'
       ? '⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.'
       : (state.gridUnrankedReason==='already_played' ? 'Cette grille a déjà été classée avec ce profil.' : ''))));
-  $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${state.dailyDate})` : (state.gridId || '');
+  $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${formatDailyDate(state.dailyDate)})` : (state.gridId || '');
   $('#btnVictoryGridRanking').style.display=(!state.isDaily&&state.gridId)?'':'none';
   $('#victoryModal').classList.add('open');
 }
@@ -3214,7 +3214,7 @@ $('#closeVictory').addEventListener('click', ()=> $('#victoryModal').classList.r
 $('#victoryModal').addEventListener('click', e=>{ if(e.target.id==='victoryModal') $('#victoryModal').classList.remove('open'); });
 $('#btnVictoryCopyId').addEventListener('click', ()=>{
   if(state.isDaily){
-    const text = `Défi du jour (${state.dailyDate})`;
+    const text = `Défi du jour (${formatDailyDate(state.dailyDate)})`;
     if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=> showToast('Copié : '+text));
     return;
   }
