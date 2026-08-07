@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260807-0094';
+const APP_VERSION = '20260807-0095';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2104,8 +2104,6 @@ function makeLabel(side,index){
       // Le noir est une couleur obtenue par combinaison : il conserve
       // l'ancien affichage plein, contrairement à une onde absorbée.
       div.classList.add('beam-black');
-      div.style.background = hex;
-      div.style.color = contrastText(hex);
     }else{
       div.style.background = hex;
       div.style.color = contrastText(hex);
