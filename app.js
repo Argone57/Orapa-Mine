@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260807-0091';
+const APP_VERSION = '20260807-0092';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2086,14 +2086,24 @@ function makeLabel(side,index){
   const div=document.createElement('div');
   const used = state.labelColor[side][index] !== undefined;
   div.className='label'+(raysEnabled() ? ' clickable':'');
-  div.textContent = labelText(side,index);
+  const labelValue=document.createElement('span');
+  labelValue.className='label-value';
+  labelValue.textContent=labelText(side,index);
+  div.appendChild(labelValue);
   div.dataset.side = side;
   div.dataset.index = index;
   if(used){
     const hex = state.labelColor[side][index];
+    const colorName=beamColorName(hex);
     div.classList.add('used');
-    div.style.background = hex;
-    div.style.color = contrastText(hex);
+    if(colorName==='Transparent'){
+      div.classList.add('beam-transparent');
+    }else if(colorName==='Absorbé'){
+      div.classList.add('beam-absorbed');
+    }else{
+      div.style.background = hex;
+      div.style.color = contrastText(hex);
+    }
     if(state.labelBounce[side][index]){
       const arrow = document.createElement('span');
       arrow.className='bounce-arrow';
@@ -2343,12 +2353,17 @@ function renderHistory(){
     el.innerHTML='<div class="history-empty">Démarre la partie puis clique sur une lettre, un chiffre ou une case pour interroger la mine.</div>';
     return;
   }
-  el.innerHTML = state.history.slice().reverse().map(h=>`
+  el.innerHTML = state.history.slice().reverse().map(h=>{
+    const colorName=beamColorName(h.hex);
+    const specialClass=colorName==='Transparent'?' beam-transparent':colorName==='Absorbé'?' beam-absorbed':'';
+    const swatchStyle=specialClass?'':` style="background:${h.hex}"`;
+    return `
     <div class="history-item">
-      <span class="history-swatch" style="background:${h.hex}"></span>
+      <span class="history-swatch${specialClass}"${swatchStyle}></span>
       <span class="history-text">${h.text}</span>
       <span class="history-time">${h.time}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 function renderModePill(){
   const pill=$('#modePill');
