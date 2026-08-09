@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260809-0096';
+const APP_VERSION = '20260809-0101';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -335,7 +335,7 @@ async function getAchievementCatalog(force=false){
   achievementCatalogCache=await supabaseRpc('orapa_achievement_catalog',{p_session_token:currentPlayerAccount.session_token});
   return achievementCatalogCache||[];
 }
-function achievementToolbar(){return `<div class="achievement-toolbar"><select id="achievementSort" class="ranking-select"><option value="order">Ordre</option><option value="date">Date d’obtention</option><option value="name">Nom</option><option value="count">Nombre de joueurs</option><option value="points">Points</option></select><select id="achievementFilter" class="ranking-select"><option value="all">Tous</option><option value="unlocked">Obtenus</option><option value="locked">Non obtenus</option></select><button id="achievementReverse" class="ghost achievement-direction">${achievementReverse?'↑':'↓'}</button></div>`;}
+function achievementToolbar(rows,myOnly=false){const visible=sortedAchievements(rows,myOnly),allExpanded=visible.length>0&&visible.every(row=>achievementExpanded.has(row.achievement_key));return `<div class="achievement-toolbar"><select id="achievementSort" class="ranking-select"><option value="order">Ordre</option><option value="date">Date d’obtention</option><option value="name">Nom</option><option value="count">Nombre de joueurs</option><option value="points">Points</option></select><select id="achievementFilter" class="ranking-select"><option value="all">Tous</option><option value="unlocked">Obtenus</option><option value="locked">Non obtenus</option></select><button id="achievementReverse" class="ghost achievement-direction" aria-label="Inverser l’ordre">${achievementReverse?'↑':'↓'}</button><button id="achievementExpandAll" class="ghost achievement-expand-all" aria-label="${allExpanded?'Replier':'Déplier'} tous les succès">${allExpanded?'−':'+'}</button></div>`;}
 function sortedAchievements(rows,myOnly=false){
   let result=rows.filter(row=>!myOnly||row.unlocked).filter(row=>achievementFilter==='all'||(achievementFilter==='unlocked'?row.unlocked:!row.unlocked));
   const value=row=>achievementSort==='date'?(row.unlocked_at?new Date(row.unlocked_at).getTime():0):achievementSort==='name'?String(row.name).localeCompare('', 'fr'):achievementSort==='count'?Number(row.unlock_count):achievementSort==='points'?Number(row.points):Number(row.display_order);
@@ -352,7 +352,7 @@ function bindAchievementList(container,rows,myOnly=false){
   container.querySelectorAll('[data-achievement-key].achievement-row').forEach(row=>row.onclick=event=>{if(event.target.closest('button'))return;const key=row.dataset.achievementKey;achievementExpanded.has(key)?achievementExpanded.delete(key):achievementExpanded.add(key);renderAchievementsInto(container,rows,myOnly);});
   container.querySelectorAll('.achievement-unlockers').forEach(button=>button.onclick=event=>{event.stopPropagation();openAchievementUnlockers(button.dataset.achievementKey,rows.find(row=>row.achievement_key===button.dataset.achievementKey)?.name);});
 }
-function renderAchievementsInto(container,rows,myOnly=false){container.innerHTML=achievementToolbar()+achievementRowsHtml(rows,myOnly);const sort=container.querySelector('#achievementSort'),filter=container.querySelector('#achievementFilter'),reverse=container.querySelector('#achievementReverse');sort.value=achievementSort;filter.value=achievementFilter;sort.onchange=e=>{achievementSort=e.target.value;renderAchievementsInto(container,rows,myOnly)};filter.onchange=e=>{achievementFilter=e.target.value;renderAchievementsInto(container,rows,myOnly)};reverse.onclick=()=>{achievementReverse=!achievementReverse;renderAchievementsInto(container,rows,myOnly)};bindAchievementList(container,rows,myOnly);}
+function renderAchievementsInto(container,rows,myOnly=false){container.innerHTML=achievementToolbar(rows,myOnly)+achievementRowsHtml(rows,myOnly);const sort=container.querySelector('#achievementSort'),filter=container.querySelector('#achievementFilter'),reverse=container.querySelector('#achievementReverse'),expandAll=container.querySelector('#achievementExpandAll');sort.value=achievementSort;filter.value=achievementFilter;sort.onchange=e=>{achievementSort=e.target.value;renderAchievementsInto(container,rows,myOnly)};filter.onchange=e=>{achievementFilter=e.target.value;renderAchievementsInto(container,rows,myOnly)};reverse.onclick=()=>{achievementReverse=!achievementReverse;renderAchievementsInto(container,rows,myOnly)};expandAll.onclick=()=>{const visible=sortedAchievements(rows,myOnly),allExpanded=visible.length>0&&visible.every(row=>achievementExpanded.has(row.achievement_key));visible.forEach(row=>allExpanded?achievementExpanded.delete(row.achievement_key):achievementExpanded.add(row.achievement_key));renderAchievementsInto(container,rows,myOnly)};bindAchievementList(container,rows,myOnly);}
 async function openAchievementUnlockers(key,name){
   $('#achievementDetailTitle').textContent=`🏆 ${name||'Succès'}`;$('#achievementDetailContent').innerHTML='<div class="history-empty">Chargement…</div>';$('#achievementDetailModal').classList.add('open');
   try{const rows=await supabaseRpc('orapa_achievement_unlockers',{p_session_token:currentPlayerAccount.session_token,p_achievement_key:key});$('#achievementDetailContent').innerHTML=rows?.length?rows.map(row=>`<div class="achievement-ranking-row${row.is_mine?' mine':''}"><span>${row.is_mine?'✓':'•'}</span><strong>${escapeHtml(row.player_name)}</strong><small style="grid-column:3/5">${new Date(row.unlocked_at).toLocaleDateString('fr-FR')}</small></div>`).join(''):'<div class="history-empty">Personne pour le moment.</div>';}catch(e){$('#achievementDetailContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;}
@@ -3279,6 +3279,22 @@ function globalDateLabel(dateKey, index){
   const weekday = new Intl.DateTimeFormat('fr-FR',{weekday:'long',timeZone:'UTC'}).format(date);
   return `${weekday.charAt(0).toUpperCase()+weekday.slice(1)} · ${shortFrenchDate(dateKey)}`;
 }
+function selectGlobalRankingDate(dateKey){
+  if(!dateKey || dateKey>parisDateKey()) return;
+  const select=$('#rankingConfigSelect'),value=`GLOBAL:${dateKey}`;
+  let option=[...select.options].find(item=>item.value===value);
+  if(!option){
+    option=document.createElement('option');
+    option.value=value;
+    const today=parisDateKey();
+    option.textContent=globalDateLabel(dateKey,dateKey===today?0:dateKey===shiftDateKey(today,-1)?1:2);
+    select.appendChild(option);
+  }
+  select.value=value;
+  $('#rankingDatePicker').value=dateKey;
+  $('#rankingDateNext').disabled=dateKey>=parisDateKey();
+  renderRankingList();
+}
 function buildRankingConfigOptions(){
   const select = $('#rankingConfigSelect');
   if(rankingView==='global'){
@@ -3311,10 +3327,15 @@ function setRankingView(view){
   $('#btnStatsGlobal').style.display = view==='global' ? '' : 'none';
   const picker=$('#rankingDatePicker');
   $('#rankingDatePickerWrap').style.display=view==='global'?'flex':'none';
+  $('#rankingDatePrevious').style.display=view==='global'?'flex':'none';
+  $('#rankingDateNext').style.display=view==='global'?'flex':'none';
   picker.max=parisDateKey();
   if(view!=='grids'&&view!=='achievements') buildRankingConfigOptions();
   if(view==='solo') $('#rankingConfigSelect').value = 'GLOBAL_SOLO:ALL';
-  if(view==='global') picker.value=($('#rankingConfigSelect').value||'').replace('GLOBAL:','')||parisDateKey();
+  if(view==='global'){
+    picker.value=($('#rankingConfigSelect').value||'').replace('GLOBAL:','')||parisDateKey();
+    $('#rankingDateNext').disabled=picker.value>=parisDateKey();
+  }
   renderRankingList();
 }
 let expandedScores = new Set();
@@ -3621,7 +3642,16 @@ async function renderAchievementRanking(){
 }
 async function openPlayerAchievements(accountId,name){
   $('#achievementDetailTitle').textContent=`🏆 Succès de ${name}`;$('#achievementDetailContent').innerHTML='<div class="history-empty">Chargement…</div>';$('#achievementDetailModal').classList.add('open');
-  try{const rows=await supabaseRpc('orapa_player_achievements',{p_session_token:currentPlayerAccount.session_token,p_account_id:accountId});if(!rows?.length){$('#achievementDetailContent').innerHTML='<div class="history-empty">Aucun succès visible.</div>';return;}const normalized=rows.map((row,index)=>({...row,unlocked:true,display_order:Number(row.display_order||index+1),unlock_count:Number(row.unlock_count||0),has_progress:false,progress_value:null,progress_target:null}));renderAchievementsInto($('#achievementDetailContent'),normalized,false);}catch(e){$('#achievementDetailContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;}
+  try{
+    const [catalog,unlockedRows]=await Promise.all([
+      getAchievementCatalog(true),
+      supabaseRpc('orapa_player_achievements',{p_session_token:currentPlayerAccount.session_token,p_account_id:accountId})
+    ]);
+    const unlockedByKey=new Map((unlockedRows||[]).map(row=>[row.achievement_key,row]));
+    const normalized=(catalog||[]).map((row,index)=>{const unlocked=unlockedByKey.get(row.achievement_key);return {...row,unlocked:!!unlocked,unlocked_at:unlocked?.unlocked_at||null,display_order:Number(row.display_order||index+1),unlock_count:Number(row.unlock_count||0),has_progress:false,progress_value:null,progress_target:null,progress_data:null};});
+    if(!normalized.length){$('#achievementDetailContent').innerHTML='<div class="history-empty">Aucun succès visible.</div>';return;}
+    renderAchievementsInto($('#achievementDetailContent'),normalized,false);
+  }catch(e){$('#achievementDetailContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;}
 }
 async function renderAchievementsRankingView(){
   $('#btnRefreshGlobal').style.display='none';$('#btnStatsGlobal').style.display='none';
@@ -3679,22 +3709,24 @@ $('#welcomeAchievementAccount').addEventListener('click',()=>{$('#welcomeAchieve
 $('#welcomeAchievementModal').addEventListener('click',e=>{if(e.target.id==='welcomeAchievementModal')$('#welcomeAchievementModal').classList.remove('open');});
 $('#rankingConfigSelect').addEventListener('change', ()=>{
   const value=$('#rankingConfigSelect').value;
-  if(value.startsWith('GLOBAL:')) $('#rankingDatePicker').value=value.slice(7);
+  if(value.startsWith('GLOBAL:')){
+    const dateKey=value.slice(7);
+    $('#rankingDatePicker').value=dateKey;
+    $('#rankingDateNext').disabled=dateKey>=parisDateKey();
+  }
   renderRankingList();
 });
 $('#rankingDatePicker').addEventListener('change',()=>{
   const dateKey=$('#rankingDatePicker').value;
-  if(!dateKey) return;
-  const select=$('#rankingConfigSelect'),value=`GLOBAL:${dateKey}`;
-  let option=[...select.options].find(item=>item.value===value);
-  if(!option){
-    option=document.createElement('option');
-    option.value=value;
-    option.textContent=shortFrenchDate(dateKey);
-    select.prepend(option);
-  }
-  select.value=value;
-  renderRankingList();
+  selectGlobalRankingDate(dateKey);
+});
+$('#rankingDatePrevious').addEventListener('click',()=>{
+  const current=($('#rankingConfigSelect').value||'').replace('GLOBAL:','')||parisDateKey();
+  selectGlobalRankingDate(shiftDateKey(current,-1));
+});
+$('#rankingDateNext').addEventListener('click',()=>{
+  const current=($('#rankingConfigSelect').value||'').replace('GLOBAL:','')||parisDateKey();
+  selectGlobalRankingDate(shiftDateKey(current,1));
 });
 $('#accountFab').addEventListener('click',openAccountModal);
 $('#closeAccount').addEventListener('click',()=>$('#accountModal').classList.remove('open'));
