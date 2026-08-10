@@ -38,12 +38,11 @@ header .subtitle{color:var(--text-dim);font-size:.78rem;letter-spacing:.04em;tex
 .mode-pill{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid var(--vein);background:var(--panel);color:var(--text-dim);}
 .mode-pill.live{color:#ffd9a8;border-color:var(--gold);background:#2a1f10;}
 .mode-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);}
-.mode-pill.live .dot{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse 1.6s infinite;}
+.mode-pill.live .dot{background:var(--gold);box-shadow:0 0 8px var(--gold);}
 .mode-pill.win{color:#c8f0b8;border-color:#5cb82f;background:#1c2a13;}
 .mode-pill.win .dot{background:#5cb82f;box-shadow:0 0 8px #5cb82f;}
 .mode-pill.lose{color:#f5b8ae;border-color:#c1503f;background:#2a1712;}
 .mode-pill.lose .dot{background:#c1503f;box-shadow:0 0 8px #c1503f;}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
 button{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:.85rem;border:1px solid var(--vein);background:var(--panel);color:var(--text);padding:10px 16px;border-radius:8px;cursor:pointer;transition:transform .08s ease,background .15s ease,border-color .15s ease;letter-spacing:.01em;}
 button:active{transform:scale(.96);}
@@ -603,6 +602,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-  <script src="app.js?v=20260810-0112"></script>
+  <script src="app.js?v=20260810-0136"></script>
 </body>
 </html>
