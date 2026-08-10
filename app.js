@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260810-0139';
+const APP_VERSION = '20260810-0141';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -677,12 +677,12 @@ function openSharedGridPreview(gridId){
 function closeSharedGridPreview(){$('#sharedGridPreviewModal').classList.remove('open');}
 function openCreatorGridBlockedModal(gridId){blockedCreatorGridId=gridId;$('#creatorGridBlockedModal').classList.add('open');}
 function closeCreatorGridBlockedModal(){$('#creatorGridBlockedModal').classList.remove('open');}
-$('#closeSharedGridPreview').addEventListener('click',closeSharedGridPreview);
-$('#sharedGridPreviewModal').addEventListener('click',e=>{if(e.target.id==='sharedGridPreviewModal')closeSharedGridPreview();});
-$('#closeCreatorGridBlocked').addEventListener('click',closeCreatorGridBlockedModal);
-$('#dismissCreatorGridBlocked').addEventListener('click',closeCreatorGridBlockedModal);
-$('#creatorGridBlockedModal').addEventListener('click',e=>{if(e.target.id==='creatorGridBlockedModal')closeCreatorGridBlockedModal();});
-$('#viewBlockedCreatorGrid').addEventListener('click',()=>{const id=blockedCreatorGridId;closeCreatorGridBlockedModal();closeSoloChoiceModal();if(id)openSharedGridPreview(id);});
+document.querySelector('#closeSharedGridPreview').addEventListener('click',closeSharedGridPreview);
+document.querySelector('#sharedGridPreviewModal').addEventListener('click',e=>{if(e.target.id==='sharedGridPreviewModal')closeSharedGridPreview();});
+document.querySelector('#closeCreatorGridBlocked').addEventListener('click',closeCreatorGridBlockedModal);
+document.querySelector('#dismissCreatorGridBlocked').addEventListener('click',closeCreatorGridBlockedModal);
+document.querySelector('#creatorGridBlockedModal').addEventListener('click',e=>{if(e.target.id==='creatorGridBlockedModal')closeCreatorGridBlockedModal();});
+document.querySelector('#viewBlockedCreatorGrid').addEventListener('click',()=>{const id=blockedCreatorGridId;closeCreatorGridBlockedModal();closeSoloChoiceModal();if(id)openSharedGridPreview(id);});
 
 async function openMySharedGrids(){
   if(!currentPlayerAccount) return;
@@ -3865,9 +3865,8 @@ document.addEventListener('dblclick',event=>event.preventDefault(),{passive:fals
 // ---------------------------------------------------------------------
 // INIT
 // ---------------------------------------------------------------------
-async function init(){
+function init(){
   updateAccountFab();
-  await validateSavedAccount();
   buildMixBoard();
   const restored = loadState();
   if(!restored){ state.pieces = freshPieceSet(); }
@@ -3878,8 +3877,17 @@ async function init(){
   renderAll();
   const hasActiveGame = state.mode==='solo' || state.started || state.history.length>0;
   if(tutorialLoadProgress()||!hasActiveGame)showHome();
-  else if(await activeSoloGridIsAllowed())showGame();
+  else showGame();
   requestAnimationFrame(()=>document.body.classList.remove('app-loading'));
+
+  // Les contrôles Supabase ne doivent jamais bloquer l'affichage initial.
+  // Une éventuelle grille créée par ce compte est fermée après validation.
+  void validateSavedAccount().then(async()=>{
+    updateAccountFab();
+    if(state.mode==='solo'&&!state.soloOver&&!state.isDaily&&state.gridId){
+      await activeSoloGridIsAllowed();
+    }
+  }).catch(error=>console.error('Validation du compte impossible :',error));
 }
 init();
 ensureCurrentAppVersion(false,true);
