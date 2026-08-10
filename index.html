@@ -262,7 +262,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .home-actions{display:grid;gap:12px}
 .home-action{min-height:76px;display:grid;grid-template-columns:46px 1fr 24px;align-items:center;text-align:left;padding:13px 15px;border-radius:13px;background:rgba(18,14,10,.58)}
 .home-action.primary{background:linear-gradient(135deg,#4a3519,#2a1f10)}
-.home-action .icon{font-size:1.55rem;text-align:center}.home-action strong{display:block;font-family:'Cinzel',serif;font-size:1rem;color:var(--gold-bright)}.home-action small{display:block;margin-top:4px;color:var(--text-dim);font-weight:500}.home-action .arrow{font-size:1.25rem;color:var(--gold)}
+.home-action .icon{font-size:1.55rem;text-align:center}.home-action .icon.pickaxe{font-family:'Arial Unicode MS','Segoe UI Symbol',sans-serif;font-size:1.9rem;line-height:1;color:var(--gold-bright);text-shadow:0 0 10px rgba(230,194,122,.25)}.home-action strong{display:block;font-family:'Cinzel',serif;font-size:1rem;color:var(--gold-bright)}.home-action small{display:block;margin-top:4px;color:var(--text-dim);font-weight:500}.home-action .arrow{font-size:1.25rem;color:var(--gold)}
 .home-action.learn{min-height:66px}
 body.home-view .home-screen{display:flex}
 body.home-view{position:fixed;inset:0;width:100%;height:100vh;height:100dvh;overflow:hidden;padding-bottom:0}
@@ -290,7 +290,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
       <h1 id="homeTitle">Orapa Mine</h1>
       <p class="home-kicker">Explorez la mine · Déduisez la grille</p>
       <div class="home-actions">
-        <button id="homeSolo" class="home-action primary"><span class="icon">⛏️</span><span><strong>Jouer en solo</strong><small>Défi du jour, grille aléatoire ou identifiant</small></span><span class="arrow">›</span></button>
+        <button id="homeSolo" class="home-action primary"><span class="icon pickaxe">⛏︎</span><span><strong>Jouer en solo</strong><small>Défi du jour, grille aléatoire ou identifiant</small></span><span class="arrow">›</span></button>
         <button id="homeCreate" class="home-action"><span class="icon">✏️</span><span><strong>Créer une grille</strong></span><span class="arrow">›</span></button>
         <button id="homeLearn" class="home-action learn"><span class="icon">📖</span><span><strong>Apprendre à jouer</strong></span><span class="arrow">›</span></button>
       </div>
@@ -659,6 +659,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-  <script src="app.js?v=20260810-0147"></script>
+  <script src="app.js?v=20260810-0148"></script>
 </body>
 </html>
