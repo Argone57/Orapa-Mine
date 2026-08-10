@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260810-0107';
+const APP_VERSION = '20260810-0108';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3345,10 +3345,9 @@ function setRankingView(view){
 let expandedScores = new Set();
 let gridCatalogState={popular:null,searched:null,searchError:'',accountId:null};
 async function fetchGridCatalog(sort,limit,offset=0){
-  const params={p_sort:sort,p_limit:limit,p_offset:offset};
-  if(currentPlayerAccount?.session_token)params.p_session_token=currentPlayerAccount.session_token;
-  let rows;
-  try{rows=await supabaseRpc('orapa_get_grid_catalog',params);}catch(error){if(!params.p_session_token)throw error;rows=await supabaseRpc('orapa_get_grid_catalog',{p_sort:sort,p_limit:limit,p_offset:offset});}
+  const rows=currentPlayerAccount?.session_token
+    ? await supabaseRpc('orapa_get_grid_catalog_for_account',{p_sort:sort,p_limit:limit,p_offset:offset,p_session_token:currentPlayerAccount.session_token})
+    : await supabaseRpc('orapa_get_grid_catalog',{p_sort:sort,p_limit:limit,p_offset:offset});
   return Array.isArray(rows)?rows:[];
 }
 function gridCatalogCard(row,section,index){
@@ -3357,7 +3356,7 @@ function gridCatalogCard(row,section,index){
   const count=Number(row.participation_count)||0,wins=Number(row.success_count)||0,rate=count?Math.round(wins/count*100):0;
   const key=`gridcatalog:${section}:${id}`,expanded=expandedScores.has(key);
   const lastDate=row.last_played_at?new Date(row.last_played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
-  const label=section==='popular'?rankingMedal(index):'Grille recherchée';
+  const label=section==='popular'?rankingMedal(index):'';
   const solved=row.solved_by_me===true?'<span aria-label="Grille résolue">✓</span>':'';
   const detail=expanded?`<div class="grid-catalog-detail"><div class="grid-catalog-id">ID : ${escapeHtml(id)}</div><div>${wins} réussite${wins===1?'':'s'} · ${count-wins} échec${count-wins===1?'':'s'} · meilleur score : <b>${row.best_score==null?'—':row.best_score+' pts'}</b> · meilleur temps : <b>${row.best_time_ms==null?'—':formatDuration(Number(row.best_time_ms))}</b> · dernière partie : ${lastDate}</div></div><div class="controls grid-catalog-actions"><button class="grid-catalog-copy ghost" data-grid-id="${escapeHtml(id)}">📋 Copier l’ID</button><button class="grid-catalog-ranking primary" data-grid-id="${escapeHtml(id)}">🏆 Classement</button></div>`:'';
   return `<div class="ranking-row grid-catalog-row${expanded?' expanded':''}" data-grid-catalog-key="${escapeHtml(key)}"><div class="ranking-row-top"><span class="grid-catalog-label">${label}</span><span class="grid-catalog-gems ranking-gems">${gems}</span><span class="grid-catalog-solved">${solved}</span><span class="grid-catalog-count">${count} 👥</span><span class="grid-catalog-rate">${count?rate+' %':'—'}</span></div>${detail}</div>`;
@@ -3397,8 +3396,9 @@ async function searchGridCatalog(input){
   gridCatalogState.searchError='';
   $('#rankingList').innerHTML='<div class="history-empty">Recherche de la grille…</div>';
   try{
-    const params={p_grid_id:decoded.id};if(currentPlayerAccount?.session_token)params.p_session_token=currentPlayerAccount.session_token;
-    let rows;try{rows=await supabaseRpc('orapa_get_grid_overview',params);}catch(error){if(!params.p_session_token)throw error;rows=await supabaseRpc('orapa_get_grid_overview',{p_grid_id:decoded.id});}
+    const rows=currentPlayerAccount?.session_token
+      ? await supabaseRpc('orapa_get_grid_overview_for_account',{p_grid_id:decoded.id,p_session_token:currentPlayerAccount.session_token})
+      : await supabaseRpc('orapa_get_grid_overview',{p_grid_id:decoded.id});
     gridCatalogState.searched=Array.isArray(rows)&&rows[0]?rows[0]:{grid_id:decoded.id,participation_count:0,success_count:0,best_score:null,best_time_ms:null,last_played_at:null};
     renderGridCatalog();
   }catch(error){gridCatalogState.searched=null;gridCatalogState.searchError='Recherche impossible : '+error.message;renderGridCatalog();}
