@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260810-0143';
+const APP_VERSION = '20260810-0144';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3501,9 +3501,10 @@ function gridCatalogCard(row,section,index){
   const key=`gridcatalog:${section}:${id}`,expanded=expandedScores.has(key);
   const lastDate=row.last_played_at?new Date(row.last_played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
   const label=section==='popular'?rankingMedal(index):'';
-  const playedResult=row.solved_by_me===true?'<span aria-label="Grille réussie">✓</span>':row.solved_by_me===false?'<span aria-label="Grille échouée">✕</span>':'';
+  const statusKind=row.shared_by_me?'shared':row.solved_by_me===true?'win':row.solved_by_me===false?'fail':'';
+  const playedResult=statusKind==='shared'?'<span class="grid-catalog-status-icon share" aria-label="Grille partagée par ce compte">📤</span>':statusKind==='win'?'<span class="grid-catalog-status-icon win" aria-label="Grille réussie">✓</span>':statusKind==='fail'?'<span class="grid-catalog-status-icon fail" aria-label="Grille échouée">✕</span>':'';
   const detail=expanded?`<div class="grid-catalog-detail"><div class="grid-catalog-id">ID : ${escapeHtml(id)}</div><div>${wins} réussite${wins===1?'':'s'} · ${count-wins} échec${count-wins===1?'':'s'} · meilleur score : <b>${row.best_score==null?'—':row.best_score+' pts'}</b> · meilleur temps : <b>${row.best_time_ms==null?'—':formatDuration(Number(row.best_time_ms))}</b> · dernière partie : ${lastDate}</div></div><div class="controls grid-catalog-actions"><button class="grid-catalog-copy ghost" data-grid-id="${escapeHtml(id)}">📋 Copier l’ID</button><button class="grid-catalog-ranking primary" data-grid-id="${escapeHtml(id)}">🏆 Classement</button></div>`:'';
-  return `<div class="ranking-row grid-catalog-row${expanded?' expanded':''}" data-grid-catalog-key="${escapeHtml(key)}"><div class="ranking-row-top"><span class="grid-catalog-label">${label}</span><span class="grid-catalog-gems ranking-gems">${gems}</span><span class="grid-catalog-solved${row.solved_by_me===false?' fail':''}">${playedResult}</span><span class="grid-catalog-count">${count} 👥</span><span class="grid-catalog-rate">${count?rate+' %':'—'}</span></div>${detail}</div>`;
+  return `<div class="ranking-row grid-catalog-row${expanded?' expanded':''}" data-grid-catalog-key="${escapeHtml(key)}"><div class="ranking-row-top"><span class="grid-catalog-label">${label}</span><span class="grid-catalog-gems ranking-gems">${gems}</span><span class="grid-catalog-solved ${statusKind}">${playedResult}</span><span class="grid-catalog-count">${count} 👥</span><span class="grid-catalog-rate">${count?rate+' %':'—'}</span></div>${detail}</div>`;
 }
 function bindGridCatalogActions(){
   const el=$('#rankingList');
