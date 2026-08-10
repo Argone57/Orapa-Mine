@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260810-0138';
+const APP_VERSION = '20260810-0139';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -658,9 +658,35 @@ async function openMyDailyHistory(){
     renderDaily();
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
+let blockedCreatorGridId=null;
+function readOnlyGridSvg(decoded){
+  const polygons=decoded.pieces.map(piece=>{
+    const def=CONFIG.PIECES[piece.type];
+    const fill=def.isDiamond?'rgba(207,216,220,.62)':def.hex;
+    return `<polygon points="${polyPointsAttr(pieceVertices(piece))}" fill="${fill}" stroke="rgba(0,0,0,.42)" stroke-width=".045"/>`;
+  }).join('');
+  return `<svg viewBox="-.16 -.16 ${COLS+.32} ${ROWS+.32}" role="img" aria-label="Disposition complète de la grille"><defs><pattern id="readonlyGridPattern" width="1" height="1" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#7d8795"/><path d="M 1 0 L 0 0 0 1" fill="none" stroke="#606b79" stroke-width=".035"/></pattern></defs><rect x="0" y="0" width="${COLS}" height="${ROWS}" rx=".08" fill="url(#readonlyGridPattern)"/>${polygons}</svg>`;
+}
+function openSharedGridPreview(gridId){
+  const decoded=decodeGridId(gridId);
+  if(!decoded){showToast('Identifiant de grille invalide.');return;}
+  const gems=gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire);
+  $('#sharedGridPreviewContent').innerHTML=`<div class="readonly-grid-meta"><b>${escapeHtml(decoded.id)}</b><span>${gems}</span></div><div class="readonly-grid-board">${readOnlyGridSvg(decoded)}</div><p class="readonly-grid-note">Aucune action n’est possible dans cet aperçu.</p>`;
+  $('#sharedGridPreviewModal').classList.add('open');
+}
+function closeSharedGridPreview(){$('#sharedGridPreviewModal').classList.remove('open');}
+function openCreatorGridBlockedModal(gridId){blockedCreatorGridId=gridId;$('#creatorGridBlockedModal').classList.add('open');}
+function closeCreatorGridBlockedModal(){$('#creatorGridBlockedModal').classList.remove('open');}
+$('#closeSharedGridPreview').addEventListener('click',closeSharedGridPreview);
+$('#sharedGridPreviewModal').addEventListener('click',e=>{if(e.target.id==='sharedGridPreviewModal')closeSharedGridPreview();});
+$('#closeCreatorGridBlocked').addEventListener('click',closeCreatorGridBlockedModal);
+$('#dismissCreatorGridBlocked').addEventListener('click',closeCreatorGridBlockedModal);
+$('#creatorGridBlockedModal').addEventListener('click',e=>{if(e.target.id==='creatorGridBlockedModal')closeCreatorGridBlockedModal();});
+$('#viewBlockedCreatorGrid').addEventListener('click',()=>{const id=blockedCreatorGridId;closeCreatorGridBlockedModal();closeSoloChoiceModal();if(id)openSharedGridPreview(id);});
+
 async function openMySharedGrids(){
   if(!currentPlayerAccount) return;
-  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est enregistré comme créateur, chargées par 10.</p>',true);
+  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est enregistré comme créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p>',true);
   const sharedState={rows:[],hasMore:true};
   const loadPage=async()=>{
     const page=await supabaseRpc('orapa_my_shared_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:sharedState.rows.length});
@@ -671,22 +697,20 @@ async function openMySharedGrids(){
   try{
     await loadPage();
     if(!sharedState.rows.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille partagée avec ce compte.</div>'; return; }
-    const now=Date.now();
     const renderShared=()=>{
       const rows=sharedState.rows;
       const rowsHtml=rows.map((row,i)=>{
         const key=`shared:${row.grid_id}`,expanded=expandedScores.has(key),decoded=decodeGridId(row.grid_id);
         const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
-        const protectedUntil=row.creator_protected_until?new Date(row.creator_protected_until):null;
-        const protection=protectedUntil&&protectedUntil.getTime()>now?`Protection jusqu’au ${protectedUntil.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})}`:'Protection terminée';
         const sharedDate=row.shared_at?new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
-        return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="ranking-rank">${row.score_count||0} 👥</span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.best_score==null?'—':`${row.best_score} pts`}</span></div>${expanded?`<div class="account-grid-id">ID : ${escapeHtml(row.grid_id)}</div><div class="ranking-row-detail">${protection}${row.best_time_ms==null?'':` · meilleur temps : ${formatDuration(row.best_time_ms)}`}${sharedDate?` · ${sharedDate}`:''}</div><div class="controls ranking-compact-actions two"><button class="shared-copy ghost" data-grid-index="${i}">📋 ID</button><button class="shared-ranking primary" data-grid-index="${i}">🏆 Grille</button></div>`:''}</div>`;
+        return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="ranking-rank">${row.score_count||0} 👥</span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.best_score==null?'—':`${row.best_score} pts`}</span></div>${expanded?`<div class="account-grid-id">ID : ${escapeHtml(row.grid_id)}</div><div class="ranking-row-detail">Consultation uniquement${row.best_time_ms==null?'':` · meilleur temps : ${formatDuration(row.best_time_ms)}`}${sharedDate?` · partagée le ${sharedDate}`:''}</div><div class="controls ranking-compact-actions three"><button class="shared-copy ghost" data-grid-index="${i}">📋 ID</button><button class="shared-ranking ghost" data-grid-index="${i}">🏆 Classement</button><button class="shared-preview primary" data-grid-index="${i}">👁️ Voir</button></div>`:''}</div>`;
       }).join('');
       const more=sharedState.hasMore?'<button id="sharedLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'';
       $('#gridDataContent').innerHTML=rowsHtml+more;
       $('#gridDataContent').querySelectorAll('.account-shared-row').forEach(el=>el.onclick=ev=>{if(ev.target.closest('button'))return;const row=rows[Number(el.dataset.gridIndex)],key=`shared:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderShared();});
       $('#gridDataContent').querySelectorAll('.shared-copy').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
       $('#gridDataContent').querySelectorAll('.shared-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
+      $('#gridDataContent').querySelectorAll('.shared-preview').forEach(btn=>btn.onclick=()=>openSharedGridPreview(rows[Number(btn.dataset.gridIndex)].grid_id));
       const loadMore=$('#sharedLoadMore');
       if(loadMore) loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderShared();}catch(e){showToast(`Chargement impossible : ${e.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
     };
@@ -851,7 +875,7 @@ async function submitGlobalGridScore(entry, identity){
     });
     if(row?.accepted){invalidateGlobalSoloScores();refreshAchievements(entry.firstTry?'first_try':null);}
     if(row?.reason==='already_played'){showToast('Cette grille a déjà été classée avec ce profil.');refreshAchievements('deja_vu');}
-    else if(row?.reason==='creator_protected') showToast('⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.');
+    else if(row?.reason==='creator_protected') showToast('⭐ Cette grille est la vôtre et ne peut pas être résolue avec ce compte.');
     else showToast(row?.rank ? `🌍 Première tentative enregistrée · rang #${row.rank}` : '🌍 Première tentative enregistrée');
     return row;
   }catch(err){
@@ -1365,7 +1389,8 @@ function randomizePlacement(){
 // ---------------------------------------------------------------------
 // MODE SOLO — une grille secrète est générée, le joueur doit la retrouver.
 // ---------------------------------------------------------------------
-async function startSoloGame(explicitId){
+async function startSoloGame(explicitId,creatorRetry=0){
+  const previousOptions={includeGray:state.includeGray,includeOnyx:state.includeOnyx,includeSapphire:state.includeSapphire};
   let gridId, secret, ranked;
   if(explicitId){
     const decoded = decodeGridId(explicitId);
@@ -1395,7 +1420,17 @@ async function startSoloGame(explicitId){
   let gridStatus=null;
   try{
     gridStatus=await supabaseRpc('orapa_get_grid_status',{p_grid_id:gridId,p_session_token:currentPlayerAccount.session_token});
-  }catch(e){ console.warn('Statut de grille indisponible',e); }
+  }catch(e){
+    console.warn('Statut de grille indisponible',e);
+    setTimeout(()=>alert('Impossible de vérifier si cette grille peut être jouée avec ce compte. Vérifie ta connexion puis réessaie.'),60);
+    return;
+  }
+  if(gridStatus?.is_creator){
+    if(!explicitId&&creatorRetry<20)return startSoloGame(null,creatorRetry+1);
+    if(explicitId)Object.assign(state,previousOptions);
+    openCreatorGridBlockedModal(gridId);
+    return;
+  }
   const unrankedReason=gridStatus?.creator_protected?'creator_protected':(gridStatus?.already_played?'already_played':null);
   setHintMode(false);
   state.mode = 'solo';
@@ -1663,7 +1698,7 @@ function openVictoryModal(){
     : (lastScoreResult && lastScoreResult.madeList
       ? `Classé #${lastScoreResult.rank} dans « ${lastScoreResult.key} »`
       : (state.isDaily ? '' : (state.gridUnrankedReason==='creator_protected'
-      ? '⭐ Cette grille est la vôtre. Votre résultat n’a pas été ajouté au classement.'
+      ? '⭐ Cette grille est la vôtre et ne peut pas être résolue avec ce compte.'
       : (state.gridUnrankedReason==='already_played' ? 'Cette grille a déjà été classée avec ce profil.' : ''))));
   $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${formatDailyDate(state.dailyDate)})` : (state.gridId || '');
   $('#btnVictoryGridRanking').style.display=(!state.isDaily&&state.gridId)?'':'none';
@@ -2787,10 +2822,21 @@ async function enterSolo(){
     $('#soloAccountPromptModal').classList.add('open');
     return;
   }
-  if(state.mode==='solo' && !state.soloOver){ showGame(); return; }
+  if(state.mode==='solo' && !state.soloOver){
+    if(!await activeSoloGridIsAllowed())return;
+    showGame();return;
+  }
   openSoloChoiceModal();
 }
 $('#homeSolo').addEventListener('click', enterSolo);
+async function activeSoloGridIsAllowed(){
+  if(state.mode!=='solo'||state.isDaily||!state.gridId||!currentPlayerAccount?.session_token)return true;
+  try{
+    const status=await supabaseRpc('orapa_get_grid_status',{p_grid_id:state.gridId,p_session_token:currentPlayerAccount.session_token});
+    if(status?.is_creator){showHome();openCreatorGridBlockedModal(state.gridId);return false;}
+    return true;
+  }catch(error){showToast('Vérification de la grille impossible.');return false;}
+}
 const TUTORIAL_PROGRESS_KEY='orapaTutorialProgressV1';
 let tutorialActive=false,tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null,tutorialPlacementEnds=[],tutorialStepNumber=0,tutorialStepKey='';
 function tutorialLoadProgress(){try{const data=JSON.parse(localStorage.getItem(TUTORIAL_PROGRESS_KEY)||'null');return data?.version===1&&data.state?data:null;}catch(e){return null;}}
@@ -3819,9 +3865,9 @@ document.addEventListener('dblclick',event=>event.preventDefault(),{passive:fals
 // ---------------------------------------------------------------------
 // INIT
 // ---------------------------------------------------------------------
-function init(){
+async function init(){
   updateAccountFab();
-  validateSavedAccount();
+  await validateSavedAccount();
   buildMixBoard();
   const restored = loadState();
   if(!restored){ state.pieces = freshPieceSet(); }
@@ -3831,8 +3877,8 @@ function init(){
   computeCellSize();
   renderAll();
   const hasActiveGame = state.mode==='solo' || state.started || state.history.length>0;
-  if(tutorialLoadProgress()||!hasActiveGame) showHome();
-  else showGame();
+  if(tutorialLoadProgress()||!hasActiveGame)showHome();
+  else if(await activeSoloGridIsAllowed())showGame();
   requestAnimationFrame(()=>document.body.classList.remove('app-loading'));
 }
 init();

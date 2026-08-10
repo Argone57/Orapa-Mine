@@ -189,6 +189,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 @media(max-width:600px){.ranking-row .controls{margin-left:0!important;display:grid;grid-template-columns:1fr;width:100%}.ranking-row .controls button{width:100%}}
 .ranking-compact-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important;margin:9px 0 2px 34px!important}.ranking-compact-actions button{width:auto!important;min-width:0;padding:6px 5px;font-size:.68rem;white-space:nowrap}
 .ranking-compact-actions.two{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.ranking-compact-actions.three{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 .solo-load-more{display:block;width:calc(100% - 10px);margin:10px 5px 4px;padding:8px}
 .account-history-row .ranking-row-top,.account-shared-row .ranking-row-top{display:grid;grid-template-columns:58px minmax(0,1fr) 58px;align-items:center;gap:6px}.account-history-row .ranking-gems,.account-shared-row .ranking-gems{text-align:center;white-space:nowrap}.account-shared-row .ranking-rank{width:auto;min-width:0;white-space:nowrap}.account-history-row .ranking-points,.account-shared-row .ranking-points{text-align:right}.account-grid-id{margin:7px 0 0 34px;font-size:.62rem;color:var(--text-faint);overflow-wrap:anywhere}.account-history-row .ranking-row-detail,.account-shared-row .ranking-row-detail{margin-top:3px}
 .account-result-position{display:flex;align-items:center;gap:5px;white-space:nowrap}.account-result-position b{font-size:.72rem;color:var(--gold-bright)}.account-daily-row .ranking-row-top{display:grid;grid-template-columns:54px 55px minmax(0,1fr) 54px;align-items:center;gap:4px}.account-daily-row .ranking-gems{text-align:center;white-space:nowrap}.account-daily-row .ranking-points{text-align:right}.daily-history-actions{grid-template-columns:1fr!important}
@@ -197,6 +198,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 @media(max-width:600px){.ranking-compact-actions{margin-left:0!important}.ranking-row-top .ranking-gems{font-size:.66rem;max-width:94px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.solo-global-row .ranking-row-top{grid-template-columns:minmax(0,29fr) minmax(0,38fr) minmax(0,33fr);gap:4px}.solo-global-row .solo-ranking-config{max-width:none;overflow:visible;text-overflow:clip}.solo-ranking-score{gap:3px}}
 @media(max-width:600px){.account-history-row .ranking-gems,.account-shared-row .ranking-gems,.account-daily-row .ranking-gems{max-width:none!important;overflow:visible!important;text-overflow:clip!important}}
 @media(max-width:600px){.grid-catalog-row .grid-catalog-gems{max-width:none!important;overflow:visible!important;text-overflow:clip!important}}
+.readonly-grid-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 12px;color:var(--text-dim);font-size:.72rem}.readonly-grid-meta b{color:var(--gold-bright);overflow-wrap:anywhere}.readonly-grid-board{width:min(100%,620px);margin:auto;border:1px solid var(--vein);border-radius:12px;padding:12px;background:#302519}.readonly-grid-board svg{display:block;width:100%;height:auto;max-height:66dvh}.readonly-grid-note{text-align:center;margin:12px 0 0;color:var(--text-faint);font-size:.7rem}#sharedGridPreviewContent{min-height:0;overflow-y:auto;flex:1;padding-right:4px}#sharedGridPreviewModal,#creatorGridBlockedModal{z-index:370}@media(max-width:460px){.ranking-compact-actions.three button{padding-left:5px;padding-right:5px;font-size:.66rem}.readonly-grid-meta{align-items:flex-start;flex-direction:column}}
 
 .toast-msg{
   position:fixed; left:50%; bottom:80px; transform:translateX(-50%) translateY(20px);
@@ -505,6 +507,25 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
+<div class="modal-backdrop" id="sharedGridPreviewModal">
+  <div class="modal achievement-modal-card">
+    <div class="achievement-modal-title"><h2>👁️ Grille créée</h2><button class="close-x" id="closeSharedGridPreview">×</button></div>
+    <div id="sharedGridPreviewContent"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="creatorGridBlockedModal">
+  <div class="modal">
+    <button class="close-x" id="closeCreatorGridBlocked">×</button>
+    <h2>⭐ Cette grille est la vôtre</h2>
+    <p>Vous ne pouvez pas résoudre une grille que vous avez créée et partagée. Vous pouvez toutefois la consulter en lecture seule.</p>
+    <div class="controls" style="justify-content:flex-end;margin-top:16px;">
+      <button class="primary" id="viewBlockedCreatorGrid">👁️ Voir la grille</button>
+      <button class="ghost" id="dismissCreatorGridBlocked">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="helpModal">
   <div class="modal">
     <button class="close-x" id="closeHelp">×</button>
@@ -615,6 +636,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-  <script src="app.js?v=20260810-0138"></script>
+  <script src="app.js?v=20260810-0139"></script>
 </body>
 </html>

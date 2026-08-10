@@ -4,7 +4,7 @@
 
 Les évolutions de la base sont rangées dans le dossier `Supabase` et numérotées dans
 l’ordre d’exécution. Sur une base déjà utilisée, exécute uniquement les scripts qui
-n’ont pas encore été appliqués, dans l’ordre `01` à `08`.
+n’ont pas encore été appliqués, dans l’ordre `01` à `09`.
 
 Ces fichiers complètent une installation Supabase existante. Les fonctions historiques
 de création de compte, de connexion, de changement de pseudo et de statistiques du
@@ -140,7 +140,9 @@ Le bouton **🧩 Jouer en solo** propose notamment **🎲 Grille aléatoire** et
 
 ## Grille du maître du jeu
 
-**Démarrer la partie** lance uniquement l’assistance au jeu physique : aucune grille n’est envoyée à Supabase. **Partager la grille** est une action distincte disponible avant le démarrage ; elle exige un compte, associe le créateur, applique la protection et copie le défi.
+**Démarrer la partie** lance uniquement l’assistance au jeu physique : aucune grille n’est envoyée à Supabase. **Partager la grille** est une action distincte disponible avant le démarrage ; elle exige un compte, associe le créateur et copie le défi.
+
+Une grille partagée devient définitivement non jouable par son créateur. Elle est écartée du tirage aléatoire pour ce compte, ne peut pas être lancée par identifiant et reste disponible en lecture seule depuis **Mes grilles partagées**. Supabase refuse également tout nouveau score du créateur ; les éventuels anciens scores sont conservés.
 
 ## Partager un score
 
