@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260810-0144';
+const APP_VERSION = '20260810-0145';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3329,7 +3329,6 @@ async function confirmGridIdEntry(){
   const id=$('#gridIdEntryInput').value.trim().toUpperCase();
   const decoded=decodeGridId(id);
   if(!decoded){accountError('#gridIdEntryError','Identifiant invalide. Vérifie qu’il a été copié en entier.');return;}
-  if(unreachablePieces(decoded.pieces).length>0){accountError('#gridIdEntryError','Cet identifiant ne correspond à aucune grille valide.');return;}
   const button=$('#confirmGridIdEntry');
   button.disabled=true;
   button.textContent='Vérification…';
