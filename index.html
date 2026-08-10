@@ -252,7 +252,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .score-account-summary{display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;padding:16px 12px;margin:10px 0 14px;border:1px solid var(--vein);border-radius:10px;background:var(--panel)}
 .score-account-summary strong{font-size:1.08rem;color:var(--gold-bright)}.score-account-summary span{font-size:.78rem;color:var(--text-dim)}.score-account-summary.guest strong{color:var(--text)}
 .score-identity-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
-.home-screen{min-height:calc(100vh - 42px);display:none;align-items:center;justify-content:center;padding:36px 8px}
+.home-screen{min-height:calc(100dvh - 54px - env(safe-area-inset-bottom));display:none;align-items:center;justify-content:center;padding:36px 8px}
 .home-card{width:min(100%,560px);padding:34px 22px 26px;border:1px solid var(--vein);border-radius:22px;background:linear-gradient(155deg,rgba(56,44,31,.96),rgba(24,18,12,.98));box-shadow:0 22px 70px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.04);text-align:center;position:relative;overflow:hidden}
 .home-card::before{content:'';position:absolute;inset:-80px auto auto -70px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(230,194,122,.15),transparent 70%);pointer-events:none}
 .home-mark{width:74px;height:74px;margin:0 auto 18px;display:grid;place-items:center;border:1px solid var(--gold);border-radius:22px;transform:rotate(45deg);background:rgba(201,161,90,.08);box-shadow:0 0 34px rgba(201,161,90,.14)}
@@ -286,8 +286,8 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
       <h1 id="homeTitle">Orapa Mine</h1>
       <p class="home-kicker">Explorez la mine · Déduisez la grille</p>
       <div class="home-actions">
-        <button id="homeSolo" class="home-action primary"><span class="icon">🧩</span><span><strong>Jouer en solo</strong><small>Défi du jour, grille aléatoire ou identifiant</small></span><span class="arrow">›</span></button>
-        <button id="homeCreate" class="home-action"><span class="icon">🎯</span><span><strong>Créer une grille</strong></span><span class="arrow">›</span></button>
+        <button id="homeSolo" class="home-action primary"><span class="icon">⛏️</span><span><strong>Jouer en solo</strong><small>Défi du jour, grille aléatoire ou identifiant</small></span><span class="arrow">›</span></button>
+        <button id="homeCreate" class="home-action"><span class="icon">✏️</span><span><strong>Créer une grille</strong></span><span class="arrow">›</span></button>
         <button id="homeLearn" class="home-action learn"><span class="icon">📖</span><span><strong>Apprendre à jouer</strong></span><span class="arrow">›</span></button>
       </div>
     </div>
@@ -655,6 +655,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-  <script src="app.js?v=20260810-0145"></script>
+  <script src="app.js?v=20260810-0146"></script>
 </body>
 </html>
