@@ -198,7 +198,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 @media(max-width:600px){.ranking-compact-actions{margin-left:0!important}.ranking-row-top .ranking-gems{font-size:.66rem;max-width:94px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.solo-global-row .ranking-row-top{grid-template-columns:minmax(0,29fr) minmax(0,38fr) minmax(0,33fr);gap:4px}.solo-global-row .solo-ranking-config{max-width:none;overflow:visible;text-overflow:clip}.solo-ranking-score{gap:3px}}
 @media(max-width:600px){.account-history-row .ranking-gems,.account-shared-row .ranking-gems,.account-daily-row .ranking-gems{max-width:none!important;overflow:visible!important;text-overflow:clip!important}}
 @media(max-width:600px){.grid-catalog-row .grid-catalog-gems{max-width:none!important;overflow:visible!important;text-overflow:clip!important}}
-.readonly-grid-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 12px;color:var(--text-dim);font-size:.72rem}.readonly-grid-meta b{color:var(--gold-bright);overflow-wrap:anywhere}.readonly-grid-board{width:min(100%,620px);margin:auto;border:1px solid var(--vein);border-radius:12px;padding:12px;background:#302519}.readonly-grid-board svg{display:block;width:100%;height:auto;max-height:66dvh}.readonly-grid-note{text-align:center;margin:12px 0 0;color:var(--text-faint);font-size:.7rem}#sharedGridPreviewContent{min-height:0;overflow-y:auto;flex:1;padding-right:4px}#sharedGridPreviewModal,#creatorGridBlockedModal{z-index:370}@media(max-width:460px){.ranking-compact-actions.three button{padding-left:5px;padding-right:5px;font-size:.66rem}.readonly-grid-meta{align-items:flex-start;flex-direction:column}}
+.readonly-grid-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 12px;color:var(--text-dim);font-size:.72rem}.readonly-grid-meta b{color:var(--gold-bright);overflow-wrap:anywhere}.readonly-grid-board{width:min(100%,620px);margin:auto;border:1px solid var(--vein);border-radius:12px;padding:12px;background:#302519}.readonly-grid-board svg{display:block;width:100%;height:auto;max-height:58dvh}.readonly-grid-note{text-align:center;margin:10px 0;color:var(--text-faint);font-size:.7rem}.readonly-grid-actions{display:grid!important;grid-template-columns:1fr 1fr;margin:10px 0 0!important}#sharedGridPreviewContent{min-height:0;overflow-y:auto;flex:1;padding-right:4px}#sharedGridPreviewModal,#creatorGridBlockedModal,#gridIdEntryModal{z-index:370}.shared-grid-toolbar{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr) 42px;gap:6px;margin-top:10px}.shared-grid-toolbar select{margin:0;min-width:0}.shared-sort-reverse{width:42px;padding:7px 4px}.account-shared-row .ranking-row-top{grid-template-columns:55px minmax(112px,1fr) 55px 44px 42px;gap:5px}.account-shared-date{white-space:nowrap;color:var(--text-dim);font-size:.7rem}.account-shared-row .ranking-count,.account-shared-row .ranking-rate{text-align:right;white-space:nowrap;font-size:.68rem}.account-shared-row .ranking-rate{color:var(--gold-bright);font-weight:800}@media(max-width:560px){.shared-grid-toolbar{grid-template-columns:1fr 1fr 38px}.shared-sort-reverse{width:38px}.account-shared-row .ranking-row-top{grid-template-columns:43px minmax(96px,1fr) 43px 36px 34px;gap:3px}.account-shared-date,.account-shared-row .ranking-count,.account-shared-row .ranking-rate{font-size:.61rem}.account-shared-row .ranking-gems{font-size:.62rem}}@media(max-width:460px){.ranking-compact-actions.three button{padding-left:5px;padding-right:5px;font-size:.66rem}.readonly-grid-meta{align-items:flex-start;flex-direction:column}}
 
 .toast-msg{
   position:fixed; left:50%; bottom:80px; transform:translateX(-50%) translateY(20px);
@@ -272,6 +272,7 @@ body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120
 body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-fab,body.app-loading .help-fab{visibility:hidden!important}
 @media(max-width:520px){.account-fab{right:8px;top:8px;padding:7px 10px}.account-actions,.account-main-actions{grid-template-columns:1fr 1fr}.score-identity-actions{grid-template-columns:1fr}.account-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#accountModal .modal{padding:15px;max-height:92vh}#accountModal .modal h2{margin-bottom:6px}.account-actions button:last-child:nth-child(odd){grid-column:1/-1}}
 .tutorial-coach.tutorial-coach-top{top:max(12px,env(safe-area-inset-top));bottom:auto}.tutorial-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;text-align:left}.tutorial-summary-grid div{display:flex;flex-direction:column;gap:2px;padding:9px;border:1px solid var(--border);border-radius:9px;background:rgba(12,10,8,.24)}.tutorial-summary-grid b{color:var(--gold-bright);font-size:.76rem}.tutorial-summary-grid span{font-size:.68rem;line-height:1.35}@media(max-width:440px){.tutorial-summary-grid{grid-template-columns:1fr}.tutorial-summary-grid div{padding:7px}}
+#nestedGridRankingModal{z-index:380}
 </style>
 </head>
 <body class="home-view app-loading">
@@ -514,6 +515,22 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
+<div class="modal-backdrop" id="gridIdEntryModal">
+  <div class="modal">
+    <button class="close-x" id="closeGridIdEntry">×</button>
+    <h2>🔑 Jouer par identifiant</h2>
+    <p>Saisis l’identifiant complet de la grille à rejoindre.</p>
+    <div class="account-form">
+      <label>Identifiant de la grille<input id="gridIdEntryInput" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+      <div class="account-error" id="gridIdEntryError"></div>
+    </div>
+    <div class="controls" style="justify-content:flex-end;margin-top:16px;">
+      <button class="ghost" id="cancelGridIdEntry">Annuler</button>
+      <button class="primary" id="confirmGridIdEntry">Lancer la grille</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="creatorGridBlockedModal">
   <div class="modal">
     <button class="close-x" id="closeCreatorGridBlocked">×</button>
@@ -636,6 +653,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-  <script src="app.js?v=20260810-0141"></script>
+  <script src="app.js?v=20260810-0142"></script>
 </body>
 </html>

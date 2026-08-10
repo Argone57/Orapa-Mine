@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260810-0141';
+const APP_VERSION = '20260810-0142';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -671,7 +671,9 @@ function openSharedGridPreview(gridId){
   const decoded=decodeGridId(gridId);
   if(!decoded){showToast('Identifiant de grille invalide.');return;}
   const gems=gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire);
-  $('#sharedGridPreviewContent').innerHTML=`<div class="readonly-grid-meta"><b>${escapeHtml(decoded.id)}</b><span>${gems}</span></div><div class="readonly-grid-board">${readOnlyGridSvg(decoded)}</div><p class="readonly-grid-note">Aucune action n’est possible dans cet aperçu.</p>`;
+  $('#sharedGridPreviewContent').innerHTML=`<div class="readonly-grid-meta"><b>${escapeHtml(decoded.id)}</b><span>${gems}</span></div><div class="readonly-grid-board">${readOnlyGridSvg(decoded)}</div><p class="readonly-grid-note">Aucune action n’est possible dans cet aperçu.</p><div class="controls readonly-grid-actions"><button class="ghost" id="sharedPreviewCopyId">📋 Copier l’ID</button><button class="primary" id="sharedPreviewRanking">🏆 Classement</button></div>`;
+  $('#sharedPreviewCopyId').onclick=()=>navigator.clipboard?.writeText(decoded.id).then(()=>showToast('Identifiant copié : '+decoded.id));
+  $('#sharedPreviewRanking').onclick=()=>{const fromList=$('#gridDataModal').classList.contains('open');if(!fromList)closeSharedGridPreview();openGridRanking(decoded.id,fromList);};
   $('#sharedGridPreviewModal').classList.add('open');
 }
 function closeSharedGridPreview(){$('#sharedGridPreviewModal').classList.remove('open');}
@@ -686,8 +688,9 @@ document.querySelector('#viewBlockedCreatorGrid').addEventListener('click',()=>{
 
 async function openMySharedGrids(){
   if(!currentPlayerAccount) return;
-  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est enregistré comme créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p>',true);
-  const sharedState={rows:[],hasMore:true};
+  const configOptions='<option value="ALL">Toutes les configurations</option>'+RANKING_COMBOS.map(([g,o,s])=>{const key=configKey(g,o,s);return `<option value="${key}">${key}</option>`;}).join('');
+  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est enregistré comme créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="shared-grid-toolbar"><select id="accountSharedConfigSelect" class="ranking-select">${configOptions}</select><select id="accountSharedSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
+  const sharedState={rows:[],hasMore:true,reverse:false};
   const loadPage=async()=>{
     const page=await supabaseRpc('orapa_my_shared_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:sharedState.rows.length});
     const pageRows=Array.isArray(page)?page:[];
@@ -698,15 +701,30 @@ async function openMySharedGrids(){
     await loadPage();
     if(!sharedState.rows.length){ $('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille partagée avec ce compte.</div>'; return; }
     const renderShared=()=>{
-      const rows=sharedState.rows;
+      const selectedConfig=$('#accountSharedConfigSelect')?.value||'ALL';
+      const sortMode=$('#accountSharedSortSelect')?.value||'date';
+      const rows=sharedState.rows.filter(row=>{
+        if(selectedConfig==='ALL')return true;
+        const decoded=decodeGridId(row.grid_id);
+        return decoded&&configKey(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire)===selectedConfig;
+      }).sort((a,b)=>{
+        let value=0;
+        if(sortMode==='players')value=Number(b.score_count||0)-Number(a.score_count||0);
+        else if(sortMode==='points')value=(a.best_score==null?Number.MAX_SAFE_INTEGER:Number(a.best_score))-(b.best_score==null?Number.MAX_SAFE_INTEGER:Number(b.best_score));
+        else value=new Date(b.shared_at||0)-new Date(a.shared_at||0);
+        if(value===0)value=String(a.grid_id).localeCompare(String(b.grid_id));
+        return sharedState.reverse?-value:value;
+      });
       const rowsHtml=rows.map((row,i)=>{
         const key=`shared:${row.grid_id}`,expanded=expandedScores.has(key),decoded=decodeGridId(row.grid_id);
         const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
         const sharedDate=row.shared_at?new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
-        return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="ranking-rank">${row.score_count||0} 👥</span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.best_score==null?'—':`${row.best_score} pts`}</span></div>${expanded?`<div class="account-grid-id">ID : ${escapeHtml(row.grid_id)}</div><div class="ranking-row-detail">Consultation uniquement${row.best_time_ms==null?'':` · meilleur temps : ${formatDuration(row.best_time_ms)}`}${sharedDate?` · partagée le ${sharedDate}`:''}</div><div class="controls ranking-compact-actions three"><button class="shared-copy ghost" data-grid-index="${i}">📋 ID</button><button class="shared-ranking ghost" data-grid-index="${i}">🏆 Classement</button><button class="shared-preview primary" data-grid-index="${i}">👁️ Voir</button></div>`:''}</div>`;
+        const rate=Number(row.score_count||0)>0?`${Math.round(100*Number(row.success_count||0)/Number(row.score_count))}%`:'—';
+        return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="account-shared-date">${sharedDate||'—'}</span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.best_score==null?'—':`${row.best_score} pts`}</span><span class="ranking-count">${row.score_count||0} 👥</span><span class="ranking-rate">${rate}</span></div>${expanded?`<div class="account-grid-id">ID : ${escapeHtml(row.grid_id)}</div><div class="ranking-row-detail">Consultation uniquement${row.best_time_ms==null?'':` · meilleur temps : ${formatDuration(row.best_time_ms)}`}</div><div class="controls ranking-compact-actions three"><button class="shared-copy ghost" data-grid-index="${i}">📋 ID</button><button class="shared-ranking ghost" data-grid-index="${i}">🏆 Classement</button><button class="shared-preview primary" data-grid-index="${i}">👁️ Voir</button></div>`:''}</div>`;
       }).join('');
+      const empty=!rows.length?'<div class="history-empty">Aucune grille de cette configuration dans les pages chargées.</div>':'';
       const more=sharedState.hasMore?'<button id="sharedLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'';
-      $('#gridDataContent').innerHTML=rowsHtml+more;
+      $('#gridDataContent').innerHTML=rowsHtml+empty+more;
       $('#gridDataContent').querySelectorAll('.account-shared-row').forEach(el=>el.onclick=ev=>{if(ev.target.closest('button'))return;const row=rows[Number(el.dataset.gridIndex)],key=`shared:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderShared();});
       $('#gridDataContent').querySelectorAll('.shared-copy').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
       $('#gridDataContent').querySelectorAll('.shared-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
@@ -714,6 +732,9 @@ async function openMySharedGrids(){
       const loadMore=$('#sharedLoadMore');
       if(loadMore) loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderShared();}catch(e){showToast(`Chargement impossible : ${e.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
     };
+    $('#accountSharedConfigSelect').addEventListener('change',renderShared);
+    $('#accountSharedSortSelect').addEventListener('change',renderShared);
+    $('#accountSharedSortReverse').addEventListener('click',()=>{sharedState.reverse=!sharedState.reverse;$('#accountSharedSortReverse').textContent=sharedState.reverse?'↑':'↓';renderShared();});
     renderShared();
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
@@ -1395,7 +1416,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
   if(explicitId){
     const decoded = decodeGridId(explicitId);
     if(!decoded){
-      setTimeout(()=> alert("Identifiant invalide. Vérifie que tu l'as copié en entier."), 60);
+      showToast("Identifiant invalide. Vérifie qu’il a été copié en entier.");
       return;
     }
     state.includeGray = decoded.includeGray;
@@ -1403,7 +1424,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
     state.includeSapphire = decoded.includeSapphire;
     secret = decoded.pieces.map(p=> ({ id:'p'+(pieceIdSeq++), type:p.type, center:p.center, rotation:p.rotation, flipped:p.flipped }));
     if(unreachablePieces(secret).length>0){
-      setTimeout(()=> alert("Cet identifiant ne correspond à aucune grille valide."), 60);
+      showToast("Cet identifiant ne correspond à aucune grille valide.");
       return;
     }
     gridId = decoded.id;
@@ -1422,7 +1443,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
     gridStatus=await supabaseRpc('orapa_get_grid_status',{p_grid_id:gridId,p_session_token:currentPlayerAccount.session_token});
   }catch(e){
     console.warn('Statut de grille indisponible',e);
-    setTimeout(()=>alert('Impossible de vérifier si cette grille peut être jouée avec ce compte. Vérifie ta connexion puis réessaie.'),60);
+    showToast('Impossible de vérifier cette grille. Vérifie ta connexion puis réessaie.');
     return;
   }
   if(gridStatus?.is_creator){
@@ -3295,17 +3316,32 @@ $('#appUpdateModal').addEventListener('click',e=>{if(e.target.id==='appUpdateMod
 $('#soloChoiceRandom').addEventListener('click', ()=>{ closeSoloChoiceModal(); openSoloSetupModal(); });
 $('#soloChoiceById').addEventListener('click', ()=> promptLoadGridById());
 function promptLoadGridById(){
-  const id = prompt('Entre l\'identifiant de la grille :', '');
-  if(!id) return; // annulé : on reste sur l'écran de choix Aléatoire/Par identifiant
-  const decoded = decodeGridId(id);
-  if(!decoded){
-    alert("Identifiant invalide. Vérifie que tu l'as copié en entier.");
-    return; // reste aussi sur l'écran de choix
-  }
-  if(!confirm('Lancer cette grille ? Ton meilleur score pourra être ajouté à son classement global.')) return;
-  closeSoloChoiceModal();
-  startSoloGame(id);
+  $('#gridIdEntryInput').value='';
+  accountError('#gridIdEntryError','');
+  $('#gridIdEntryModal').classList.add('open');
+  setTimeout(()=>$('#gridIdEntryInput').focus(),0);
 }
+function closeGridIdEntry(){
+  $('#gridIdEntryModal').classList.remove('open');
+  accountError('#gridIdEntryError','');
+}
+async function confirmGridIdEntry(){
+  const id=$('#gridIdEntryInput').value.trim().toUpperCase();
+  const decoded=decodeGridId(id);
+  if(!decoded){accountError('#gridIdEntryError','Identifiant invalide. Vérifie qu’il a été copié en entier.');return;}
+  if(unreachablePieces(decoded.pieces).length>0){accountError('#gridIdEntryError','Cet identifiant ne correspond à aucune grille valide.');return;}
+  const button=$('#confirmGridIdEntry');
+  button.disabled=true;
+  button.textContent='Vérification…';
+  closeGridIdEntry();
+  closeSoloChoiceModal();
+  try{await startSoloGame(decoded.id);}finally{button.disabled=false;button.textContent='Lancer la grille';}
+}
+$('#closeGridIdEntry').addEventListener('click',closeGridIdEntry);
+$('#cancelGridIdEntry').addEventListener('click',closeGridIdEntry);
+$('#confirmGridIdEntry').addEventListener('click',confirmGridIdEntry);
+$('#gridIdEntryInput').addEventListener('keydown',event=>{if(event.key==='Enter')confirmGridIdEntry();});
+$('#gridIdEntryModal').addEventListener('click',event=>{if(event.target.id==='gridIdEntryModal')closeGridIdEntry();});
 
 function openSoloSetupModal(){
   document.body.classList.add('solo-menu-open');
