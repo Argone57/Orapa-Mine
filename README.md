@@ -4,7 +4,7 @@
 
 Les évolutions de la base sont rangées dans le dossier `Supabase` et numérotées dans
 l’ordre d’exécution. Sur une base déjà utilisée, exécute uniquement les scripts qui
-n’ont pas encore été appliqués, dans l’ordre `01` à `06`.
+n’ont pas encore été appliqués, dans l’ordre `01` à `08`.
 
 Ces fichiers complètent une installation Supabase existante. Les fonctions historiques
 de création de compte, de connexion, de changement de pseudo et de statistiques du
@@ -132,6 +132,7 @@ Depuis le choix « 🧩 Jouer en solo », un 3ᵉ bouton **📅 Défi du jour** 
 - Le bouton de partage indique **« Défi du jour (AAAA-MM-JJ) »** à la place d'un identifiant de grille.
 
 Le Défi du jour conserve un historique local sur l’appareil et envoie également les scores enregistrés au classement global Supabase.
+Le succès visible **Triforce** est débloqué, y compris rétroactivement, après une victoire sur une grille aléatoire réunissant les trois gemmes optionnelles. Il constitue le prérequis pour lancer un nouveau Défi du jour ; un défi déjà terminé reste consultable.
 
 ## Rejouer une grille précise
 

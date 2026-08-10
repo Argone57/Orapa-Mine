@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260810-0137';
+const APP_VERSION = '20260810-0138';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -302,18 +302,25 @@ async function supabaseRpc(fn,params={}){
   return data;
 }
 let achievementCatalogCache=null,achievementExpanded=new Set(),achievementMode='list',achievementSort='order',achievementFilter='all',achievementReverse=false,achievementQueueBusy=false;
-const ACHIEVEMENT_NAMES={welcome:'Bienvenue',good_student:'Bon élève',first_step:'Premier pas',first_win:'Première victoire',founder:'Fondateur',ancestor:'Ancêtre',adventurous:'Aventureux',adventurous_victorious:'Aventureux et victorieux',meticulous:'Méticuleux',diamond:'Diamant',black_body:'Corps noir',sky_sapphire:'Saphir bleu ciel',curious:'Curieux',architect:'Architecte',challenger:'Défieur',mine_regular:'Habitué de la mine',confirmed_miner:'Mineur confirmé',first_try:'Du premier coup',economical:'Économe',mole_eye:'Œil de taupe',back_to_mine:'Retour au fond de la mine',regular:'Régulier',challenge_week:'Une semaine de défis',always_present:'Toujours présent',assiduous:'Assidu',winning_streak:'Série victorieuse',perfect_week:'Semaine parfaite',podium:'Sur le podium',number_one:'Numéro un',next_day_revenge:'La revanche du lendemain',photofinish:'Photofinish',copycat:'Copie conforme',first_visitor:'Premier visiteur',deja_vu:'Une impression de déjà-vu',two_waves_late:'Deux ondes de retard'};
+const ACHIEVEMENT_NAMES={welcome:'Bienvenue',good_student:'Bon élève',first_step:'Premier pas',first_win:'Première victoire',founder:'Fondateur',ancestor:'Ancêtre',adventurous:'Aventureux',adventurous_victorious:'Aventureux et victorieux',meticulous:'Méticuleux',diamond:'Diamant',black_body:'Corps noir',sky_sapphire:'Saphir bleu ciel',curious:'Curieux',architect:'Architecte',challenger:'Défieur',mine_regular:'Habitué de la mine',confirmed_miner:'Mineur confirmé',first_try:'Du premier coup',economical:'Économe',mole_eye:'Œil de taupe',back_to_mine:'Retour au fond de la mine',regular:'Régulier',challenge_week:'Une semaine de défis',always_present:'Toujours présent',assiduous:'Assidu',winning_streak:'Série victorieuse',perfect_week:'Semaine parfaite',podium:'Sur le podium',number_one:'Numéro un',next_day_revenge:'La revanche du lendemain',photofinish:'Photofinish',copycat:'Copie conforme',first_visitor:'Premier visiteur',deja_vu:'Une impression de déjà-vu',two_waves_late:'Deux ondes de retard',triforce:'Triforce'};
 async function refreshAchievements(eventKey=null){
   if(!currentPlayerAccount?.session_token)return null;
+  let triforceResult=null;
+  try{triforceResult=await supabaseRpc('orapa_triforce_status',{p_session_token:currentPlayerAccount.session_token});}
+  catch(error){console.error('Vérification du succès Triforce impossible :',error);}
   try{
     const result=await supabaseRpc('orapa_refresh_achievements',{p_session_token:currentPlayerAccount.session_token,p_event:eventKey});
     achievementCatalogCache=null;
-    const keys=Array.isArray(result?.new_keys)?result.new_keys:[];
+    const keys=[...new Set([...(Array.isArray(result?.new_keys)?result.new_keys:[]),...(triforceResult?.newly_unlocked?['triforce']:[])])];
     if(keys.includes('welcome')) showWelcomeAchievement();
     const regular=keys.filter(key=>key!=='welcome');
     if(regular.length&&!result?.hide_notifications) queueAchievementNotifications(regular);
-    return result;
-  }catch(error){console.error('Actualisation des succès impossible :',error);return null;}
+    return {...result,triforce_unlocked:!!triforceResult?.unlocked,triforce_check_ok:!!triforceResult};
+  }catch(error){
+    console.error('Actualisation des succès impossible :',error);
+    if(triforceResult?.newly_unlocked&&!triforceResult.hide_notifications)queueAchievementNotifications(['triforce']);
+    return triforceResult?{triforce_unlocked:!!triforceResult.unlocked,triforce_check_ok:true}:null;
+  }
 }
 async function queueAchievementNotifications(keys){
   if(achievementQueueBusy)return;
@@ -1521,11 +1528,13 @@ async function startDailyChallenge(){
     reviewDailyFinalGrid(dateKey);
     return;
   }
+  if(!await verifyTriforcePrerequisite(true)) return;
   if(!await ensureCurrentAppVersion(true,true)) return;
   try{
     const lock=await acquireDailyChallengeLock(dateKey);
     if(lock?.accepted===false){
       if(lock.reason==='already_played') reviewDailyFinalGrid(dateKey);
+      else if(lock.reason==='triforce_required') openTriforcePrerequisiteModal(false);
       else alert('Défi déjà commencé ailleurs\n\nCe défi du jour a déjà été lancé depuis un autre navigateur. Veuillez reprendre la partie sur le navigateur depuis lequel elle a été commencée.');
       return;
     }
@@ -3120,18 +3129,57 @@ $('#btnReset').addEventListener('click', ()=>{
   resetAll();
 });
 
+let dailyTriforceState={checked:false,unlocked:false,error:false};
 function renderDailyStatusLine(status){
   const line=$('#dailyStatusLine');
   const button=$('#soloChoiceDaily');
-  button.classList.toggle('review-available',!!status?.alreadyPlayed);
+  const detail=button.querySelector('small');
+  button.classList.remove('review-available','prerequisite-locked','prerequisite-checking');
   if(status?.alreadyPlayed){
+    button.classList.add('review-available');
+    detail.textContent='Revoir la grille';
     line.textContent=`Défi du jour déjà joué aujourd'hui (${status.attempt.result==='win'?'réussi 🏆':'raté 💥'}) — reviens demain.`;
     line.style.display='block';
-  }else line.style.display='none';
+  }else{
+    line.style.display='none';
+    if(!dailyTriforceState.checked){
+      button.classList.add('prerequisite-checking');
+      detail.textContent='Vérification du prérequis…';
+    }else if(!dailyTriforceState.unlocked){
+      button.classList.add('prerequisite-locked');
+      detail.textContent=dailyTriforceState.error?'Vérification impossible':'🔒 Succès Triforce requis';
+    }
+  }
+}
+function openTriforcePrerequisiteModal(checkError=false){
+  $('#triforcePrerequisiteTitle').textContent=checkError?'⚠️ Vérification impossible':'🔒 Défi du jour verrouillé';
+  $('#triforcePrerequisiteText').innerHTML=checkError
+    ? 'Impossible de vérifier le succès <b>Triforce</b>. Vérifie ta connexion puis réessaie.'
+    : 'Pour accéder aux défis du jour, débloque d’abord le succès <b>Triforce</b> en remportant une grille aléatoire comprenant les trois gemmes optionnelles : Diamant, Corps noir et Saphir bleu ciel.';
+  $('#triforcePrerequisiteAchievement').style.display=checkError?'none':'';
+  $('#triforcePrerequisiteRetry').style.display=checkError?'':'none';
+  $('#triforcePrerequisiteModal').classList.add('open');
+}
+function closeTriforcePrerequisiteModal(){$('#triforcePrerequisiteModal').classList.remove('open');}
+async function verifyTriforcePrerequisite(showModal=false){
+  if(!currentPlayerAccount?.session_token){
+    dailyTriforceState={checked:true,unlocked:false,error:true};
+    if(showModal)openTriforcePrerequisiteModal(true);
+    return false;
+  }
+  try{
+    const result=await refreshAchievements();
+    if(!result?.triforce_check_ok)throw new Error('Vérification indisponible');
+    dailyTriforceState={checked:true,unlocked:!!result.triforce_unlocked,error:false};
+  }catch(error){dailyTriforceState={checked:true,unlocked:false,error:true};}
+  renderDailyStatusLine(dailyStatusToday());
+  if(showModal&&!dailyTriforceState.unlocked)openTriforcePrerequisiteModal(dailyTriforceState.error);
+  return dailyTriforceState.unlocked;
 }
 async function openSoloChoiceModal(){
   document.body.classList.add('solo-menu-open');
   const line = $('#dailyStatusLine');
+  dailyTriforceState={checked:false,unlocked:false,error:false};
   renderDailyStatusLine(dailyStatusToday());
   $('#soloChoiceModal').classList.add('open');
   if(!dailyStatusToday().alreadyPlayed && currentPlayerAccount){
@@ -3144,6 +3192,7 @@ async function openSoloChoiceModal(){
       if($('#soloChoiceModal').classList.contains('open')) renderDailyStatusLine(dailyStatusToday());
     }
   }
+  if(!dailyStatusToday().alreadyPlayed&&$('#soloChoiceModal').classList.contains('open'))await verifyTriforcePrerequisite(false);
 }
 function closeSoloChoiceModal(){ $('#soloChoiceModal').classList.remove('open'); document.body.classList.remove('solo-menu-open'); }
 $('#soloChoiceCancel').addEventListener('click', closeSoloChoiceModal);
@@ -3155,10 +3204,23 @@ $('#soloChoiceDaily').addEventListener('click', async()=>{
     reviewDailyFinalGrid(status.dateKey);
     return;
   }
+  if(!await verifyTriforcePrerequisite(true))return;
   if(!await ensureCurrentAppVersion(true,true)) return;
   closeSoloChoiceModal();
   document.body.classList.add('solo-menu-open');
   $('#dailyRulesModal').classList.add('open');
+});
+$('#closeTriforcePrerequisite').addEventListener('click',closeTriforcePrerequisiteModal);
+$('#triforcePrerequisiteClose').addEventListener('click',closeTriforcePrerequisiteModal);
+$('#triforcePrerequisiteModal').addEventListener('click',e=>{if(e.target.id==='triforcePrerequisiteModal')closeTriforcePrerequisiteModal();});
+$('#triforcePrerequisiteRetry').addEventListener('click',async()=>{
+  closeTriforcePrerequisiteModal();
+  if(await verifyTriforcePrerequisite(true))showToast('Succès Triforce vérifié.');
+});
+$('#triforcePrerequisiteAchievement').addEventListener('click',async()=>{
+  closeTriforcePrerequisiteModal();
+  closeSoloChoiceModal();
+  await openMyAchievements();
 });
 $('#dailyRulesCancel').addEventListener('click', ()=>{
   $('#dailyRulesModal').classList.remove('open');
