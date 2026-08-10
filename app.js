@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260809-0106';
+const APP_VERSION = '20260810-0107';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3343,9 +3343,12 @@ function setRankingView(view){
   renderRankingList();
 }
 let expandedScores = new Set();
-let gridCatalogState={popular:null,searched:null,searchError:''};
+let gridCatalogState={popular:null,searched:null,searchError:'',accountId:null};
 async function fetchGridCatalog(sort,limit,offset=0){
-  const rows=await supabaseRpc('orapa_get_grid_catalog',{p_sort:sort,p_limit:limit,p_offset:offset});
+  const params={p_sort:sort,p_limit:limit,p_offset:offset};
+  if(currentPlayerAccount?.session_token)params.p_session_token=currentPlayerAccount.session_token;
+  let rows;
+  try{rows=await supabaseRpc('orapa_get_grid_catalog',params);}catch(error){if(!params.p_session_token)throw error;rows=await supabaseRpc('orapa_get_grid_catalog',{p_sort:sort,p_limit:limit,p_offset:offset});}
   return Array.isArray(rows)?rows:[];
 }
 function gridCatalogCard(row,section,index){
@@ -3354,9 +3357,10 @@ function gridCatalogCard(row,section,index){
   const count=Number(row.participation_count)||0,wins=Number(row.success_count)||0,rate=count?Math.round(wins/count*100):0;
   const key=`gridcatalog:${section}:${id}`,expanded=expandedScores.has(key);
   const lastDate=row.last_played_at?new Date(row.last_played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
-  const label=section==='popular'?`${rankingMedal(index)} <span class="ranking-gems">${gems}</span>`:`Grille recherchée <span class="ranking-gems">${gems}</span>`;
+  const label=section==='popular'?rankingMedal(index):'Grille recherchée';
+  const solved=row.solved_by_me===true?'<span aria-label="Grille résolue">✓</span>':'';
   const detail=expanded?`<div class="grid-catalog-detail"><div class="grid-catalog-id">ID : ${escapeHtml(id)}</div><div>${wins} réussite${wins===1?'':'s'} · ${count-wins} échec${count-wins===1?'':'s'} · meilleur score : <b>${row.best_score==null?'—':row.best_score+' pts'}</b> · meilleur temps : <b>${row.best_time_ms==null?'—':formatDuration(Number(row.best_time_ms))}</b> · dernière partie : ${lastDate}</div></div><div class="controls grid-catalog-actions"><button class="grid-catalog-copy ghost" data-grid-id="${escapeHtml(id)}">📋 Copier l’ID</button><button class="grid-catalog-ranking primary" data-grid-id="${escapeHtml(id)}">🏆 Classement</button></div>`:'';
-  return `<div class="ranking-row grid-catalog-row${expanded?' expanded':''}" data-grid-catalog-key="${escapeHtml(key)}"><div class="ranking-row-top"><span class="grid-catalog-label">${label}</span><span class="grid-catalog-count">${count} 👥</span><span class="grid-catalog-rate">${count?rate+' %':'—'}</span></div>${detail}</div>`;
+  return `<div class="ranking-row grid-catalog-row${expanded?' expanded':''}" data-grid-catalog-key="${escapeHtml(key)}"><div class="ranking-row-top"><span class="grid-catalog-label">${label}</span><span class="grid-catalog-gems ranking-gems">${gems}</span><span class="grid-catalog-solved">${solved}</span><span class="grid-catalog-count">${count} 👥</span><span class="grid-catalog-rate">${count?rate+' %':'—'}</span></div>${detail}</div>`;
 }
 function bindGridCatalogActions(){
   const el=$('#rankingList');
@@ -3371,6 +3375,8 @@ function bindGridCatalogActions(){
 }
 async function renderGridCatalog(force=false){
   const el=$('#rankingList'),savedScrollTop=el.scrollTop;
+  const accountId=currentPlayerAccount?.id||null;
+  if(gridCatalogState.accountId!==accountId){gridCatalogState={popular:null,searched:null,searchError:'',accountId};force=true;}
   if(force)gridCatalogState.popular=null;
   try{
     if(!gridCatalogState.popular){
@@ -3391,7 +3397,8 @@ async function searchGridCatalog(input){
   gridCatalogState.searchError='';
   $('#rankingList').innerHTML='<div class="history-empty">Recherche de la grille…</div>';
   try{
-    const rows=await supabaseRpc('orapa_get_grid_overview',{p_grid_id:decoded.id});
+    const params={p_grid_id:decoded.id};if(currentPlayerAccount?.session_token)params.p_session_token=currentPlayerAccount.session_token;
+    let rows;try{rows=await supabaseRpc('orapa_get_grid_overview',params);}catch(error){if(!params.p_session_token)throw error;rows=await supabaseRpc('orapa_get_grid_overview',{p_grid_id:decoded.id});}
     gridCatalogState.searched=Array.isArray(rows)&&rows[0]?rows[0]:{grid_id:decoded.id,participation_count:0,success_count:0,best_score:null,best_time_ms:null,last_played_at:null};
     renderGridCatalog();
   }catch(error){gridCatalogState.searched=null;gridCatalogState.searchError='Recherche impossible : '+error.message;renderGridCatalog();}
@@ -3642,7 +3649,7 @@ async function renderGlobalSoloScores(filterKey='ALL'){
 
 async function renderAchievementRanking(){
   const el=$('#rankingList');el.innerHTML='<div class="history-empty">Chargement du classement…</div>';
-  try{const rows=await supabaseRpc('orapa_achievement_leaderboard',{p_session_token:currentPlayerAccount.session_token});el.innerHTML=rows?.length?rows.map(row=>`<div class="achievement-ranking-row${row.is_mine?' mine':''}" data-achievement-account="${row.account_id}"><span>${rankingMedal(Number(row.rank)-1)}</span><strong>${escapeHtml(row.player_name)}</strong><b>${row.points} pts</b><small>${row.achievement_count} succès</small></div>`).join(''):'<div class="history-empty">Aucun succès débloqué.</div>';el.querySelectorAll('[data-achievement-account]').forEach(row=>row.onclick=()=>openPlayerAchievements(row.dataset.achievementAccount,row.querySelector('strong').textContent));}catch(e){el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;}
+  try{const rows=await supabaseRpc('orapa_achievement_leaderboard',{p_session_token:currentPlayerAccount.session_token});let previous='',displayRank=0;el.innerHTML=rows?.length?rows.map((row,index)=>{const tieKey=`${row.points}|${row.achievement_count}`;if(tieKey!==previous){displayRank=index+1;previous=tieKey;}return `<div class="achievement-ranking-row${row.is_mine?' mine':''}" data-achievement-account="${row.account_id}"><span>${rankingMedal(displayRank-1)}</span><strong>${escapeHtml(row.player_name)}</strong><b>${row.points} pts</b><small>${row.achievement_count} succès</small></div>`;}).join(''):'<div class="history-empty">Aucun succès débloqué.</div>';el.querySelectorAll('[data-achievement-account]').forEach(row=>row.onclick=()=>openPlayerAchievements(row.dataset.achievementAccount,row.querySelector('strong').textContent));}catch(e){el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;}
 }
 async function openPlayerAchievements(accountId,name){
   achievementExpanded.clear();$('#achievementDetailTitle').textContent=`🏆 Succès de ${name}`;$('#achievementDetailToolbar').innerHTML='';$('#achievementDetailContent').innerHTML='<div class="history-empty">Chargement…</div>';$('#achievementDetailModal').classList.add('open');
