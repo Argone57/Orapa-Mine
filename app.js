@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260811-0001';
+const APP_VERSION = '20260811-0002';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -134,6 +134,7 @@ let state = {
   isDaily:false,
   dailyDate:null,
   history:[],
+  historyHintShown:false,
   labelColor:{ top:{}, bottom:{}, left:{}, right:{} },
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
   labelPair:{ top:{}, bottom:{}, left:{}, right:{} },
@@ -993,6 +994,7 @@ function loadState(){
     if(state.finalTimeMs === undefined) state.finalTimeMs = null;
     if(state.isDaily === undefined) state.isDaily = false;
     if(state.dailyDate === undefined) state.dailyDate = null;
+    if(state.historyHintShown === undefined) state.historyHintShown = false;
     if(state.gridRanked === undefined) state.gridRanked = true;
     if(state.soloShowGuess === undefined) state.soloShowGuess = true;
     if(state.soloShowSecret === undefined) state.soloShowSecret = true;
@@ -1015,13 +1017,14 @@ function resetAll(){
   if(state.isDaily && state.soloOver) saveDailyFinalSnapshot();
   const g = state.includeGray, o = state.includeOnyx, s2 = state.includeSapphire;
   state = { mode:'gm', started:false, includeGray:g, includeOnyx:o, includeSapphire:s2, pieces:[], secretPieces:[],
-            soloAttempts:0, soloOver:false, soloResult:null, soloShowGuess:true, soloShowSecret:true, history:[],
+            soloAttempts:0, soloOver:false, soloResult:null, soloShowGuess:true, soloShowSecret:true, history:[], historyHintShown:false,
             gridId:null, gridRanked:true, moveCost:0, firstActionTime:null, finalTimeMs:null, rayCount:0, coordCount:0,
             isDaily:false, dailyDate:null,
             labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
             labelPair:{top:{},bottom:{},left:{},right:{}},
             labelPartner:{top:{},bottom:{},left:{},right:{}},
             cellUsed:{}, traces:[], emptyMarks:[], occupiedMarks:[], coordDots:[] };
+  resetHistoryDisclosure();
   lastScoreResult = null;
   state.pieces = freshPieceSet();
   saveState();
@@ -1392,6 +1395,7 @@ function randomizePlacement(){
   const layout = generateRandomLayout();
   if(layout){
     state.history = [];
+    resetHistoryDisclosure();
     state.labelColor = {top:{},bottom:{},left:{},right:{}};
     state.labelBounce = {top:{},bottom:{},left:{},right:{}};
     state.cellUsed = {};
@@ -1475,6 +1479,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
   state.isDaily = false;
   state.dailyDate = null;
   state.history = [];
+  resetHistoryDisclosure();
   state.labelColor = {top:{},bottom:{},left:{},right:{}};
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
   state.labelPair = {top:{},bottom:{},left:{},right:{}};
@@ -1627,6 +1632,7 @@ async function startDailyChallenge(){
   state.coordCount = 0;
   lastScoreResult = null;
   state.history = [];
+  resetHistoryDisclosure();
   state.labelColor = {top:{},bottom:{},left:{},right:{}};
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
   state.labelPair = {top:{},bottom:{},left:{},right:{}};
@@ -2436,6 +2442,27 @@ function renderHistory(){
     </div>`;
   }).join('');
 }
+function resetHistoryDisclosure(){
+  state.historyHintShown=false;
+  const disclosure=$('#historyDisclosure'),toggle=$('#historyToggle'),indicator=$('#historyToggleIndicator');
+  if(!disclosure||!toggle||!indicator)return;
+  disclosure.classList.add('collapsed');
+  toggle.setAttribute('aria-expanded','false');
+  indicator.textContent='+';
+}
+function toggleHistoryDisclosure(){
+  const disclosure=$('#historyDisclosure'),toggle=$('#historyToggle'),indicator=$('#historyToggleIndicator');
+  if(!disclosure||!toggle||!indicator)return;
+  const opening=disclosure.classList.contains('collapsed');
+  disclosure.classList.toggle('collapsed',!opening);
+  toggle.setAttribute('aria-expanded',String(opening));
+  indicator.textContent=opening?'−':'+';
+  if(opening&&!state.historyHintShown){
+    state.historyHintShown=true;
+    saveState();
+    showToast('Vous pouvez revoir la couleur et le point de sortie d’une onde en touchant à nouveau une lettre ou un chiffre déjà utilisé.',3000);
+  }
+}
 function renderModePill(){
   const pill=$('#modePill');
   let text, cls;
@@ -2593,7 +2620,7 @@ function attachPieceInteraction(el, piece){
   el.addEventListener('pointerdown', ev=> onPieceDown(ev, piece, el));
 }
 let toastTimer = null;
-function showToast(msg){
+function showToast(msg,duration=1600){
   let toast = document.getElementById('toastMsg');
   if(!toast){
     toast = document.createElement('div');
@@ -2604,7 +2631,7 @@ function showToast(msg){
   toast.textContent = msg;
   toast.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=> toast.classList.remove('show'), 1600);
+  toastTimer = setTimeout(()=> toast.classList.remove('show'), duration);
 }
 function onPieceDown(ev, piece, el){
   if(!piecesEditable()) return;
@@ -3037,7 +3064,7 @@ function beginInteractiveTutorial(){
   tutorialActive=true;tutorialStage=0;tutorialStepNumber=0;tutorialStepKey='';tutorialTargetLabel={side:tutorialRayExamples[0].side,index:tutorialRayExamples[0].index};tutorialTargetCell=null;tutorialWrongPieceId=null;tutorialLastResult=null;
   document.body.classList.add('tutorial-active');
   state.mode='solo';state.started=false;state.secretPieces=lesson.pieces.map(p=>({...p,center:{...p.center}}));state.pieces=freshPieceSet();
-  state.gridId=null;state.gridRanked=false;state.gridUnrankedReason='tutorial';state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;state.isDaily=false;state.dailyDate=null;state.history=[];state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.coordDots=[];
+  state.gridId=null;state.gridRanked=false;state.gridUnrankedReason='tutorial';state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.coordDots=[];
   showGame();setTimeout(tutorialShowStage,80);
 }
 function startInteractiveTutorial(){
@@ -3897,6 +3924,7 @@ $('#scoreIdentityModal').addEventListener('click',e=>{if(e.target.id==='scoreIde
 
 window.addEventListener('resize', ()=>{ renderBgGrid(); renderPieces(); renderTraces(); });
 document.addEventListener('dblclick',event=>event.preventDefault(),{passive:false});
+$('#historyToggle').addEventListener('click',toggleHistoryDisclosure);
 
 // ---------------------------------------------------------------------
 // INIT
@@ -3911,6 +3939,10 @@ function init(){
   $('#optSapphire').checked = state.includeSapphire;
   computeCellSize();
   renderAll();
+  const disclosure=$('#historyDisclosure'),toggle=$('#historyToggle'),indicator=$('#historyToggleIndicator');
+  disclosure?.classList.add('collapsed');
+  toggle?.setAttribute('aria-expanded','false');
+  if(indicator)indicator.textContent='+';
   const hasActiveGame = state.mode==='solo' || state.started || state.history.length>0;
   if(tutorialLoadProgress()||!hasActiveGame)showHome();
   else showGame();
