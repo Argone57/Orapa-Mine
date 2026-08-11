@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260811-0003';
+const APP_VERSION = '20260811-0004';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -686,6 +686,11 @@ document.querySelector('#closeCreatorGridBlocked').addEventListener('click',clos
 document.querySelector('#dismissCreatorGridBlocked').addEventListener('click',closeCreatorGridBlockedModal);
 document.querySelector('#creatorGridBlockedModal').addEventListener('click',e=>{if(e.target.id==='creatorGridBlockedModal')closeCreatorGridBlockedModal();});
 document.querySelector('#viewBlockedCreatorGrid').addEventListener('click',()=>{const id=blockedCreatorGridId;closeCreatorGridBlockedModal();closeSoloChoiceModal();if(id)openSharedGridPreview(id);});
+function openAlreadyPlayedGridModal(){$('#alreadyPlayedGridModal').classList.add('open');}
+function closeAlreadyPlayedGridModal(){$('#alreadyPlayedGridModal').classList.remove('open');}
+$('#closeAlreadyPlayedGrid').addEventListener('click',closeAlreadyPlayedGridModal);
+$('#dismissAlreadyPlayedGrid').addEventListener('click',closeAlreadyPlayedGridModal);
+$('#alreadyPlayedGridModal').addEventListener('click',event=>{if(event.target.id==='alreadyPlayedGridModal')closeAlreadyPlayedGridModal();});
 
 async function openMySharedGrids(){
   if(!currentPlayerAccount) return;
@@ -1493,7 +1498,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
   showGame();
   renderAll();
   if(unrankedReason==='creator_protected') setTimeout(()=>alert('Vous avez créé cette grille récemment. Vous pouvez jouer normalement, mais votre score ne sera pas ajouté au classement pour le moment.'),60);
-  else if(unrankedReason==='already_played') setTimeout(()=>alert('Cette grille a déjà été jouée avec ce profil. Vous pouvez rejouer, mais le résultat ne sera pas classé.'),60);
+  else if(unrankedReason==='already_played') setTimeout(openAlreadyPlayedGridModal,60);
 }
 
 function dailyStatusToday(){
