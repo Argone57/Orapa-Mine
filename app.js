@@ -2460,7 +2460,7 @@ function toggleHistoryDisclosure(){
   if(opening&&!state.historyHintShown){
     state.historyHintShown=true;
     saveState();
-    showToast('Vous pouvez revoir la couleur et le point de sortie d’une onde en touchant à nouveau une lettre ou un chiffre déjà utilisé.',3000);
+    showToast('Vous pouvez revoir la couleur et le point de sortie d’une onde en touchant à nouveau une lettre ou un chiffre déjà utilisé.',5000);
   }
 }
 function renderModePill(){
