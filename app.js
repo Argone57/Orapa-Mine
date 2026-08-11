@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260811-0002';
+const APP_VERSION = '20260811-0003';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2426,6 +2426,12 @@ function renderTraces(){
 
 function renderHistory(){
   const el=$('#history');
+  const moveCount=$('#historyMoveCount');
+  if(moveCount){
+    const rays=state.mode==='solo'?Number(state.rayCount||0):state.history.filter(h=>h.kind==='ray'||(!h.kind&&!/<b>[A-H](?:10|[1-9])<\/b>/i.test(h.text||''))).length;
+    const coords=state.mode==='solo'?Number(state.coordCount||0):state.history.length-rays;
+    moveCount.textContent=`${rays}🔦 / ${coords}📍`;
+  }
   if(state.history.length===0){
     el.innerHTML='<div class="history-empty">Démarre la partie puis clique sur une lettre, un chiffre ou une case pour interroger la mine.</div>';
     return;
@@ -2794,7 +2800,7 @@ function onLabelClick(side,index){
       ? `<b>${entryLabelTxt}</b> ↔ — ${result.color.name}`
       : `<b>${entryLabelTxt}</b> — <b>${exitLabel}</b> — ${result.color.name}`;
   }
-  state.history.push({ text, hex: result.color.hex, time: timeNow() });
+  state.history.push({ text, hex: result.color.hex, time: timeNow(), kind:'ray' });
   if(state.mode!=='solo'){
     state.traces.push({ points: result.points, hex: result.color.hex });
   }
@@ -2844,7 +2850,7 @@ function onCellClick(r,c,cellEl){
     hex = '#6b6355';
     state.emptyMarks.push({x:c+0.5, y:r+0.5});
   }
-  state.history.push({ text, hex, time: timeNow() });
+  state.history.push({ text, hex, time: timeNow(), kind:'coord' });
   if(state.mode==='solo') setHintMode(false);
   saveState();
   renderHistory();

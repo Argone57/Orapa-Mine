@@ -105,7 +105,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .piece-invalid{animation:pieceInvalidPulse 1.4s ease-in-out infinite;}
 @keyframes pieceInvalidPulse{0%,100%{opacity:.75}50%{opacity:1}}
 .history-panel{background:var(--panel);border:1px solid var(--vein);border-radius:var(--radius);max-height:280px;overflow-y:auto;padding:6px;}
-.history-disclosure{margin-top:22px}.history-toggle{width:100%;padding:0;border:0;background:none;display:flex;align-items:center;gap:8px;color:var(--gold);border-radius:0}.history-toggle:hover{background:none}.history-toggle .section-title{margin:0;flex:1}.history-toggle-indicator{width:24px;flex:0 0 24px;font-size:1.1rem;line-height:1;color:var(--gold-bright);text-align:center}.history-disclosure.collapsed .history-panel{display:none}
+.history-disclosure{margin-top:22px}.history-toggle{width:100%;padding:0;border:0;background:none;display:flex;align-items:center;gap:8px;color:var(--gold);border-radius:0;transition:none;animation:none}.history-toggle:hover{background:none}.history-toggle:active{transform:none}.history-toggle .section-title{margin:0;flex:1}.history-move-count{font-size:.68rem;color:var(--text-dim);white-space:nowrap;font-weight:600;letter-spacing:0}.history-toggle-indicator{width:24px;flex:0 0 24px;font-size:1.1rem;line-height:1;color:var(--gold-bright);text-align:center}.history-disclosure .history-panel{transition:none;animation:none}.history-disclosure.collapsed .history-panel{display:none}
 .history-empty{color:var(--text-faint);font-size:.82rem;font-style:italic;padding:14px;text-align:center;}
 .history-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;font-size:.85rem;border-bottom:1px solid rgba(91,70,48,.3);}
 .history-item:last-child{border-bottom:none;}
@@ -355,6 +355,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   <div id="historyDisclosure" class="history-disclosure collapsed">
     <button id="historyToggle" class="history-toggle" type="button" aria-expanded="false" aria-controls="history">
       <span class="section-title">Historique de la partie</span>
+      <span id="historyMoveCount" class="history-move-count">0🔦 / 0📍</span>
       <span id="historyToggleIndicator" class="history-toggle-indicator" aria-hidden="true">+</span>
     </button>
     <div id="history" class="history-panel">
@@ -664,6 +665,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-  <script src="app.js?v=20260811-0002"></script>
+  <script src="app.js?v=20260811-0003"></script>
 </body>
 </html>
