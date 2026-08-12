@@ -560,9 +560,20 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   <div class="modal">
     <button class="close-x" id="closeAlreadyPlayedGrid">×</button>
     <h2>🎮 Grille déjà jouée</h2>
-    <p>Cette grille a déjà été jouée avec ce profil. Vous pouvez la rejouer, mais le résultat ne sera pas classé.</p>
+    <p>Cette grille a déjà été jouée avec ce profil. Vous pouvez la rejouer, mais le résultat ne sera pas enregistré.</p>
     <div class="controls" style="justify-content:flex-end;margin-top:16px;">
       <button class="primary" id="dismissAlreadyPlayedGrid">Compris</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="incorrectSolutionModal">
+  <div class="modal">
+    <button class="close-x" id="closeIncorrectSolution">×</button>
+    <h2>❌ Solution incorrecte</h2>
+    <p>Ce n’est pas la bonne disposition. Il te reste un essai avant l’échec.</p>
+    <div class="controls" style="justify-content:flex-end;margin-top:16px;">
+      <button class="primary" id="dismissIncorrectSolution">Continuer</button>
     </div>
   </div>
 </div>
@@ -677,6 +688,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-  <script src="app.js?v=20260812-0001"></script>
+  <script src="app.js?v=20260812-0003"></script>
 </body>
 </html>

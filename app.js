@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260812-0001';
+const APP_VERSION = '20260812-0003';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -691,6 +691,11 @@ function closeAlreadyPlayedGridModal(){$('#alreadyPlayedGridModal').classList.re
 document.querySelector('#closeAlreadyPlayedGrid').addEventListener('click',closeAlreadyPlayedGridModal);
 document.querySelector('#dismissAlreadyPlayedGrid').addEventListener('click',closeAlreadyPlayedGridModal);
 document.querySelector('#alreadyPlayedGridModal').addEventListener('click',event=>{if(event.target.id==='alreadyPlayedGridModal')closeAlreadyPlayedGridModal();});
+function openIncorrectSolutionModal(){document.querySelector('#incorrectSolutionModal').classList.add('open');}
+function closeIncorrectSolutionModal(){document.querySelector('#incorrectSolutionModal').classList.remove('open');}
+document.querySelector('#closeIncorrectSolution').addEventListener('click',closeIncorrectSolutionModal);
+document.querySelector('#dismissIncorrectSolution').addEventListener('click',closeIncorrectSolutionModal);
+document.querySelector('#incorrectSolutionModal').addEventListener('click',event=>{if(event.target.id==='incorrectSolutionModal')closeIncorrectSolutionModal();});
 
 async function openMySharedGrids(){
   if(!currentPlayerAccount) return;
@@ -901,7 +906,7 @@ async function submitGlobalGridScore(entry, identity){
       p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))
     });
     if(row?.accepted){invalidateGlobalSoloScores();refreshAchievements(entry.firstTry?'first_try':null);}
-    if(row?.reason==='already_played'){showToast('Cette grille a déjà été classée avec ce profil.');refreshAchievements('deja_vu');}
+    if(row?.reason==='already_played'){refreshAchievements('deja_vu');}
     else if(row?.reason==='creator_protected') showToast('⭐ Cette grille est la vôtre et ne peut pas être résolue avec ce compte.');
     else showToast(row?.rank ? `🌍 Première tentative enregistrée · rang #${row.rank}` : '🌍 Première tentative enregistrée');
     return row;
@@ -1731,9 +1736,10 @@ function openVictoryModal(){
       ? `Classé #${lastScoreResult.rank} dans « ${lastScoreResult.key} »`
       : (state.isDaily ? '' : (state.gridUnrankedReason==='creator_protected'
       ? '⭐ Cette grille est la vôtre et ne peut pas être résolue avec ce compte.'
-      : (state.gridUnrankedReason==='already_played' ? 'Cette grille a déjà été classée avec ce profil.' : ''))));
+      : '')));
   $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${formatDailyDate(state.dailyDate)})` : (state.gridId || '');
   $('#btnVictoryGridRanking').style.display=(!state.isDaily&&state.gridId)?'':'none';
+  $('#btnVictoryCopySummary').style.display=state.gridUnrankedReason==='already_played'?'none':'';
   $('#victoryModal').classList.add('open');
 }
 async function proposeSolution(){
@@ -1792,7 +1798,7 @@ async function proposeSolution(){
     }
     if(state.isDaily) saveDailyFinalSnapshot();
     saveState();renderAll();setTimeout(()=>openVictoryModal(),60);
-  }else{saveState();setTimeout(()=>alert("C'est faux ! Il te reste un essai avant l'échec."),60);}
+  }else{saveState();setTimeout(openIncorrectSolutionModal,60);}
 }
 // ---------------------------------------------------------------------
 // GEOMETRY — transform & rendering helpers
