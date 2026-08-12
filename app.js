@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260811-0004';
+const APP_VERSION = '20260812-0001';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -688,9 +688,9 @@ document.querySelector('#creatorGridBlockedModal').addEventListener('click',e=>{
 document.querySelector('#viewBlockedCreatorGrid').addEventListener('click',()=>{const id=blockedCreatorGridId;closeCreatorGridBlockedModal();closeSoloChoiceModal();if(id)openSharedGridPreview(id);});
 function openAlreadyPlayedGridModal(){$('#alreadyPlayedGridModal').classList.add('open');}
 function closeAlreadyPlayedGridModal(){$('#alreadyPlayedGridModal').classList.remove('open');}
-$('#closeAlreadyPlayedGrid').addEventListener('click',closeAlreadyPlayedGridModal);
-$('#dismissAlreadyPlayedGrid').addEventListener('click',closeAlreadyPlayedGridModal);
-$('#alreadyPlayedGridModal').addEventListener('click',event=>{if(event.target.id==='alreadyPlayedGridModal')closeAlreadyPlayedGridModal();});
+document.querySelector('#closeAlreadyPlayedGrid').addEventListener('click',closeAlreadyPlayedGridModal);
+document.querySelector('#dismissAlreadyPlayedGrid').addEventListener('click',closeAlreadyPlayedGridModal);
+document.querySelector('#alreadyPlayedGridModal').addEventListener('click',event=>{if(event.target.id==='alreadyPlayedGridModal')closeAlreadyPlayedGridModal();});
 
 async function openMySharedGrids(){
   if(!currentPlayerAccount) return;
