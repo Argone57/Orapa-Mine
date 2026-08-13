@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260812-0004';
+const APP_VERSION = '20260813-0001';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -267,24 +267,28 @@ const GLOBAL_SCORE_IDS_KEY = 'orapaMineGlobalScoreIdsV1';
 
 const PLAYER_ACCOUNT_KEY = 'orapaMinePlayerAccountV1';
 const PLAYER_TRUST_KEY = 'orapaMinePlayerTrustV1';
-const FIREFOX_ANDROID_PERFORMANCE_KEY = 'orapaMineFirefoxAndroidPerformanceV1';
+const FIREFOX_PERFORMANCE_KEY = 'orapaMineFirefoxPerformanceV1';
+const LEGACY_FIREFOX_ANDROID_PERFORMANCE_KEY = 'orapaMineFirefoxAndroidPerformanceV1';
 let currentPlayerAccount = loadPlayerAccount();
 let scoreIdentityResolver = null;
 
-function isFirefoxAndroid(){
+function isFirefox(){
   const ua=navigator.userAgent||'';
-  return /Android/i.test(ua)&&/Firefox\//i.test(ua);
+  return /Firefox\//i.test(ua);
 }
-function firefoxAndroidPerformanceEnabled(){
-  if(!isFirefoxAndroid())return false;
-  try{return localStorage.getItem(FIREFOX_ANDROID_PERFORMANCE_KEY)==='1';}catch(e){return false;}
+function firefoxPerformanceEnabled(){
+  if(!isFirefox())return false;
+  try{return localStorage.getItem(FIREFOX_PERFORMANCE_KEY)==='1'||localStorage.getItem(LEGACY_FIREFOX_ANDROID_PERFORMANCE_KEY)==='1';}catch(e){return false;}
 }
-function applyFirefoxAndroidPerformanceMode(){
-  document.body.classList.toggle('firefox-android-performance',firefoxAndroidPerformanceEnabled());
+function applyFirefoxPerformanceMode(){
+  document.body.classList.toggle('firefox-performance',firefoxPerformanceEnabled());
 }
-function setFirefoxAndroidPerformanceMode(enabled){
-  try{enabled?localStorage.setItem(FIREFOX_ANDROID_PERFORMANCE_KEY,'1'):localStorage.removeItem(FIREFOX_ANDROID_PERFORMANCE_KEY);}catch(e){}
-  applyFirefoxAndroidPerformanceMode();
+function setFirefoxPerformanceMode(enabled){
+  try{
+    enabled?localStorage.setItem(FIREFOX_PERFORMANCE_KEY,'1'):localStorage.removeItem(FIREFOX_PERFORMANCE_KEY);
+    localStorage.removeItem(LEGACY_FIREFOX_ANDROID_PERFORMANCE_KEY);
+  }catch(e){}
+  applyFirefoxPerformanceMode();
 }
 
 function loadPlayerAccount(){
@@ -464,7 +468,7 @@ async function renderAccountHome(){
     <div id="accountStats"><div class="history-empty">Chargement des statistiques…</div></div>
     <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Enregistrer mes scores sans redemander le code sur cet appareil</b></span></label>
     <div class="achievement-preferences"><label class="account-trust"><input type="checkbox" id="accountHideAchievementNotifications"><span><b>Ne pas afficher les notifications des succès</b></span></label><label class="account-trust"><input type="checkbox" id="accountHideAchievementRankings"><span><b>Ne pas afficher mon pseudo dans les classements des succès</b></span></label></div>
-    ${isFirefoxAndroid()?`<div class="achievement-preferences"><label class="account-trust"><input type="checkbox" id="accountFirefoxPerformance" ${firefoxAndroidPerformanceEnabled()?'checked':''}><span><b>Mode performances Firefox</b><small>Réduit certains effets visuels et opérations d’affichage afin d’améliorer la fluidité sur Firefox Android.</small></span></label></div>`:''}
+    ${isFirefox()?`<div class="achievement-preferences"><label class="account-trust"><input type="checkbox" id="accountFirefoxPerformance" ${firefoxPerformanceEnabled()?'checked':''}><span><b>Mode performances Firefox</b><small>Réduit certains effets visuels et opérations d’affichage afin d’améliorer la fluidité sur Firefox.</small></span></label></div>`:''}
     <div class="account-actions">
       <button class="ghost" id="accountAchievementsBtn">🏆 Mes succès</button>
       <button class="ghost" id="accountDailyHistoryBtn">📅 Historique des défis</button>
@@ -476,7 +480,7 @@ async function renderAccountHome(){
     </div>`;
   $('#accountTrustDevice').onchange=e=>setTrustedDevice(e.target.checked);
   const firefoxPerformance=$('#accountFirefoxPerformance');
-  if(firefoxPerformance)firefoxPerformance.onchange=e=>{setFirefoxAndroidPerformanceMode(e.target.checked);showToast(e.target.checked?'Mode performances activé':'Mode performances désactivé');};
+  if(firefoxPerformance)firefoxPerformance.onchange=e=>{setFirefoxPerformanceMode(e.target.checked);showToast(e.target.checked?'Mode performances activé':'Mode performances désactivé');};
   $('#accountAchievementsBtn').onclick=openMyAchievements;
   $('#accountDailyHistoryBtn').onclick=()=>openMyDailyHistory();
   $('#accountGridHistoryBtn').onclick=()=>openMyGridHistory();
@@ -2463,7 +2467,7 @@ function renderHistory(){
     const coords=state.mode==='solo'?Number(state.coordCount||0):state.history.length-rays;
     moveCount.textContent=`${rays}🔦 / ${coords}📍`;
   }
-  if(firefoxAndroidPerformanceEnabled()&&$('#historyDisclosure')?.classList.contains('collapsed'))return;
+  if(firefoxPerformanceEnabled()&&$('#historyDisclosure')?.classList.contains('collapsed'))return;
   if(state.history.length===0){
     el.innerHTML='<div class="history-empty">Démarre la partie puis clique sur une lettre, un chiffre ou une case pour interroger la mine.</div>';
     return;
@@ -3963,7 +3967,7 @@ $('#scoreIdentityModal').addEventListener('click',e=>{if(e.target.id==='scoreIde
 
 let resizeRenderFrame=0,lastRenderedBoardWidth=0;
 window.addEventListener('resize', ()=>{
-  if(!firefoxAndroidPerformanceEnabled()){renderBgGrid();renderPieces();renderTraces();return;}
+  if(!firefoxPerformanceEnabled()){renderBgGrid();renderPieces();renderTraces();return;}
   if(resizeRenderFrame)return;
   resizeRenderFrame=requestAnimationFrame(()=>{
     resizeRenderFrame=0;
@@ -3980,7 +3984,7 @@ $('#historyToggle').addEventListener('click',toggleHistoryDisclosure);
 // INIT
 // ---------------------------------------------------------------------
 function init(){
-  applyFirefoxAndroidPerformanceMode();
+  applyFirefoxPerformanceMode();
   updateAccountFab();
   buildMixBoard();
   const restored = loadState();
