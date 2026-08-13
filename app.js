@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260814-0001';
+const APP_VERSION = '20260814-0002';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -524,7 +524,7 @@ async function renderAccountHome(){
       <div class="account-stat"><b>${gridStats.best_score==null?'—':gridStats.best_score+' pts'}</b>meilleur score</div>
       <div class="account-stat"><b>${gridStats.average_score==null?'—':gridStats.average_score+' pts'}</b>score moyen</div>
       <div class="account-stat"><b>${gridStats.average_rank==null?'—':'#'+gridStats.average_rank}</b>rang moyen</div>
-    </div>`:''}${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.wins||0}</b>réussites</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}
+    </div>`:''}${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.shared||0}</b>partagées</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}
     <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid"><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked).length}</b>débloqués</div><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked).reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div></div>`;
   }catch(e){ $('#accountStats').innerHTML=`<div class="account-error" style="display:block;">${escapeHtml(e.message)}</div>`; }
 }
@@ -3778,8 +3778,8 @@ function setRankingView(view){
   $('#rankingList').style.maxHeight=view==='grids'?'480px':'320px';
   $('#btnRefreshGlobal').style.display = (view==='global'||view==='grids') ? '' : 'none';
   $('#btnRefreshGlobal').textContent=view==='grids'?'↻ Actualiser les grilles':'↻ Actualiser';
-  $('#btnStatsGlobal').style.display = (view==='global'||(view==='solo'&&historyDisplayMode==='lost')) ? '' : 'none';
-  $('#btnStatsGlobal').textContent=view==='solo'&&historyDisplayMode==='lost'?'📊 Statistiques Gemme perdue':'📊 Statistiques';
+  $('#btnStatsGlobal').style.display = (view==='global'||view==='solo') ? '' : 'none';
+  $('#btnStatsGlobal').textContent=view==='solo'?(historyDisplayMode==='lost'?'📊 Statistiques Gemme perdue':'📊 Statistiques classiques'):'📊 Statistiques';
   const picker=$('#rankingDatePicker');
   $('#rankingDatePickerWrap').style.display=view==='global'?'flex':'none';
   $('#rankingDatePrevious').style.display=view==='global'?'flex':'none';
@@ -4037,7 +4037,15 @@ async function openGlobalStats(){
 }
 async function openLostGlobalStats(){
   $('#globalStatsModal').classList.add('open');$('#globalStatsToolbar').style.display='none';$('#globalStatsContent').innerHTML='<div class="history-empty">Calcul des statistiques Gemme perdue…</div>';
-  try{const stats=await supabaseRpc('orapa_lost_global_stats');$('#globalStatsContent').innerHTML=`<h3>Gemme perdue</h3><p class="stats-subtitle">Toutes les parties enregistrées dans ce mode.</p><div class="stats-cards"><div><b>${stats.played||0}</b><span>participations</span></div><div><b>${stats.wins||0}</b><span>réussites</span></div><div><b>${stats.losses||0}</b><span>échecs</span></div><div><b>${stats.success_rate||0} %</b><span>de réussite</span></div></div><div class="stats-details"><p><span>Pseudos différents</span><b>${stats.players||0}</b></p><p><span>Grilles enregistrées</span><b>${stats.grids||0}</b></p><p><span>Reconstitutions complètes</span><b>${stats.full_placements||0}</b></p><p><span>Meilleur score réussi</span><b>${stats.best_score==null?'—':stats.best_score+' pts'}</b></p><p><span>Temps record réussi</span><b>${stats.best_time_ms==null?'—':formatDuration(stats.best_time_ms)}</b></p></div>`;}catch(error){$('#globalStatsContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
+  try{const stats=await supabaseRpc('orapa_lost_global_stats');$('#globalStatsContent').innerHTML=renderGridModeGlobalStats('💎 Gemme perdue',stats,true);}catch(error){$('#globalStatsContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
+}
+function renderGridModeGlobalStats(title,stats,lost=false){
+  const detail=(label,value)=>`<div class="mode-stat-detail"><span>${label}</span><b>${value}</b></div>`;
+  return `<div class="mode-stats-heading"><h3>${title}</h3><p class="stats-subtitle">Toutes les parties enregistrées dans ce mode.</p></div><div class="stats-grid mode-stats-summary"><div class="stats-card"><b>${stats.played||0}</b><span>participations</span></div><div class="stats-card"><b>${stats.wins||0}</b><span>réussites</span></div><div class="stats-card"><b>${stats.losses||0}</b><span>échecs</span></div><div class="stats-card"><b>${stats.success_rate||0} %</b><span>de réussite</span></div></div><div class="mode-stats-details">${detail('Pseudos différents',stats.players||0)}${detail('Grilles jouées',stats.grids||0)}${detail('Grilles partagées',stats.shared_grids||0)}${lost?detail('Reconstitutions complètes',stats.full_placements||0):''}${detail('Meilleur score réussi',stats.best_score==null?'—':stats.best_score+' pts')}${detail('Temps record réussi',stats.best_time_ms==null?'—':formatDuration(stats.best_time_ms))}${detail('Score moyen',stats.average_score==null?'—':formatDecimal(Number(stats.average_score))+' pts')}${detail('Temps moyen',stats.average_time_ms==null?'—':formatDuration(Number(stats.average_time_ms)))}</div>`;
+}
+async function openClassicGridGlobalStats(){
+  $('#globalStatsModal').classList.add('open');$('#globalStatsToolbar').style.display='none';$('#globalStatsContent').innerHTML='<div class="history-empty">Calcul des statistiques des grilles classiques…</div>';
+  try{const stats=await supabaseRpc('orapa_grid_global_stats');$('#globalStatsContent').innerHTML=renderGridModeGlobalStats('🧩 Grilles classiques',stats,false);}catch(error){$('#globalStatsContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 
 const GLOBAL_SOLO_PAGE_SIZE=10;
@@ -4183,7 +4191,7 @@ $('#btnRefreshGlobal').addEventListener('click', ()=>{
   if(key.startsWith('GLOBAL:')) renderGlobalRanking(key.slice(7),true);
 });
 $('#gridSearchForm').addEventListener('submit',event=>{event.preventDefault();searchGridCatalog($('#gridSearchInput').value);});
-$('#btnStatsGlobal').addEventListener('click',()=>historyDisplayMode==='lost'&&rankingView==='solo'?openLostGlobalStats():openGlobalStats());
+$('#btnStatsGlobal').addEventListener('click',()=>rankingView==='solo'?(historyDisplayMode==='lost'?openLostGlobalStats():openClassicGridGlobalStats()):openGlobalStats());
 $('#closeGlobalStats').addEventListener('click', ()=>{ $('#playerStatsModal').classList.remove('open'); $('#globalStatsModal').classList.remove('open'); });
 $('#globalStatsModal').addEventListener('click', e=>{ if(e.target.id==='globalStatsModal') $('#globalStatsModal').classList.remove('open'); });
 $('#closePlayerStats').addEventListener('click',()=>$('#playerStatsModal').classList.remove('open'));
