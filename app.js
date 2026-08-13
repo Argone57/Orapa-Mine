@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260813-0001';
+const APP_VERSION = '20260813-0002';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -132,6 +132,10 @@ let state = {
   gridRanked:true,
   finalTimeMs:null,
   isDaily:false,
+  gameVariant:'classic',
+  missingType:null,
+  selectedMissingType:null,
+  placementBonus:false,
   dailyDate:null,
   history:[],
   historyHintShown:false,
@@ -184,15 +188,18 @@ function formatShareText(e){
     ? formatDailyDate(e.dailyDate)
     : new Date(e.date).toLocaleDateString('fr-FR');
   if(e.isDaily){
-    const failPart = e.success===false ? ' — Échec' : '';
-    return `Orapa Mine · Défi du jour · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍)${failPart}\nhttps://argone57.github.io/Orapa-Mine/`;
+    return `Orapa Mine · Défi du jour · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍)\nhttps://argone57.github.io/Orapa-Mine/`;
   }
   const decoded = e.gridId ? decodeGridId(e.gridId) : null;
+  if(e.gameVariant==='lost'||decoded?.variant==='lost'){
+    const puzzle=e.success!==false&&e.placementBonus?'/🧩':'';
+    return `Orapa Mine · Gemme perdue · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍${puzzle}) - ID: ${e.gridId||'?'}\nhttps://argone57.github.io/Orapa-Mine/`;
+  }
   const gems = decoded
     ? gemFlagsEmojiLine(decoded.includeGray, decoded.includeOnyx, decoded.includeSapphire)
     : gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
   const idPart = `ID: ${e.gridId||'?'}`;
-  return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}\nhttps://argone57.github.io/Orapa-Mine/`;
+  return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}\nhttps://argone57.github.io/Orapa-Mine/`;
 }
 // ---------------------------------------------------------------------
 // DÉFI DU JOUR — tentative unique (par navigateur) + classement journalier.
@@ -324,20 +331,21 @@ async function supabaseRpc(fn,params={}){
   return data;
 }
 let achievementCatalogCache=null,achievementExpanded=new Set(),achievementMode='list',achievementSort='order',achievementFilter='all',achievementReverse=false,achievementQueueBusy=false;
-const ACHIEVEMENT_NAMES={welcome:'Bienvenue',good_student:'Bon élève',first_step:'Premier pas',first_win:'Première victoire',founder:'Fondateur',ancestor:'Ancêtre',adventurous:'Aventureux',adventurous_victorious:'Aventureux et victorieux',meticulous:'Méticuleux',diamond:'Diamant',black_body:'Corps noir',sky_sapphire:'Saphir bleu ciel',curious:'Curieux',architect:'Architecte',challenger:'Défieur',mine_regular:'Habitué de la mine',confirmed_miner:'Mineur confirmé',first_try:'Du premier coup',economical:'Économe',mole_eye:'Œil de taupe',back_to_mine:'Retour au fond de la mine',regular:'Régulier',challenge_week:'Une semaine de défis',always_present:'Toujours présent',assiduous:'Assidu',winning_streak:'Série victorieuse',perfect_week:'Semaine parfaite',podium:'Sur le podium',number_one:'Numéro un',next_day_revenge:'La revanche du lendemain',photofinish:'Photofinish',copycat:'Copie conforme',first_visitor:'Premier visiteur',deja_vu:'Une impression de déjà-vu',two_waves_late:'Deux ondes de retard',triforce:'Triforce'};
+const ACHIEVEMENT_NAMES={welcome:'Bienvenue',good_student:'Bon élève',first_step:'Premier pas',first_win:'Première victoire',founder:'Fondateur',ancestor:'Ancêtre',adventurous:'Aventureux',adventurous_victorious:'Aventureux et victorieux',meticulous:'Méticuleux',diamond:'Diamant',black_body:'Corps noir',sky_sapphire:'Saphir bleu ciel',curious:'Curieux',architect:'Architecte',challenger:'Défieur',mine_regular:'Habitué de la mine',confirmed_miner:'Mineur confirmé',first_try:'Du premier coup',economical:'Économe',mole_eye:'Œil de taupe',back_to_mine:'Retour au fond de la mine',regular:'Régulier',challenge_week:'Une semaine de défis',always_present:'Toujours présent',assiduous:'Assidu',winning_streak:'Série victorieuse',perfect_week:'Semaine parfaite',podium:'Sur le podium',number_one:'Numéro un',next_day_revenge:'La revanche du lendemain',photofinish:'Photofinish',copycat:'Copie conforme',first_visitor:'Premier visiteur',deja_vu:'Une impression de déjà-vu',two_waves_late:'Deux ondes de retard',triforce:'Triforce',where_is_charlie:'Où est Charlie ?',seven_at_home:'Sept à la maison',eight_out_of_eight:'Huit sur huit',perfect_reconstructions:'Reconstitutions parfaites',lost_quickly_found:'Perdue, mais vite retrouvée',fine_sleuth:'Fin limier',organized_search:'Battue organisée',missing_notice:'Avis de disparition',without_touching_evidence:'Sans toucher aux preuves',detective_flair:'Le flair du détective',dissectologist:'Dissectologue',cephaloclastophile:'Céphaloclastophile',indiana_and_short_round:'Indiana Jones et Demi-Lune'};
 async function refreshAchievements(eventKey=null){
   if(!currentPlayerAccount?.session_token)return null;
-  let triforceResult=null;
+  let triforceResult=null,allModeResult=null;
   try{triforceResult=await supabaseRpc('orapa_triforce_status',{p_session_token:currentPlayerAccount.session_token});}
   catch(error){console.error('Vérification du succès Triforce impossible :',error);}
+  try{allModeResult=await supabaseRpc('orapa_refresh_all_mode_achievements',{p_session_token:currentPlayerAccount.session_token});}catch(error){console.error('All-mode achievement check failed:',error);}
   try{
     const result=await supabaseRpc('orapa_refresh_achievements',{p_session_token:currentPlayerAccount.session_token,p_event:eventKey});
     achievementCatalogCache=null;
-    const keys=[...new Set([...(Array.isArray(result?.new_keys)?result.new_keys:[]),...(triforceResult?.newly_unlocked?['triforce']:[])])];
+    const keys=[...new Set([...(Array.isArray(result?.new_keys)?result.new_keys:[]),...(Array.isArray(allModeResult?.new_keys)?allModeResult.new_keys:[]),...(triforceResult?.newly_unlocked?['triforce']:[])])];
     if(keys.includes('welcome')) showWelcomeAchievement();
     const regular=keys.filter(key=>key!=='welcome');
     if(regular.length&&!result?.hide_notifications) queueAchievementNotifications(regular);
-    return {...result,triforce_unlocked:!!triforceResult?.unlocked,triforce_check_ok:!!triforceResult};
+    return {...result,new_keys:keys,triforce_unlocked:!!triforceResult?.unlocked,triforce_check_ok:!!triforceResult};
   }catch(error){
     console.error('Actualisation des succès impossible :',error);
     if(triforceResult?.newly_unlocked&&!triforceResult.hide_notifications)queueAchievementNotifications(['triforce']);
@@ -474,6 +482,7 @@ async function renderAccountHome(){
       <button class="ghost" id="accountDailyHistoryBtn">📅 Historique des défis</button>
       <button class="ghost" id="accountGridHistoryBtn">🕘 Historique des grilles</button>
       <button class="ghost" id="accountSharedGridsBtn">📤 Mes grilles partagées</button>
+      <button class="ghost" id="accountSharedLostGridsBtn">💎 Mes grilles Gemme perdue</button>
       <button class="ghost" id="accountRenameBtn">✏️ Changer le pseudo</button>
       <button class="ghost" id="accountPinBtn">🔢 Modifier le code</button>
       <button class="danger" id="accountLogoutBtn">🚪 Se déconnecter</button>
@@ -485,14 +494,16 @@ async function renderAccountHome(){
   $('#accountDailyHistoryBtn').onclick=()=>openMyDailyHistory();
   $('#accountGridHistoryBtn').onclick=()=>openMyGridHistory();
   $('#accountSharedGridsBtn').onclick=()=>openMySharedGrids();
+  $('#accountSharedLostGridsBtn').onclick=()=>openMySharedLostGrids();
   $('#accountRenameBtn').onclick=showRenameAccount;
   $('#accountPinBtn').onclick=showChangePin;
   $('#accountLogoutBtn').onclick=()=>{savePlayerAccount(null);setTrustedDevice(false);showAccountLogin();showToast('Déconnecté');};
   try{
     await refreshAchievements();
-    const [st,gridStats,achievementRows,achievementPreferences]=await Promise.all([
+    const [st,gridStats,lostStats,achievementRows,achievementPreferences]=await Promise.all([
       loadMyAccountStats(),
       supabaseRpc('orapa_my_grid_stats',{p_session_token:currentPlayerAccount.session_token}).catch(()=>null),
+      supabaseRpc('orapa_my_lost_stats',{p_session_token:currentPlayerAccount.session_token}).catch(()=>null),
       getAchievementCatalog(true).catch(()=>[]),
       supabaseRpc('orapa_get_achievement_preferences',{p_session_token:currentPlayerAccount.session_token}).catch(()=>({}))
     ]);
@@ -508,7 +519,7 @@ async function renderAccountHome(){
       <div class="account-stat"><b>${st.best_score==null?'—':st.best_score+' pts'}</b>meilleur score</div>
     </div>${st.best_time_ms==null?'':`<p>Meilleur temps : <b>${formatDuration(st.best_time_ms)}</b></p>`}
     <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid"><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked).length}</b>débloqués</div><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked).reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div></div>
-    ${gridStats?`<h3 class="account-section-title">🧩 Grilles et parties Solo</h3><div class="account-stats-grid">
+    ${gridStats?`<h3 class="account-section-title">🧩 Grilles classiques</h3><div class="account-stats-grid">
       <div class="account-stat"><b>${gridStats.played||0}</b>jouées</div>
       <div class="account-stat"><b>${gridStats.played?Math.round((gridStats.wins||0)/gridStats.played*100):0}%</b>réussite</div>
       <div class="account-stat"><b>${gridStats.created||0}</b>créées</div>
@@ -516,7 +527,7 @@ async function renderAccountHome(){
       <div class="account-stat"><b>${gridStats.average_score==null?'—':gridStats.average_score+' pts'}</b>score moyen</div>
       <div class="account-stat"><b>${gridStats.average_rank==null?'—':'#'+gridStats.average_rank}</b>rang moyen</div>
       <div class="account-stat"><b>${gridStats.first_places||0}</b>premières places</div>
-    </div>`:''}`;
+    </div>`:''}${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.wins||0}</b>réussites</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}`;
   }catch(e){ $('#accountStats').innerHTML=`<div class="account-error" style="display:block;">${escapeHtml(e.message)}</div>`; }
 }
 function showRenameAccount(){
@@ -578,25 +589,26 @@ function gridRankingRows(rows){
     const mine=!!myAccountName&&String(row.player_name||'').trim().toLocaleLowerCase('fr-FR')===myAccountName;
     return `<div class="ranking-row grid-ranking-row one-line-ranking${mine?' ranking-mine':''}"><div class="ranking-row-top">
     <span class="ranking-player-cell"><span class="ranking-rank${Number(row.rank)===1?' top1':''}">${rankingMedal(Number(row.rank)-1)}</span><span class="ranking-name">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}</span>${row.success?'':'<span class="ranking-fail">Échec</span>'}</span>
-    <span class="ranking-query-cell">${row.ray_count||0} 🔦 + ${row.coord_count||0} 📍</span>
+    <span class="ranking-query-cell">${row.ray_count||0} 🔦 + ${row.coord_count||0} 📍${row.placement_bonus?' · 🧩':''}</span>
     <span class="ranking-points">${row.cost} pts</span><span class="ranking-time">${formatDuration(row.time_ms)}</span>
   </div></div>`;
   }).join('');
 }
 function gridRankingIntro(gridId,copyButtonId,returnToVictory=false){
   const decoded=decodeGridId(gridId);
-  const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
+  const gems=decoded?.variant==='lost'?'💎 Gemme perdue':(decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'');
   return `<div class="grid-ranking-idline"><p>Grille <b>${escapeHtml(gridId)}</b></p><span class="ranking-gems">${gems}</span></div><div class="controls ranked-grid-actions"><button id="${copyButtonId}" class="ghost">📋 Copier l’ID de la grille</button>${returnToVictory?'<button id="gridResultBack" class="ghost">← Retour au résultat</button>':''}</div>`;
 }
 async function openGridRanking(gridId,returnToAccount=false,returnToVictory=false){
   if(!gridId) return;
+  const lost=decodeGridId(gridId)?.variant==='lost';
   if(returnToAccount&&$('#gridDataModal').classList.contains('open')){
     $('#nestedGridRankingIntro').innerHTML=gridRankingIntro(gridId,'copyNestedRankedGridId');
     $('#nestedGridRankingContent').innerHTML='<div class="history-empty">Chargement…</div>';
     $('#nestedGridRankingModal').classList.add('open');
     $('#copyNestedRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
     try{
-      const rows=await supabaseRpc('orapa_get_grid_scores',{p_grid_id:gridId});
+      const rows=await supabaseRpc(lost?'orapa_lost_grid_ranking':'orapa_get_grid_scores',lost?{p_grid_id:gridId,p_session_token:currentPlayerAccount?.session_token||''}:{p_grid_id:gridId});
       if(!$('#nestedGridRankingModal').classList.contains('open'))return;
       const wins=(rows||[]).filter(row=>row.success).length;
       $('#nestedGridRankingContent').innerHTML=`<div class="global-ranking-summary"><b>${rows?.length||0}</b> participant${rows?.length===1?'':'s'} · <b>${wins}</b> réussite${wins===1?'':'s'}</div>${gridRankingRows(rows)}${rows?.some(row=>row.played_by_creator)?'<p class="stats-note">* Cette personne a créé la grille et l’a jouée après la période de protection.</p>':''}`;
@@ -609,7 +621,7 @@ async function openGridRanking(gridId,returnToAccount=false,returnToVictory=fals
   $('#copyRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
   if(returnToVictory) $('#gridResultBack').onclick=()=>closeGridDataModal(true);
   try{
-    const rows=await supabaseRpc('orapa_get_grid_scores',{p_grid_id:gridId});
+    const rows=await supabaseRpc(lost?'orapa_lost_grid_ranking':'orapa_get_grid_scores',lost?{p_grid_id:gridId,p_session_token:currentPlayerAccount?.session_token||''}:{p_grid_id:gridId});
     const wins=(rows||[]).filter(row=>row.success).length;
     $('#gridDataContent').innerHTML=`<div class="global-ranking-summary"><b>${rows?.length||0}</b> participant${rows?.length===1?'':'s'} · <b>${wins}</b> réussite${wins===1?'':'s'}</div>${gridRankingRows(rows)}${rows?.some(row=>row.played_by_creator)?'<p class="stats-note">* Cette personne a créé la grille et l’a jouée après la période de protection.</p>':''}`;
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
@@ -617,7 +629,7 @@ async function openGridRanking(gridId,returnToAccount=false,returnToVictory=fals
 async function openMyGridHistory(){
   if(!currentPlayerAccount) return;
   const configOptions='<option value="ALL">Toutes les configurations</option>'+RANKING_COMBOS.map(([g,o,s])=>{const key=configKey(g,o,s);return `<option value="${key}">${key}</option>`;}).join('');
-  openGridDataShell('🕘 Historique des grilles',`<p>Grilles classées jouées avec ce compte, chargées par 10.</p><select id="accountHistoryConfigSelect" class="ranking-select">${configOptions}</select>`,true);
+  openGridDataShell('🕘 Historique des grilles',`<p>Grilles classées jouées avec ce compte, chargées par 10.</p><div class="achievement-subtabs"><button id="accountHistoryClassic" class="ghost active">Classique</button><button id="accountHistoryLost" class="ghost">Gemme perdue</button></div><select id="accountHistoryConfigSelect" class="ranking-select">${configOptions}</select>`,true);
   const historyState={rows:[],hasMore:true};
   const loadPage=async()=>{
     const page=await supabaseRpc('orapa_my_grid_history',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:historyState.rows.length});
@@ -648,8 +660,23 @@ async function openMyGridHistory(){
       if(loadMore) loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderHistory();}catch(e){showToast(`Chargement impossible : ${e.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
     };
     $('#accountHistoryConfigSelect').addEventListener('change',renderHistory);
+    $('#accountHistoryClassic').addEventListener('click',openMyGridHistory);
+    $('#accountHistoryLost').addEventListener('click',openMyLostGridHistory);
     renderHistory();
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
+}
+async function openMyLostGridHistory(){
+  if(!currentPlayerAccount)return;
+  openGridDataShell('🕘 Historique des grilles',`<p>Parties Gemme perdue jouées avec ce compte, chargées par 10.</p><div class="achievement-subtabs"><button id="accountHistoryClassic" class="ghost">Classique</button><button id="accountHistoryLost" class="ghost active">Gemme perdue</button></div>`,true);
+  const stateRows={rows:[],hasMore:true};
+  const load=async()=>{const page=await supabaseRpc('orapa_my_lost_grid_history',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:stateRows.rows.length});stateRows.rows.push(...(page||[]).slice(0,10));stateRows.hasMore=(page||[]).length>10;};
+  const render=()=>{
+    $('#gridDataContent').innerHTML=stateRows.rows.map((row,index)=>`<div class="ranking-row account-history-row"><div class="ranking-row-top"><span class="account-result-position"><span class="solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span></span><span class="ranking-gems">${row.placement_bonus?'💎 · 🧩':'💎 Gemme perdue'}</span><span class="ranking-points">${row.cost} pts</span></div><div class="ranking-row-detail">${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)} · ${new Date(row.played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</div><div class="controls ranking-compact-actions"><button class="lost-account-copy ghost" data-index="${index}">📋 Résumé</button><button class="lost-account-ranking primary" data-index="${index}">🏆 Grille</button></div></div>`).join('')+(stateRows.hasMore?'<button id="lostAccountLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'');
+    $('#gridDataContent').querySelectorAll('.lost-account-ranking').forEach(button=>button.onclick=()=>openGridRanking(stateRows.rows[Number(button.dataset.index)].grid_id,true));
+    $('#gridDataContent').querySelectorAll('.lost-account-copy').forEach(button=>button.onclick=()=>{const row=stateRows.rows[Number(button.dataset.index)];navigator.clipboard?.writeText(formatShareText({gameVariant:'lost',gridId:row.grid_id,name:currentPlayerAccount.display_name,success:row.success,placementBonus:row.placement_bonus,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,date:new Date(row.played_at).getTime()})).then(()=>showToast('Résumé copié !'));});
+    if($('#lostAccountLoadMore'))$('#lostAccountLoadMore').onclick=async()=>{await load();render();};
+  };
+  try{await load();$('#accountHistoryClassic').onclick=openMyGridHistory;$('#accountHistoryLost').onclick=openMyLostGridHistory;if(!stateRows.rows.length){$('#gridDataContent').innerHTML='<div class="history-empty">Aucune partie Gemme perdue enregistrée.</div>';return;}render();}catch(error){$('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 async function openMyDailyHistory(){
   if(!currentPlayerAccount) return;
@@ -695,7 +722,7 @@ function readOnlyGridSvg(decoded){
 function openSharedGridPreview(gridId){
   const decoded=decodeGridId(gridId);
   if(!decoded){showToast('Identifiant de grille invalide.');return;}
-  const gems=gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire);
+  const gems=decoded.variant==='lost'?'💎 Gemme perdue':gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire);
   $('#sharedGridPreviewContent').innerHTML=`<div class="readonly-grid-meta"><b>${escapeHtml(decoded.id)}</b><span>${gems}</span></div><div class="readonly-grid-board">${readOnlyGridSvg(decoded)}</div><p class="readonly-grid-note">Aucune action n’est possible dans cet aperçu.</p><div class="controls readonly-grid-actions"><button class="ghost" id="sharedPreviewCopyId">📋 Copier l’ID</button><button class="primary" id="sharedPreviewRanking">🏆 Classement</button></div>`;
   $('#sharedPreviewCopyId').onclick=()=>navigator.clipboard?.writeText(decoded.id).then(()=>showToast('Identifiant copié : '+decoded.id));
   $('#sharedPreviewRanking').onclick=()=>{const fromList=$('#gridDataModal').classList.contains('open');if(!fromList)closeSharedGridPreview();openGridRanking(decoded.id,fromList);};
@@ -772,6 +799,17 @@ async function openMySharedGrids(){
     $('#accountSharedSortReverse').addEventListener('click',()=>{sharedState.reverse=!sharedState.reverse;$('#accountSharedSortReverse').textContent=sharedState.reverse?'↑':'↓';renderShared();});
     renderShared();
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
+}
+async function openMySharedLostGrids(){
+  if(!currentPlayerAccount)return;
+  openGridDataShell('💎 Mes grilles Gemme perdue','<p>Les grilles Gemme perdue partagées par ce compte, chargées par 10.</p>',true);
+  try{
+    const rows=await supabaseRpc('orapa_my_shared_lost_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:10,p_offset:0});
+    $('#gridDataContent').innerHTML=rows?.length?rows.map((row,index)=>{const total=Number(row.score_count||0),rate=total?`${Math.round(Number(row.success_count||0)*100/total)} %`:'—',date=row.shared_at?new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';return `<div class="ranking-row account-shared-row"><div class="ranking-row-top"><span class="account-shared-date">${date}</span><span class="ranking-gems">💎 Gemme perdue</span><span class="ranking-points">${row.best_score==null?'—':row.best_score+' pts'}</span><span class="ranking-count">${total} 👥</span><span class="ranking-rate">${rate}</span></div><div class="controls ranking-compact-actions three"><button class="shared-lost-copy ghost" data-index="${index}">📋 ID</button><button class="shared-lost-ranking ghost" data-index="${index}">🏆 Classement</button><button class="shared-lost-preview primary" data-index="${index}">👁️ Voir</button></div></div>`;}).join(''):'<div class="history-empty">Aucune grille Gemme perdue partagée.</div>';
+    $('#gridDataContent').querySelectorAll('.shared-lost-copy').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(rows[Number(button.dataset.index)].grid_id).then(()=>showToast('Identifiant copié !')));
+    $('#gridDataContent').querySelectorAll('.shared-lost-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));
+    $('#gridDataContent').querySelectorAll('.shared-lost-preview').forEach(button=>button.onclick=()=>openSharedGridPreview(rows[Number(button.dataset.index)].grid_id));
+  }catch(error){$('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 
 function closeScoreIdentity(result=null){
@@ -940,6 +978,27 @@ async function submitGlobalGridScore(entry, identity){
     return null;
   }
 }
+async function submitLostGridScore(entry,identity){
+  if(!entry?.gridId||!identity?.sessionToken)return null;
+  try{
+    const unlockedBefore=new Set((await getAchievementCatalog(true)).filter(item=>item.unlocked).map(item=>item.achievement_key));
+    const row=await supabaseRpc('orapa_submit_lost_grid_score',{p_grid_id:entry.gridId,p_session_token:identity.sessionToken,p_success:entry.success!==false,p_placement_bonus:!!entry.placementBonus,p_placed_count:state.pieces.filter(piece=>piece.center).length,p_cost:Number(entry.cost)||0,p_ray_count:Number(entry.rayCount)||0,p_coord_count:Number(entry.coordCount)||0,p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0))});
+    if(row?.accepted){
+      achievementCatalogCache=null;
+      const result=await refreshAchievements(entry.placementBonus?'lost_full_placement':'lost_completed');
+      const unlockedAfter=(await getAchievementCatalog(true)).filter(item=>item.unlocked).map(item=>item.achievement_key);
+      const newlyUnlocked=unlockedAfter.filter(key=>!unlockedBefore.has(key));
+      if(newlyUnlocked.includes('welcome'))showWelcomeAchievement();
+      const alreadyNotified=new Set(Array.isArray(result?.new_keys)?result.new_keys:[]);
+      const notices=newlyUnlocked.filter(key=>key!=='welcome'&&!alreadyNotified.has(key));
+      if(notices.length&&!result?.hide_notifications)queueAchievementNotifications(notices);
+    }
+    return row;
+  }catch(error){console.error('Envoi Gemme perdue impossible',error);showToast(`⚠️ Envoi global impossible : ${error.message}`);return null;}
+}
+async function shareLostGridGlobally(gridId){
+  return supabaseRpc('orapa_share_lost_grid',{p_grid_id:gridId,p_session_token:currentPlayerAccount?.session_token||''});
+}
 async function fetchGlobalDailyScores(dateKey, force=false){
   if(!force && globalRankingCache[dateKey]) return globalRankingCache[dateKey];
   const query = new URLSearchParams({
@@ -986,6 +1045,7 @@ function raysEnabled(){
 }
 
 function allTypes(){
+  if(state.gameVariant==='lost') return TYPE_ORDER.slice();
   const t = ['red','yellow','blue','white','rhombus'];
   if(state.includeGray) t.push('gray');
   if(state.includeOnyx) t.push('onyx');
@@ -1010,6 +1070,10 @@ function loadState(){
     delete s.savedScoreResult;
     state = s;
     state.mode = state.mode || 'gm';
+    state.gameVariant = state.gameVariant || 'classic';
+    state.missingType = state.missingType || null;
+    state.selectedMissingType = state.selectedMissingType || null;
+    state.placementBonus = !!state.placementBonus;
     state.secretPieces = state.secretPieces || [];
     state.soloAttempts = state.soloAttempts || 0;
     state.soloOver = state.soloOver || false;
@@ -1050,7 +1114,7 @@ function loadState(){
 function resetAll(){
   if(state.isDaily && state.soloOver) saveDailyFinalSnapshot();
   const g = state.includeGray, o = state.includeOnyx, s2 = state.includeSapphire;
-  state = { mode:'gm', started:false, includeGray:g, includeOnyx:o, includeSapphire:s2, pieces:[], secretPieces:[],
+  state = { mode:'gm', gameVariant:'classic',missingType:null,selectedMissingType:null,placementBonus:false,started:false, includeGray:g, includeOnyx:o, includeSapphire:s2, pieces:[], secretPieces:[],
             soloAttempts:0, soloOver:false, soloResult:null, soloShowGuess:true, soloShowSecret:true, history:[], historyHintShown:false,
             gridId:null, gridRanked:true, moveCost:0, firstActionTime:null, finalTimeMs:null, rayCount:0, coordCount:0,
             isDaily:false, dailyDate:null,
@@ -1071,6 +1135,7 @@ function resetAll(){
 // ---------------------------------------------------------------------
 const GRID_ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sans 0/O/1/I/L ambigus, valeurs 0-31
 const TYPE_ORDER = ['red','yellow','blue','white','rhombus','gray','onyx','sapphire'];
+const LOST_GRID_ID_MARKER = 'Z';
 
 // L'identifiant encode DIRECTEMENT le contenu de la grille (position/rotation/miroir
 // de chaque gemme), pas une graine aléatoire : deux grilles identiques donnent toujours
@@ -1093,9 +1158,37 @@ function encodeGridId(pieces, includeGray, includeOnyx, includeSapphire){
   }
   return chars.join('').match(/.{1,4}/g).join('-');
 }
+function encodeLostGridId(pieces, missingType){
+  const missingIndex=TYPE_ORDER.indexOf(missingType);
+  if(missingIndex<0)return null;
+  const chars=[LOST_GRID_ID_MARKER,GRID_ID_CHARS[missingIndex]];
+  for(const type of TYPE_ORDER){
+    if(type===missingType)continue;
+    const piece=pieces.find(p=>p.type===type&&p.center);
+    if(!piece)return null;
+    const x2=Math.max(0,Math.min(31,Math.round(piece.center.x*2)));
+    const y2=Math.max(0,Math.min(31,Math.round(piece.center.y*2)));
+    const rotIdx=Math.max(0,ROTATIONS.indexOf(piece.rotation));
+    chars.push(GRID_ID_CHARS[x2],GRID_ID_CHARS[y2],GRID_ID_CHARS[rotIdx*2+(piece.flipped?1:0)]);
+  }
+  return chars.join('').match(/.{1,4}/g).join('-');
+}
 function decodeGridId(input){
   const clean = (input||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(clean.length < 1) return null;
+  if(clean[0]===LOST_GRID_ID_MARKER){
+    if(clean.length!==2+7*3)return null;
+    const missingIndex=GRID_ID_CHARS.indexOf(clean[1]);
+    const missingType=TYPE_ORDER[missingIndex];
+    if(!missingType)return null;
+    const pieces=[];let idx=2;
+    for(const type of TYPE_ORDER.filter(type=>type!==missingType)){
+      const cx=GRID_ID_CHARS.indexOf(clean[idx]),cy=GRID_ID_CHARS.indexOf(clean[idx+1]),cc=GRID_ID_CHARS.indexOf(clean[idx+2]);
+      if(cx<0||cy<0||cc<0||cc>7)return null;
+      pieces.push({type,center:{x:cx/2,y:cy/2},rotation:ROTATIONS[Math.floor(cc/2)],flipped:!!(cc%2)});idx+=3;
+    }
+    return {variant:'lost',missingType,includeGray:true,includeOnyx:true,includeSapphire:true,pieces,id:clean.match(/.{1,4}/g).join('-')};
+  }
   const header = GRID_ID_CHARS.indexOf(clean[0]);
   if(header<0 || header>7) return null;
   const includeGray = !!(header&1), includeOnyx = !!(header&2), includeSapphire = !!(header&4);
@@ -1110,7 +1203,7 @@ function decodeGridId(input){
     idx += 3;
   }
   const formatted = clean.match(/.{1,4}/g).join('-');
-  return { includeGray, includeOnyx, includeSapphire, pieces, id: formatted };
+  return { variant:'classic',includeGray, includeOnyx, includeSapphire, pieces, id: formatted };
 }
 function gemFlagsEmojiLine(g,o,s){
   return `💎 ${g?'✅':'❌'} / ⬛️ ${o?'✅':'❌'} / 🟦 ${s?'✅':'❌'}`;
@@ -1142,9 +1235,9 @@ function seededShuffle(arr, rngFn){
   return a;
 }
 
-function tryRandomLayout(rngFn){
+function tryRandomLayout(rngFn,requestedTypes){
   rngFn = rngFn || Math.random;
-  const types = seededShuffle(allTypes(), rngFn);
+  const types = seededShuffle(requestedTypes||allTypes(), rngFn);
   const placed = [];
   for(const type of types){
     let ok = false;
@@ -1170,10 +1263,10 @@ function tryRandomLayout(rngFn){
   if(unreachablePieces(placed).length > 0) return null;
   return placed.map(p=> ({ id:'p'+(pieceIdSeq++), type:p.type, center:p.center, rotation:p.rotation, flipped:p.flipped }));
 }
-function generateRandomLayout(maxAttempts){
+function generateRandomLayout(maxAttempts,requestedTypes){
   maxAttempts = maxAttempts || 60;
   for(let attempt=0; attempt<maxAttempts; attempt++){
-    const layout = tryRandomLayout();
+    const layout = tryRandomLayout(null,requestedTypes);
     if(layout) return layout;
   }
   return null;
@@ -1426,7 +1519,8 @@ function generateDailyLayout(dateKey){
 }
 
 function randomizePlacement(){
-  const layout = generateRandomLayout();
+  const requestedTypes=state.gameVariant==='lost'?TYPE_ORDER.filter(type=>type!==state.missingType):null;
+  const layout = generateRandomLayout(60,requestedTypes);
   if(layout){
     state.history = [];
     resetHistoryDisclosure();
@@ -1493,6 +1587,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
   const unrankedReason=gridStatus?.creator_protected?'creator_protected':(gridStatus?.already_played?'already_played':null);
   setHintMode(false);
   state.mode = 'solo';
+  state.gameVariant='classic';state.missingType=null;state.selectedMissingType=null;state.placementBonus=false;
   state.started = false;
   state.secretPieces = secret;
   state.pieces = freshPieceSet();
@@ -1528,6 +1623,36 @@ async function startSoloGame(explicitId,creatorRetry=0){
   renderAll();
   if(unrankedReason==='creator_protected') setTimeout(()=>alert('Vous avez créé cette grille récemment. Vous pouvez jouer normalement, mais votre score ne sera pas ajouté au classement pour le moment.'),60);
   else if(unrankedReason==='already_played') setTimeout(openAlreadyPlayedGridModal,60);
+}
+
+async function startLostGame(explicitId=null,creatorRetry=0){
+  let decoded=null,secret=null,gridId=null,missingType=null;
+  if(explicitId){
+    decoded=decodeGridId(explicitId);
+    if(!decoded||decoded.variant!=='lost'){showToast('Cet identifiant ne correspond pas à une grille Gemme perdue.');return;}
+    secret=decoded.pieces.map(p=>({id:'p'+(pieceIdSeq++),type:p.type,center:{...p.center},rotation:p.rotation,flipped:p.flipped}));
+    missingType=decoded.missingType;gridId=decoded.id;
+  }else{
+    missingType=TYPE_ORDER[Math.floor(Math.random()*TYPE_ORDER.length)];
+    secret=generateRandomLayout(100,TYPE_ORDER.filter(type=>type!==missingType));
+    if(!secret){showToast('Impossible de générer cette grille. Réessaie.');return;}
+    gridId=encodeLostGridId(secret,missingType);
+  }
+  if(unreachablePieces(secret).length){showToast('Cet identifiant ne correspond à aucune grille valide.');return;}
+  let gridStatus={};
+  try{gridStatus=await supabaseRpc('orapa_get_lost_grid_status',{p_grid_id:gridId,p_session_token:currentPlayerAccount?.session_token||''});}
+  catch(error){console.warn('Statut Gemme perdue indisponible',error);if(explicitId){showToast('Impossible de vérifier cette grille.');return;}}
+  if(gridStatus?.is_creator){
+    if(!explicitId&&creatorRetry<24)return startLostGame(null,creatorRetry+1);
+    openCreatorGridBlockedModal(gridId);return;
+  }
+  setHintMode(false);
+  state.mode='solo';state.gameVariant='lost';state.started=false;state.includeGray=true;state.includeOnyx=true;state.includeSapphire=true;
+  state.secretPieces=secret;state.pieces=TYPE_ORDER.map(type=>newPiece(type));state.missingType=missingType;state.selectedMissingType=null;state.placementBonus=false;
+  state.gridId=gridId;state.gridRanked=!gridStatus?.already_played;state.gridUnrankedReason=gridStatus?.already_played?'already_played':null;
+  state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;lastScoreResult=null;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.occupiedMarks=[];state.coordDots=[];
+  saveState();closeSoloChoiceModal();showGame();renderAll();
+  if(gridStatus?.already_played)setTimeout(openAlreadyPlayedGridModal,60);
 }
 
 function dailyStatusToday(){
@@ -1647,6 +1772,7 @@ async function startDailyChallenge(){
   state.includeOnyx = daily.flags.onyx;
   state.includeSapphire = daily.flags.sapphire;
   state.mode = 'solo';
+  state.gameVariant='classic';state.missingType=null;state.selectedMissingType=null;state.placementBonus=false;
   state.started = false;
   state.secretPieces = daily.pieces;
   state.pieces = freshPieceSet();
@@ -1738,6 +1864,8 @@ function currentEntryForDisplay(){
     coordCount: state.coordCount||0,
     gridId: state.gridId,
     isDaily: state.isDaily,
+    gameVariant:state.gameVariant||'classic',
+    placementBonus:!!state.placementBonus,
     dailyDate: state.dailyDate,
     success: state.soloResult==='win',
     firstTry: state.soloResult==='win'&&state.soloAttempts===0,
@@ -1749,7 +1877,7 @@ function openVictoryModal(){
   const won = state.soloResult==='win';
   $('#resultModalTitle').textContent = won ? '🏆 Victoire !' : '💥 Défaite';
   $('#victoryMessage').textContent = won
-    ? 'Tu as retrouvé la disposition exacte !'
+    ? (state.gameVariant==='lost'?(state.placementBonus?'Tu as identifié la gemme perdue et reconstitué toute la grille !':'Tu as identifié la gemme perdue !'):'Tu as retrouvé la disposition exacte !')
     : (state.isDaily
       ? 'Solution incorrecte : la grille secrète est révélée ci-dessous.'
       : 'La seconde proposition est incorrecte : la grille secrète est révélée ci-dessous.');
@@ -1761,7 +1889,7 @@ function openVictoryModal(){
       : (state.isDaily ? '' : (state.gridUnrankedReason==='creator_protected'
       ? '⭐ Cette grille est la vôtre et ne peut pas être résolue avec ce compte.'
       : '')));
-  $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${formatDailyDate(state.dailyDate)})` : (state.gridId || '');
+  $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${formatDailyDate(state.dailyDate)})` : `${state.gameVariant==='lost'?'Gemme perdue · ':''}${state.gridId||''}`;
   $('#btnVictoryGridRanking').style.display=(!state.isDaily&&state.gridId)?'':'none';
   $('#btnVictoryCopySummary').style.display=state.gridUnrankedReason==='already_played'?'none':'';
   $('#victoryModal').classList.add('open');
@@ -1769,6 +1897,7 @@ function openVictoryModal(){
 async function proposeSolution(){
   if(state.mode!=='solo' || state.soloOver) return;
   if(tutorialActive){tutorialPropose();return;}
+  if(state.gameVariant==='lost'){openLostSolutionModal();return;}
   const correct=evaluateGuess();
   if(correct){
     state.soloOver=true; state.soloResult='win';
@@ -1823,6 +1952,27 @@ async function proposeSolution(){
     if(state.isDaily) saveDailyFinalSnapshot();
     saveState();renderAll();setTimeout(()=>openVictoryModal(),60);
   }else{saveState();setTimeout(openIncorrectSolutionModal,60);}
+}
+function lostPlacementIsExact(){
+  const placed=state.pieces.filter(piece=>piece.center);
+  if(placed.length!==7||placed.some(piece=>piece.type===state.missingType))return false;
+  return state.secretPieces.every(secret=>{const guess=placed.find(piece=>piece.type===secret.type);return guess&&polygonsMatch(secret,guess);});
+}
+async function finalizeLostSolution(){
+  if(state.gameVariant!=='lost'||state.soloOver||!state.selectedMissingType)return;
+  $('#lostSolutionModal').classList.remove('open');
+  const won=state.selectedMissingType===state.missingType;
+  const originalCost=state.moveCost||0;
+  state.soloOver=true;state.soloResult=won?'win':'lose';state.placementBonus=won&&lostPlacementIsExact();state.soloAttempts=1;state.finalTimeMs=state.firstActionTime?Date.now()-state.firstActionTime:0;
+  if(state.placementBonus)state.moveCost=Math.max(0,originalCost-5);
+  if(state.gridRanked){
+    const identity=await requestGridIdentity();
+    if(!identity){state.soloOver=false;state.soloResult=null;state.placementBonus=false;state.soloAttempts=0;state.moveCost=originalCost;return;}
+    const entry={...currentEntryForDisplay(),name:identity.name||'Invité',success:won};
+    lastScoreResult={key:'classement Gemme perdue',entry,rank:null,madeList:false};
+    if(identity.saveGlobal!==false){const result=await submitLostGridScore(entry,identity);if(result?.rank){lastScoreResult.rank=result.rank;lastScoreResult.madeList=true;}if(result?.reason){state.gridUnrankedReason=result.reason;state.gridRanked=false;}}
+  }
+  saveState();renderAll();setTimeout(openVictoryModal,60);
 }
 // ---------------------------------------------------------------------
 // GEOMETRY — transform & rendering helpers
@@ -2515,11 +2665,11 @@ function renderModePill(){
       if(state.isDaily){
         text = state.soloResult==='win' ? `📅 Défi du jour — ${formatDailyDate(state.dailyDate)} — Victoire !` : `📅 Défi du jour — ${formatDailyDate(state.dailyDate)} — Défaite`;
       } else {
-        text = state.soloResult==='win' ? '🏆 Victoire !' : '💥 Défaite';
+        text = state.gameVariant==='lost' ? `💎 Gemme perdue — ${state.soloResult==='win'?'Victoire !':'Défaite'}` : (state.soloResult==='win' ? '🏆 Victoire !' : '💥 Défaite');
       }
       cls = state.soloResult==='win' ? 'win' : 'lose';
     } else {
-      text = state.isDaily ? `📅 Défi du jour — ${formatDailyDate(state.dailyDate)}` : 'Mode solo — devine la grille';
+      text = state.isDaily ? `📅 Défi du jour — ${formatDailyDate(state.dailyDate)}` : (state.gameVariant==='lost'?'💎 Gemme perdue':'Mode solo — devine la grille');
       cls = 'live';
     }
   } else {
@@ -2531,6 +2681,8 @@ function renderModePill(){
 }
 function renderControls(){
   $('#masterSubtitle').style.display=state.isDaily?'none':'';
+  $('#setupOptions').style.display=state.gameVariant==='lost'?'none':'';
+  $('#setupHint').textContent=state.gameVariant==='lost'?'Place les sept gemmes présentes · la gemme perdue a été retirée de cette grille':'Glisse une gemme sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir';
   const gmPreStart = state.mode==='gm' && !state.started;
   $('#btnRandom').style.display = gmPreStart ? '' : 'none';
   $('#btnStart').style.display = state.mode==='gm' ? '' : 'none';
@@ -2564,6 +2716,7 @@ function renderControls(){
   }
   $('#btnReplayVictory').style.display = (state.mode==='solo' && state.soloOver) ? '' : 'none';
   $('#btnReset').style.display = state.isDaily ? 'none' : '';
+  $('#btnPropose').textContent=state.gameVariant==='lost'?'💎 Choisir la gemme perdue':'✅ Proposer une solution';
 }
 function renderAll(){
   renderModePill();
@@ -2590,6 +2743,19 @@ function shapeIconSVG(type, size){
   return `<svg class="mix-icon" width="${size}" height="${size}" viewBox="${minX-pad} ${minY-pad} ${(maxX-minX)+2*pad} ${(maxY-minY)+2*pad}">
     <polygon points="${polyPointsAttr(pts)}" fill="${fill}" stroke="${stroke}" stroke-width="0.05"/>
   </svg>`;
+}
+function lostGemChoiceMarkup(type,selected){
+  const shape=SHAPES[type],def=CONFIG.PIECES[type],points=shape.pts.map(([x,y])=>`${50+x*20},${50+y*20}`).join(' ');
+  return `<button type="button" class="lost-gem-choice${selected===type?' selected':''}" data-lost-type="${type}" aria-label="${escapeHtml(def.label)}"><svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="${points}" fill="${def.isDiamond?'rgba(207,216,220,.55)':def.hex}" stroke="${def.isOnyx?'#cfd8dc':'rgba(255,255,255,.35)'}" stroke-width="1.5"/></svg></button>`;
+}
+function renderLostGemChoices(hostId,selected,onSelect){
+  const host=$(hostId);host.classList.toggle('has-selection',!!selected);host.innerHTML=TYPE_ORDER.map(type=>lostGemChoiceMarkup(type,selected)).join('');
+  host.querySelectorAll('[data-lost-type]').forEach(button=>button.onclick=()=>onSelect(button.dataset.lostType));
+}
+function openLostSolutionModal(){
+  const selectLostType=type=>{state.selectedMissingType=type;renderLostGemChoices('#lostGemChoices',type,selectLostType);$('#confirmLostSolution').disabled=false;};
+  state.selectedMissingType=null;renderLostGemChoices('#lostGemChoices',null,selectLostType);
+  $('#confirmLostSolution').disabled=true;$('#lostSolutionModal').classList.add('open');
 }
 function buildMixBoard(){
   const el = $('#mixBoard');
@@ -2923,7 +3089,7 @@ $('#homeSolo').addEventListener('click', enterSolo);
 async function activeSoloGridIsAllowed(){
   if(state.mode!=='solo'||state.isDaily||!state.gridId||!currentPlayerAccount?.session_token)return true;
   try{
-    const status=await supabaseRpc('orapa_get_grid_status',{p_grid_id:state.gridId,p_session_token:currentPlayerAccount.session_token});
+    const status=await supabaseRpc(state.gameVariant==='lost'?'orapa_get_lost_grid_status':'orapa_get_grid_status',{p_grid_id:state.gridId,p_session_token:currentPlayerAccount.session_token});
     if(status?.is_creator){showHome();openCreatorGridBlockedModal(state.gridId);return false;}
     return true;
   }catch(error){showToast('Vérification de la grille impossible.');return false;}
@@ -3106,7 +3272,7 @@ function beginInteractiveTutorial(){
   tutorialRayExamples=lesson.examples;tutorialPlacementEnds=lesson.ends;tutorialRayIndex=0;tutorialPlacementIndex=0;tutorialPlacementPieceId=null;
   tutorialActive=true;tutorialStage=0;tutorialStepNumber=0;tutorialStepKey='';tutorialTargetLabel={side:tutorialRayExamples[0].side,index:tutorialRayExamples[0].index};tutorialTargetCell=null;tutorialWrongPieceId=null;tutorialLastResult=null;
   document.body.classList.add('tutorial-active');
-  state.mode='solo';state.started=false;state.secretPieces=lesson.pieces.map(p=>({...p,center:{...p.center}}));state.pieces=freshPieceSet();
+  state.mode='solo';state.gameVariant='classic';state.missingType=null;state.selectedMissingType=null;state.placementBonus=false;state.started=false;state.secretPieces=lesson.pieces.map(p=>({...p,center:{...p.center}}));state.pieces=freshPieceSet();
   state.gridId=null;state.gridRanked=false;state.gridUnrankedReason='tutorial';state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.coordDots=[];
   showGame();setTimeout(tutorialShowStage,80);
 }
@@ -3183,7 +3349,26 @@ $('#homeCreate').addEventListener('click', ()=>{
     if(!state.soloOver && !confirm("Quitter la partie solo en cours ? Elle sera effacée.")) return;
     resetAll();
   }
-  showGame();
+  $('#createModeModal').classList.add('open');
+});
+function closeCreateModeModal(){$('#createModeModal').classList.remove('open');}
+$('#closeCreateMode').addEventListener('click',closeCreateModeModal);
+$('#createModeModal').addEventListener('click',event=>{if(event.target.id==='createModeModal')closeCreateModeModal();});
+$('#createClassicMode').addEventListener('click',()=>{closeCreateModeModal();resetAll();state.gameVariant='classic';showGame();renderAll();});
+$('#createLostMode').addEventListener('click',()=>{
+  (async()=>{
+  if(!await verifyTriforcePrerequisite(true))return;
+  closeCreateModeModal();let chosen=null;
+  const select=type=>{chosen=type;renderLostGemChoices('#createLostGemChoices',chosen,select);$('#confirmCreateLostMissing').disabled=false;};
+  renderLostGemChoices('#createLostGemChoices',null,select);$('#confirmCreateLostMissing').disabled=true;$('#createLostMissingModal').classList.add('open');
+  })();
+});
+function closeCreateLostMissing(){$('#createLostMissingModal').classList.remove('open');}
+$('#closeCreateLostMissing').addEventListener('click',closeCreateLostMissing);$('#cancelCreateLostMissing').addEventListener('click',closeCreateLostMissing);
+$('#createLostMissingModal').addEventListener('click',event=>{if(event.target.id==='createLostMissingModal')closeCreateLostMissing();});
+$('#confirmCreateLostMissing').addEventListener('click',()=>{
+  const selected=$('#createLostGemChoices .selected')?.dataset.lostType;if(!selected)return;
+  resetAll();state.mode='gm';state.gameVariant='lost';state.includeGray=true;state.includeOnyx=true;state.includeSapphire=true;state.missingType=selected;state.pieces=TYPE_ORDER.filter(type=>type!==selected).map(type=>newPiece(type));closeCreateLostMissing();showGame();renderAll();
 });
 $('#btnHome').addEventListener('click',()=>{
   if(state.mode==='solo'&&!state.soloOver){
@@ -3204,7 +3389,7 @@ $('#btnStart').addEventListener('click', ()=>{
     return;
   }
   state.started = true;
-  state.gridId = encodeGridId(state.pieces, state.includeGray, state.includeOnyx, state.includeSapphire);
+  state.gridId = state.gameVariant==='lost'?encodeLostGridId(state.pieces,state.missingType):encodeGridId(state.pieces, state.includeGray, state.includeOnyx, state.includeSapphire);
   saveState();
   renderAll();
 });
@@ -3221,12 +3406,12 @@ $('#btnShareGrid').addEventListener('click',async()=>{
     await openAccountModal();
     return;
   }
-  const gridId=encodeGridId(state.pieces,state.includeGray,state.includeOnyx,state.includeSapphire);
+  const gridId=state.gameVariant==='lost'?encodeLostGridId(state.pieces,state.missingType):encodeGridId(state.pieces,state.includeGray,state.includeOnyx,state.includeSapphire);
   if(!gridId) return;
   const gems=gemFlagsEmojiLine(state.includeGray,state.includeOnyx,state.includeSapphire);
-  const text=`Je te défie à Orapa Mine !\n${gems}\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`;
+  const text=state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`;
   try{
-    await shareGridGlobally(gridId);
+    await (state.gameVariant==='lost'?shareLostGridGlobally(gridId):shareGridGlobally(gridId));
     await navigator.clipboard?.writeText(text);
     showToast('Grille partagée et défi copié !');
   }catch(err){ showToast(`⚠️ Partage impossible : ${err.message}`); }
@@ -3240,9 +3425,9 @@ $('#btnCopyGridId').addEventListener('click', async()=>{
   if(!state.gridId || !navigator.clipboard) return;
   if(state.mode==='gm'){
     const gems = gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
-    const text = `Je te défie à Orapa Mine !\n${gems}\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`;
+    const text = state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`;
     try{
-      await shareGridGlobally(state.gridId);
+      await (state.gameVariant==='lost'?shareLostGridGlobally(state.gridId):shareGridGlobally(state.gridId));
       await navigator.clipboard.writeText(text);
       showToast('Grille partagée et défi copié !');
     }catch(err){
@@ -3384,6 +3569,24 @@ $('#appUpdateConfirm').addEventListener('click',async e=>{
 });
 $('#appUpdateModal').addEventListener('click',e=>{if(e.target.id==='appUpdateModal')closeAppUpdateModal();});
 $('#soloChoiceRandom').addEventListener('click', ()=>{ closeSoloChoiceModal(); openSoloSetupModal(); });
+$('#soloChoiceLost').addEventListener('click',async()=>{
+  if(!await verifyTriforcePrerequisite(true)){
+    if($('#triforcePrerequisiteModal').classList.contains('open')){
+      $('#triforcePrerequisiteTitle').textContent=dailyTriforceState.error?'⚠️ Vérification impossible':'🔒 Gemme perdue verrouillée';
+      if(!dailyTriforceState.error)$('#triforcePrerequisiteText').innerHTML='Pour accéder au mode <b>Gemme perdue</b>, débloque d’abord le succès <b>Triforce</b> en remportant une grille aléatoire comprenant les trois gemmes optionnelles.';
+    }
+    return;
+  }
+  closeSoloChoiceModal();$('#lostIntroModal').classList.add('open');
+});
+function closeLostIntro(){$('#lostIntroModal').classList.remove('open');}
+$('#closeLostIntro').addEventListener('click',closeLostIntro);$('#cancelLostIntro').addEventListener('click',closeLostIntro);
+$('#lostIntroModal').addEventListener('click',event=>{if(event.target.id==='lostIntroModal')closeLostIntro();});
+$('#startLostGame').addEventListener('click',()=>{closeLostIntro();startLostGame();});
+function closeLostSolution(){$('#lostSolutionModal').classList.remove('open');}
+$('#closeLostSolution').addEventListener('click',closeLostSolution);$('#cancelLostSolution').addEventListener('click',closeLostSolution);
+$('#lostSolutionModal').addEventListener('click',event=>{if(event.target.id==='lostSolutionModal')closeLostSolution();});
+$('#confirmLostSolution').addEventListener('click',finalizeLostSolution);
 $('#soloChoiceById').addEventListener('click', ()=> promptLoadGridById());
 function promptLoadGridById(){
   $('#gridIdEntryInput').value='';
@@ -3404,7 +3607,7 @@ async function confirmGridIdEntry(){
   button.textContent='Vérification…';
   closeGridIdEntry();
   closeSoloChoiceModal();
-  try{await startSoloGame(decoded.id);}finally{button.disabled=false;button.textContent='Lancer la grille';}
+  try{await (decoded.variant==='lost'?startLostGame(decoded.id):startSoloGame(decoded.id));}finally{button.disabled=false;button.textContent='Lancer la grille';}
 }
 $('#closeGridIdEntry').addEventListener('click',closeGridIdEntry);
 $('#cancelGridIdEntry').addEventListener('click',closeGridIdEntry);
@@ -3521,6 +3724,7 @@ function buildRankingConfigOptions(){
       return `<option value="GLOBAL:${dateKey}">${globalDateLabel(dateKey,index)}</option>`;
     }).join('');
   } else {
+    if(historyDisplayMode==='lost'){select.innerHTML='<option value="LOST_HISTORY:ALL">Toutes les parties Gemme perdue</option>';return;}
     select.innerHTML = '<option value="GLOBAL_SOLO:ALL">Toutes les configurations</option>'+RANKING_COMBOS.map(([g,o,s])=>{
       const key=configKey(g,o,s);
       return `<option value="GLOBAL_SOLO:${key}">${key}</option>`;
@@ -3541,7 +3745,8 @@ function setRankingView(view){
   $('#rankingList').style.maxHeight=view==='grids'?'480px':'320px';
   $('#btnRefreshGlobal').style.display = (view==='global'||view==='grids') ? '' : 'none';
   $('#btnRefreshGlobal').textContent=view==='grids'?'↻ Actualiser les grilles':'↻ Actualiser';
-  $('#btnStatsGlobal').style.display = view==='global' ? '' : 'none';
+  $('#btnStatsGlobal').style.display = (view==='global'||(view==='solo'&&historyDisplayMode==='lost')) ? '' : 'none';
+  $('#btnStatsGlobal').textContent=view==='solo'&&historyDisplayMode==='lost'?'📊 Statistiques Gemme perdue':'📊 Statistiques';
   const picker=$('#rankingDatePicker');
   $('#rankingDatePickerWrap').style.display=view==='global'?'flex':'none';
   $('#rankingDatePrevious').style.display=view==='global'?'flex':'none';
@@ -3549,6 +3754,7 @@ function setRankingView(view){
   picker.max=parisDateKey();
   if(view!=='grids'&&view!=='achievements') buildRankingConfigOptions();
   if(view==='solo') $('#rankingConfigSelect').value = 'GLOBAL_SOLO:ALL';
+  if(view==='solo'&&historyDisplayMode==='lost')$('#rankingConfigSelect').value='LOST_HISTORY:ALL';
   if(view==='global'){
     picker.value=($('#rankingConfigSelect').value||'').replace('GLOBAL:','')||parisDateKey();
     $('#rankingDateNext').disabled=picker.value>=parisDateKey();
@@ -3556,8 +3762,13 @@ function setRankingView(view){
   renderRankingList();
 }
 let expandedScores = new Set();
+let gridDisplayMode='classic',historyDisplayMode='classic';
 let gridCatalogState={popular:null,searched:null,searchError:'',accountId:null};
 async function fetchGridCatalog(sort,limit,offset=0){
+  if(gridDisplayMode==='lost'){
+    const rows=await supabaseRpc('orapa_lost_grid_catalog',{p_sort:sort,p_limit:limit,p_offset:offset,p_session_token:currentPlayerAccount?.session_token||''});
+    return Array.isArray(rows)?rows:[];
+  }
   const rows=currentPlayerAccount?.session_token
     ? await supabaseRpc('orapa_get_grid_catalog_for_account',{p_sort:sort,p_limit:limit,p_offset:offset,p_session_token:currentPlayerAccount.session_token})
     : await supabaseRpc('orapa_get_grid_catalog',{p_sort:sort,p_limit:limit,p_offset:offset});
@@ -3565,7 +3776,7 @@ async function fetchGridCatalog(sort,limit,offset=0){
 }
 function gridCatalogCard(row,section,index){
   const id=String(row.grid_id||''),decoded=decodeGridId(id);
-  const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
+  const gems=decoded?.variant==='lost'?'💎 Gemme perdue':(decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'');
   const count=Number(row.participation_count)||0,wins=Number(row.success_count)||0,rate=count?Math.round(wins/count*100):0;
   const key=`gridcatalog:${section}:${id}`,expanded=expandedScores.has(key);
   const lastDate=row.last_played_at?new Date(row.last_played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
@@ -3609,7 +3820,12 @@ async function searchGridCatalog(input){
   if(!decoded){gridCatalogState.searched=null;gridCatalogState.searchError='Identifiant de grille incorrect.';renderGridCatalog();return;}
   gridCatalogState.searchError='';
   $('#rankingList').innerHTML='<div class="history-empty">Recherche de la grille…</div>';
+  if((gridDisplayMode==='lost')!==(decoded.variant==='lost')){gridCatalogState.searched=null;gridCatalogState.searchError=gridDisplayMode==='lost'?'Cet identifiant correspond à une grille classique.':'Cet identifiant correspond à une grille Gemme perdue.';renderGridCatalog();return;}
   try{
+    if(gridDisplayMode==='lost'){
+      const rows=await supabaseRpc('orapa_lost_grid_overview',{p_grid_id:decoded.id,p_session_token:currentPlayerAccount?.session_token||''});
+      gridCatalogState.searched=Array.isArray(rows)&&rows[0]?rows[0]:{grid_id:decoded.id,participation_count:0,success_count:0};renderGridCatalog();return;
+    }
     const rows=currentPlayerAccount?.session_token
       ? await supabaseRpc('orapa_get_grid_overview_for_account',{p_grid_id:decoded.id,p_session_token:currentPlayerAccount.session_token})
       : await supabaseRpc('orapa_get_grid_overview',{p_grid_id:decoded.id});
@@ -3786,6 +4002,10 @@ async function openGlobalStats(){
   $('#globalStatsModal').classList.add('open');
   await renderGlobalStatsView();
 }
+async function openLostGlobalStats(){
+  $('#globalStatsModal').classList.add('open');$('#globalStatsToolbar').style.display='none';$('#globalStatsContent').innerHTML='<div class="history-empty">Calcul des statistiques Gemme perdue…</div>';
+  try{const stats=await supabaseRpc('orapa_lost_global_stats');$('#globalStatsContent').innerHTML=`<h3>Gemme perdue</h3><p class="stats-subtitle">Toutes les parties enregistrées dans ce mode.</p><div class="stats-cards"><div><b>${stats.played||0}</b><span>participations</span></div><div><b>${stats.wins||0}</b><span>réussites</span></div><div><b>${stats.losses||0}</b><span>échecs</span></div><div><b>${stats.success_rate||0} %</b><span>de réussite</span></div></div><div class="stats-details"><p><span>Pseudos différents</span><b>${stats.players||0}</b></p><p><span>Grilles enregistrées</span><b>${stats.grids||0}</b></p><p><span>Reconstitutions complètes</span><b>${stats.full_placements||0}</b></p><p><span>Meilleur score réussi</span><b>${stats.best_score==null?'—':stats.best_score+' pts'}</b></p><p><span>Temps record réussi</span><b>${stats.best_time_ms==null?'—':formatDuration(stats.best_time_ms)}</b></p></div>`;}catch(error){$('#globalStatsContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
+}
 
 const GLOBAL_SOLO_PAGE_SIZE=10;
 let globalSoloScoresCache=null;
@@ -3892,6 +4112,7 @@ function renderRankingList(){
     return;
   }
   const key = $('#rankingConfigSelect').value || '';
+  if(key.startsWith('LOST_HISTORY:')){renderLostHistoryRanking();return;}
   if(key.startsWith('GLOBAL_SOLO:')){
     renderGlobalSoloScores(key.slice(12));
     return;
@@ -3901,19 +4122,33 @@ function renderRankingList(){
     return;
   }
 }
+async function renderLostHistoryRanking(){
+  const el=$('#rankingList');el.innerHTML='<div class="history-empty">Chargement des parties Gemme perdue…</div>';
+  if(!currentPlayerAccount){el.innerHTML='<div class="history-empty">Connecte-toi pour consulter cet historique.</div>';return;}
+  try{
+    const rows=await supabaseRpc('orapa_my_lost_grid_history',{p_session_token:currentPlayerAccount.session_token,p_limit:50,p_offset:0});
+    el.innerHTML=rows?.length?rows.map((row,index)=>`<div class="ranking-row solo-global-row"><div class="ranking-row-top"><span class="ranking-player-cell"><span class="solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><strong>${row.success?'Victoire':'Échec'}</strong></span><span class="ranking-query-cell">${row.ray_count} 🔦 + ${row.coord_count} 📍 ${row.placement_bonus?'· 🧩':''}</span><span class="ranking-points">${row.cost} pts</span><span class="ranking-time">${formatDuration(row.time_ms)}</span></div><div class="controls ranking-compact-actions"><button class="lost-history-summary ghost" data-index="${index}">📋 Résumé</button><button class="lost-history-ranking primary" data-index="${index}">🏆 Grille</button></div></div>`).join(''):'<div class="history-empty">Aucune partie Gemme perdue enregistrée.</div>';
+    el.querySelectorAll('.lost-history-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id));
+    el.querySelectorAll('.lost-history-summary').forEach(button=>button.onclick=()=>{const row=rows[Number(button.dataset.index)];navigator.clipboard?.writeText(formatShareText({gameVariant:'lost',gridId:row.grid_id,name:currentPlayerAccount.display_name,success:row.success,placementBonus:row.placement_bonus,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,date:new Date(row.played_at).getTime()})).then(()=>showToast('Résumé copié !'));});
+  }catch(error){el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
+}
 $('#rankingTabSolo').addEventListener('click', ()=> setRankingView('solo'));
 $('#rankingTabDaily').addEventListener('click', ()=> setRankingView('grids'));
 $('#rankingTabGlobal').addEventListener('click', ()=> setRankingView('global'));
 $('#rankingTabAchievements').addEventListener('click', ()=> setRankingView('achievements'));
 $('#achievementListTab').addEventListener('click',()=>{achievementMode='list';renderAchievementsRankingView();});
 $('#achievementRankingTab').addEventListener('click',()=>{achievementMode='ranking';renderAchievementsRankingView();});
+$('#gridModeClassic').addEventListener('click',()=>{gridDisplayMode='classic';gridCatalogState={popular:null,searched:null,searchError:'',accountId:null};$('#gridModeClassic').classList.add('active');$('#gridModeLost').classList.remove('active');renderGridCatalog(true);});
+$('#gridModeLost').addEventListener('click',()=>{gridDisplayMode='lost';gridCatalogState={popular:null,searched:null,searchError:'',accountId:null};$('#gridModeLost').classList.add('active');$('#gridModeClassic').classList.remove('active');renderGridCatalog(true);});
+$('#historyModeClassic').addEventListener('click',()=>{historyDisplayMode='classic';$('#historyModeClassic').classList.add('active');$('#historyModeLost').classList.remove('active');buildRankingConfigOptions();setRankingView('solo');});
+$('#historyModeLost').addEventListener('click',()=>{historyDisplayMode='lost';$('#historyModeLost').classList.add('active');$('#historyModeClassic').classList.remove('active');buildRankingConfigOptions();setRankingView('solo');});
 $('#btnRefreshGlobal').addEventListener('click', ()=>{
   if(rankingView==='grids'){renderGridCatalog(true);return;}
   const key=$('#rankingConfigSelect').value;
   if(key.startsWith('GLOBAL:')) renderGlobalRanking(key.slice(7),true);
 });
 $('#gridSearchForm').addEventListener('submit',event=>{event.preventDefault();searchGridCatalog($('#gridSearchInput').value);});
-$('#btnStatsGlobal').addEventListener('click', openGlobalStats);
+$('#btnStatsGlobal').addEventListener('click',()=>historyDisplayMode==='lost'&&rankingView==='solo'?openLostGlobalStats():openGlobalStats());
 $('#closeGlobalStats').addEventListener('click', ()=>{ $('#playerStatsModal').classList.remove('open'); $('#globalStatsModal').classList.remove('open'); });
 $('#globalStatsModal').addEventListener('click', e=>{ if(e.target.id==='globalStatsModal') $('#globalStatsModal').classList.remove('open'); });
 $('#closePlayerStats').addEventListener('click',()=>$('#playerStatsModal').classList.remove('open'));
