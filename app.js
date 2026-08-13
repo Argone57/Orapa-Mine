@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260814-0002';
+const APP_VERSION = '20260814-0003';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3942,11 +3942,11 @@ function statsDetails(rows){
   const bestTime=successes.length ? Math.min(...successes.map(row=>Number(row.time_ms)||0)) : null;
   const averageScore=rows.length ? average(rows.map(row=>Number(row.cost)||0)) : null;
   const averageTime=rows.length ? average(rows.map(row=>Number(row.time_ms)||0)) : null;
-  return `<div class="stats-details">
-    <div><span>Meilleur score réussi</span><b>${bestScore==null?'—':bestScore+' pts'}</b></div>
-    <div><span>Temps record réussi</span><b>${bestTime==null?'—':formatDuration(bestTime)}</b></div>
-    <div><span>Score moyen</span><b>${averageScore==null?'—':formatDecimal(averageScore)+' pts'}</b></div>
-    <div><span>Temps moyen</span><b>${averageTime==null?'—':formatDuration(averageTime)}</b></div>
+  return `<div class="mode-stats-details">
+    <div class="mode-stat-detail"><span>Meilleur score réussi</span><b>${bestScore==null?'—':bestScore+' pts'}</b></div>
+    <div class="mode-stat-detail"><span>Temps record réussi</span><b>${bestTime==null?'—':formatDuration(bestTime)}</b></div>
+    <div class="mode-stat-detail"><span>Score moyen</span><b>${averageScore==null?'—':formatDecimal(averageScore)+' pts'}</b></div>
+    <div class="mode-stat-detail"><span>Temps moyen</span><b>${averageTime==null?'—':formatDuration(averageTime)}</b></div>
   </div>`;
 }
 function aggregatePlayers(rows){
@@ -3975,15 +3975,10 @@ function renderPlayerStats(playerKey){
   const playerRows=globalStatsRows.filter(row=>statsPlayerKey(row.player_name)===playerKey);
   if(!playerRows.length) return;
   const name=(playerRows[0].player_name||'Anonyme').trim()||'Anonyme';
-  const dates=playerRows.map(row=>row.daily_date).filter(Boolean).sort();
-  const uniqueDays=new Set(dates).size;
-  content.innerHTML=`<h3>${escapeHtml(name)}</h3><p class="stats-subtitle">Statistiques associées à ce pseudo, sans compte ni vérification d'identité.</p>
-    ${statsSummaryCards(playerRows)}
-    <div class="stats-details">
-      <div><span>Défis différents</span><b>${uniqueDays}</b></div>
-      <div><span>Première participation</span><b>${dates.length?formatStatsDate(dates[0]):'—'}</b></div>
-      <div><span>Dernière participation</span><b>${dates.length?formatStatsDate(dates[dates.length-1]):'—'}</b></div>
-    </div>${statsDetails(playerRows)}`;
+  const dates=playerRows.map(row=>row.daily_date||row.played_date).filter(Boolean).sort();
+  const distinctItems=new Set(playerRows.map(row=>row.daily_date||row.grid_id).filter(Boolean)).size;
+  const isDaily=playerRows.some(row=>row.daily_date);
+  content.innerHTML=`<div class="mode-stats-heading"><h3>${escapeHtml(name)}</h3><p class="stats-subtitle">${isDaily?'Défis du jour':'Parties'} associés à ce pseudo.</p></div>${statsSummaryCards(playerRows)}<div class="mode-stats-details"><div class="mode-stat-detail"><span>${isDaily?'Défis':'Grilles'} différents</span><b>${distinctItems}</b></div><div class="mode-stat-detail"><span>Première participation</span><b>${dates.length?formatStatsDate(dates[0]):'—'}</b></div><div class="mode-stat-detail"><span>Dernière participation</span><b>${dates.length?formatStatsDate(dates[dates.length-1]):'—'}</b></div></div>${statsDetails(playerRows)}`;
   $('#playerStatsModal').classList.add('open');
 }
 async function renderGlobalStatsView(force=false){
@@ -4017,7 +4012,7 @@ async function renderGlobalStatsView(force=false){
       const participantsByDay=new Map();
       rows.forEach(row=>participantsByDay.set(row.daily_date,(participantsByDay.get(row.daily_date)||0)+1));
       const maxDailyParticipants=participantsByDay.size?Math.max(...participantsByDay.values()):0;
-      const extra=`<div class="stats-details"><div><span>Pseudos différents</span><b>${uniquePlayers}</b></div><div><span>Défis enregistrés</span><b>${uniqueDays}</b></div><div><span>Record de participation à un défi</span><b>${maxDailyParticipants} joueur${maxDailyParticipants>1?'s':''}</b></div></div>`;
+      const extra=`<div class="mode-stats-details"><div class="mode-stat-detail"><span>Pseudos différents</span><b>${uniquePlayers}</b></div><div class="mode-stat-detail"><span>Défis enregistrés</span><b>${uniqueDays}</b></div><div class="mode-stat-detail"><span>Record de participation à un défi</span><b>${maxDailyParticipants} joueur${maxDailyParticipants>1?'s':''}</b></div></div>`;
       content.innerHTML=`<h3>Depuis le début</h3><p class="stats-subtitle">Toutes les participations enregistrées.</p>${rows.length ? statsSummaryCards(rows)+extra+statsDetails(rows)+statsPlayerButtons(rows,false) : '<div class="history-empty">Aucune participation enregistrée.</div>'}`;
     }
     bindStatsPlayerButtons();
@@ -4030,6 +4025,7 @@ async function openGlobalStats(){
   const selected=$('#rankingConfigSelect').value||'';
   const selectedDate=selected.startsWith('GLOBAL:') ? selected.slice(7) : parisDateKey();
   globalStatsMode='all';
+  $('#globalStatsToolbar').style.display='flex';
   $('#globalStatsDateSelect').innerHTML=statsDateOptions(selectedDate);
   $('#globalStatsDateSelect').value=selectedDate;
   $('#globalStatsModal').classList.add('open');
@@ -4037,7 +4033,7 @@ async function openGlobalStats(){
 }
 async function openLostGlobalStats(){
   $('#globalStatsModal').classList.add('open');$('#globalStatsToolbar').style.display='none';$('#globalStatsContent').innerHTML='<div class="history-empty">Calcul des statistiques Gemme perdue…</div>';
-  try{const stats=await supabaseRpc('orapa_lost_global_stats');$('#globalStatsContent').innerHTML=renderGridModeGlobalStats('💎 Gemme perdue',stats,true);}catch(error){$('#globalStatsContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
+  try{const [stats,rows]=await Promise.all([supabaseRpc('orapa_lost_global_stats'),supabaseRpc('orapa_lost_stats_rows')]);globalStatsRows=Array.isArray(rows)?rows:[];$('#globalStatsContent').innerHTML=renderGridModeGlobalStats('💎 Gemme perdue',stats,true)+statsPlayerButtons(globalStatsRows,false);bindStatsPlayerButtons();}catch(error){$('#globalStatsContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 function renderGridModeGlobalStats(title,stats,lost=false){
   const detail=(label,value)=>`<div class="mode-stat-detail"><span>${label}</span><b>${value}</b></div>`;
@@ -4045,7 +4041,7 @@ function renderGridModeGlobalStats(title,stats,lost=false){
 }
 async function openClassicGridGlobalStats(){
   $('#globalStatsModal').classList.add('open');$('#globalStatsToolbar').style.display='none';$('#globalStatsContent').innerHTML='<div class="history-empty">Calcul des statistiques des grilles classiques…</div>';
-  try{const stats=await supabaseRpc('orapa_grid_global_stats');$('#globalStatsContent').innerHTML=renderGridModeGlobalStats('🧩 Grilles classiques',stats,false);}catch(error){$('#globalStatsContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
+  try{const [stats,rows]=await Promise.all([supabaseRpc('orapa_grid_global_stats'),supabaseRpc('orapa_grid_stats_rows')]);globalStatsRows=Array.isArray(rows)?rows:[];$('#globalStatsContent').innerHTML=renderGridModeGlobalStats('🧩 Grilles classiques',stats,false)+statsPlayerButtons(globalStatsRows,false);bindStatsPlayerButtons();}catch(error){$('#globalStatsContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 
 const GLOBAL_SOLO_PAGE_SIZE=10;
