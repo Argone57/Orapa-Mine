@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260813-0004';
+const APP_VERSION = '20260814-0001';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -515,8 +515,8 @@ async function renderAccountHome(){
       <div class="account-stat"><b>${st.wins||0}</b>réussites</div>
       <div class="account-stat"><b>${rate}%</b>réussite</div>
       <div class="account-stat"><b>${st.best_score==null?'—':st.best_score+' pts'}</b>meilleur score</div>
-    </div>${st.best_time_ms==null?'':`<p>Meilleur temps : <b>${formatDuration(st.best_time_ms)}</b></p>`}
-    <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid"><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked).length}</b>débloqués</div><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked).reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div></div>
+      <div class="account-stat"><b>${st.best_time_ms==null?'—':formatDuration(st.best_time_ms)}</b>meilleur temps</div>
+    </div>
     ${gridStats?`<h3 class="account-section-title">🧩 Grilles classiques</h3><div class="account-stats-grid">
       <div class="account-stat"><b>${gridStats.played||0}</b>jouées</div>
       <div class="account-stat"><b>${gridStats.played?Math.round((gridStats.wins||0)/gridStats.played*100):0}%</b>réussite</div>
@@ -524,8 +524,8 @@ async function renderAccountHome(){
       <div class="account-stat"><b>${gridStats.best_score==null?'—':gridStats.best_score+' pts'}</b>meilleur score</div>
       <div class="account-stat"><b>${gridStats.average_score==null?'—':gridStats.average_score+' pts'}</b>score moyen</div>
       <div class="account-stat"><b>${gridStats.average_rank==null?'—':'#'+gridStats.average_rank}</b>rang moyen</div>
-      <div class="account-stat"><b>${gridStats.first_places||0}</b>premières places</div>
-    </div>`:''}${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.wins||0}</b>réussites</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}`;
+    </div>`:''}${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.wins||0}</b>réussites</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}
+    <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid"><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked).length}</b>débloqués</div><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked).reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div></div>`;
   }catch(e){ $('#accountStats').innerHTML=`<div class="account-error" style="display:block;">${escapeHtml(e.message)}</div>`; }
 }
 function showRenameAccount(){
@@ -783,7 +783,7 @@ async function openMySharedGrids(){
         const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
         const sharedDate=row.shared_at?new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
         const rate=Number(row.score_count||0)>0?`${Math.round(100*Number(row.success_count||0)/Number(row.score_count))}%`:'—';
-        return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="account-shared-date">${sharedDate||'—'}</span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.best_score==null?'—':`${row.best_score} pts`}</span><span class="ranking-count">${row.score_count||0} 👥</span><span class="ranking-rate">${rate}</span></div>${expanded?`<div class="account-grid-id">ID : ${escapeHtml(row.grid_id)}</div><div class="ranking-row-detail">Consultation uniquement${row.best_time_ms==null?'':` · meilleur temps : ${formatDuration(row.best_time_ms)}`}</div><div class="controls ranking-compact-actions three"><button class="shared-copy ghost" data-grid-index="${i}">📋 ID</button><button class="shared-ranking ghost" data-grid-index="${i}">🏆 Classement</button><button class="shared-preview primary" data-grid-index="${i}">👁️ Voir</button></div>`:''}</div>`;
+        return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="account-shared-date">${sharedDate||'—'}</span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.best_score==null?'—':`${row.best_score} pts`}</span><span class="ranking-count">${row.score_count||0} 👥</span><span class="ranking-rate">${rate}</span></div>${expanded?`<div class="account-grid-meta-line"><span class="account-grid-id">ID : ${escapeHtml(row.grid_id)}</span><span>Consultation uniquement</span></div>${row.best_time_ms==null?'':`<div class="ranking-row-detail">Meilleur temps : ${formatDuration(row.best_time_ms)}</div>`}<div class="controls ranking-compact-actions three"><button class="shared-copy ghost" data-grid-index="${i}">📋 ID</button><button class="shared-ranking ghost" data-grid-index="${i}">🏆 Classement</button><button class="shared-preview primary" data-grid-index="${i}">👁️ Voir</button></div>`:''}</div>`;
       }).join('');
       const empty=!rows.length?'<div class="history-empty">Aucune grille de cette configuration dans les pages chargées.</div>':'';
       const more=sharedState.hasMore?'<button id="sharedLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'';
@@ -804,14 +804,47 @@ async function openMySharedGrids(){
 }
 async function openMySharedLostGrids(){
   if(!currentPlayerAccount)return;
-  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles Gemme perdue partagées par ce compte, chargées par 10.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Classique</button><button id="accountSharedLost" class="ghost active">Gemme perdue</button></div>',true);
+  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est enregistré comme créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Classique</button><button id="accountSharedLost" class="ghost active">Gemme perdue</button></div><div class="shared-grid-toolbar lost-shared-toolbar"><select id="accountSharedLostSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedLostSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>',true);
+  $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;
+  const sharedState={rows:[],hasMore:true,reverse:false};
+  const loadPage=async()=>{
+    const page=await supabaseRpc('orapa_my_shared_lost_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:sharedState.rows.length});
+    const pageRows=Array.isArray(page)?page:[];
+    sharedState.rows.push(...pageRows.slice(0,10));
+    sharedState.hasMore=pageRows.length>10;
+  };
   try{
-    const rows=await supabaseRpc('orapa_my_shared_lost_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:10,p_offset:0});
-    $('#gridDataContent').innerHTML=rows?.length?rows.map((row,index)=>{const total=Number(row.score_count||0),rate=total?`${Math.round(Number(row.success_count||0)*100/total)} %`:'—',date=row.shared_at?new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';return `<div class="ranking-row account-shared-row"><div class="ranking-row-top"><span class="account-shared-date">${date}</span><span class="ranking-gems">💎 Gemme perdue</span><span class="ranking-points">${row.best_score==null?'—':row.best_score+' pts'}</span><span class="ranking-count">${total} 👥</span><span class="ranking-rate">${rate}</span></div><div class="controls ranking-compact-actions three"><button class="shared-lost-copy ghost" data-index="${index}">📋 ID</button><button class="shared-lost-ranking ghost" data-index="${index}">🏆 Classement</button><button class="shared-lost-preview primary" data-index="${index}">👁️ Voir</button></div></div>`;}).join(''):'<div class="history-empty">Aucune grille Gemme perdue partagée.</div>';
-    $('#gridDataContent').querySelectorAll('.shared-lost-copy').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(rows[Number(button.dataset.index)].grid_id).then(()=>showToast('Identifiant copié !')));
-    $('#gridDataContent').querySelectorAll('.shared-lost-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));
-    $('#gridDataContent').querySelectorAll('.shared-lost-preview').forEach(button=>button.onclick=()=>openSharedGridPreview(rows[Number(button.dataset.index)].grid_id));
-    $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;
+    await loadPage();
+    if(!sharedState.rows.length){$('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille Gemme perdue partagée.</div>';return;}
+    const renderShared=()=>{
+      const sortMode=$('#accountSharedLostSortSelect')?.value||'date';
+      const rows=[...sharedState.rows].sort((a,b)=>{
+        let value=0;
+        if(sortMode==='players')value=Number(b.score_count||0)-Number(a.score_count||0);
+        else if(sortMode==='points')value=(a.best_score==null?Number.MAX_SAFE_INTEGER:Number(a.best_score))-(b.best_score==null?Number.MAX_SAFE_INTEGER:Number(b.best_score));
+        else value=new Date(b.shared_at||0)-new Date(a.shared_at||0);
+        if(value===0)value=String(a.grid_id).localeCompare(String(b.grid_id));
+        return sharedState.reverse?-value:value;
+      });
+      const rowsHtml=rows.map((row,index)=>{
+        const key=`shared-lost:${row.grid_id}`,expanded=expandedScores.has(key),decoded=decodeGridId(row.grid_id);
+        const missingGem=decoded?.missingType?shapeIconSVG(decoded.missingType,18):'';
+        const total=Number(row.score_count||0),rate=total?`${Math.round(Number(row.success_count||0)*100/total)}%`:'—';
+        const date=row.shared_at?new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
+        return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-grid-index="${index}"><div class="ranking-row-top"><span class="account-shared-date">${date}</span><span class="ranking-gems lost-shared-gem-label"><span>Gemme perdue</span>${missingGem}</span><span class="ranking-points">${row.best_score==null?'—':row.best_score+' pts'}</span><span class="ranking-count">${total} 👥</span><span class="ranking-rate">${rate}</span></div>${expanded?`<div class="account-grid-meta-line"><span class="account-grid-id">ID : ${escapeHtml(row.grid_id)}</span><span>Consultation uniquement</span></div>${row.best_time_ms==null?'':`<div class="ranking-row-detail">Meilleur temps : ${formatDuration(row.best_time_ms)}</div>`}<div class="controls ranking-compact-actions three"><button class="shared-lost-copy ghost" data-index="${index}">📋 ID</button><button class="shared-lost-ranking ghost" data-index="${index}">🏆 Classement</button><button class="shared-lost-preview primary" data-index="${index}">👁️ Voir</button></div>`:''}</div>`;
+      }).join('');
+      const more=sharedState.hasMore?'<button id="sharedLostLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'';
+      $('#gridDataContent').innerHTML=rowsHtml+more;
+      $('#gridDataContent').querySelectorAll('.account-shared-row').forEach(element=>element.onclick=event=>{if(event.target.closest('button'))return;const row=rows[Number(element.dataset.gridIndex)],key=`shared-lost:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderShared();});
+      $('#gridDataContent').querySelectorAll('.shared-lost-copy').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(rows[Number(button.dataset.index)].grid_id).then(()=>showToast('Identifiant copié !')));
+      $('#gridDataContent').querySelectorAll('.shared-lost-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));
+      $('#gridDataContent').querySelectorAll('.shared-lost-preview').forEach(button=>button.onclick=()=>openSharedGridPreview(rows[Number(button.dataset.index)].grid_id));
+      const loadMore=$('#sharedLostLoadMore');
+      if(loadMore)loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderShared();}catch(error){showToast(`Chargement impossible : ${error.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
+    };
+    $('#accountSharedLostSortSelect').addEventListener('change',renderShared);
+    $('#accountSharedLostSortReverse').addEventListener('click',()=>{sharedState.reverse=!sharedState.reverse;$('#accountSharedLostSortReverse').textContent=sharedState.reverse?'↑':'↓';renderShared();});
+    renderShared();
   }catch(error){$('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 
