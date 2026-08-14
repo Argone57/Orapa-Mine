@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260814-0010';
+const APP_VERSION = '20260814-0011';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1240,6 +1240,15 @@ function decodeGridId(input){
   }
   const formatted = clean.match(/.{1,4}/g).join('-');
   return { variant:'classic',includeGray, includeOnyx, includeSapphire, pieces, id: formatted };
+}
+function decodedGridLayoutIsValid(decoded){
+  if(!decoded?.pieces?.length)return false;
+  const pieces=decoded.pieces.map((piece,index)=>({
+    ...piece,
+    id:`validation-${index}`,
+    center:piece.center?{...piece.center}:null
+  }));
+  return computeInvalidPieceIds(pieces).size===0;
 }
 function gemFlagsEmojiLine(g,o,s){
   return `💎 ${g?'✅':'❌'} / ⬛️ ${o?'✅':'❌'} / 🟦 ${s?'✅':'❌'}`;
@@ -3634,10 +3643,16 @@ function closeGridIdEntry(){
   $('#gridIdEntryModal').classList.remove('open');
   accountError('#gridIdEntryError','');
 }
+function openInvalidGridIdModal(){$('#invalidGridIdModal').classList.add('open');}
+function closeInvalidGridIdModal(){
+  $('#invalidGridIdModal').classList.remove('open');
+  setTimeout(()=>$('#gridIdEntryInput').focus(),0);
+}
 async function confirmGridIdEntry(){
   const id=$('#gridIdEntryInput').value.trim().toUpperCase();
   const decoded=decodeGridId(id);
   if(!decoded){accountError('#gridIdEntryError','Identifiant invalide. Vérifie qu’il a été copié en entier.');return;}
+  if(!decodedGridLayoutIsValid(decoded)){openInvalidGridIdModal();return;}
   const button=$('#confirmGridIdEntry');
   button.disabled=true;
   button.textContent='Vérification…';
@@ -3648,6 +3663,7 @@ async function confirmGridIdEntry(){
 $('#closeGridIdEntry').addEventListener('click',closeGridIdEntry);
 $('#cancelGridIdEntry').addEventListener('click',closeGridIdEntry);
 $('#confirmGridIdEntry').addEventListener('click',confirmGridIdEntry);
+$('#dismissInvalidGridId').addEventListener('click',closeInvalidGridIdModal);
 $('#gridIdEntryInput').addEventListener('keydown',event=>{if(event.key==='Enter')confirmGridIdEntry();});
 $('#gridIdEntryModal').addEventListener('click',event=>{if(event.target.id==='gridIdEntryModal')closeGridIdEntry();});
 
