@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260814-0012';
+const APP_VERSION = '20260814-0013';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -330,7 +330,7 @@ async function supabaseRpc(fn,params={}){
   }
   return data;
 }
-let achievementCatalogCache=null,achievementExpanded=new Set(),achievementMode='list',achievementSort='order',achievementFilter='all',achievementReverse=false,achievementQueueBusy=false;
+let achievementCatalogCache=null,achievementExpanded=new Set(),achievementMode='list',achievementSort='order',achievementFilter='all',achievementReverse=false,achievementQueueBusy=false,achievementNotificationQueue=[],achievementNotificationQueued=new Set();
 const ACHIEVEMENT_NAMES={welcome:'Bienvenue',good_student:'Bon élève',first_step:'Premier pas',first_win:'Première victoire',founder:'Fondateur',ancestor:'Ancêtre',adventurous:'Aventureux',adventurous_victorious:'Aventureux et victorieux',meticulous:'Méticuleux',diamond:'Diamant',black_body:'Corps noir',sky_sapphire:'Saphir bleu ciel',curious:'Curieux',architect:'Architecte',challenger:'Défieur',mine_regular:'Habitué de la mine',confirmed_miner:'Mineur confirmé',first_try:'Du premier coup',economical:'Économe',mole_eye:'Œil de taupe',back_to_mine:'Retour au fond de la mine',regular:'Régulier',challenge_week:'Une semaine de défis',always_present:'Toujours présent',assiduous:'Assidu',winning_streak:'Série victorieuse',perfect_week:'Semaine parfaite',podium:'Sur le podium',number_one:'Numéro un',next_day_revenge:'La revanche du lendemain',photofinish:'Photofinish',copycat:'Copie conforme',first_visitor:'Premier visiteur',deja_vu:'Une impression de déjà-vu',two_waves_late:'Deux ondes de retard',triforce:'Triforce',where_is_charlie:'Où est Charlie ?',seven_at_home:'Sept à la maison',eight_out_of_eight:'Huit sur huit',perfect_reconstructions:'Reconstitutions parfaites',lost_quickly_found:'Perdue, mais vite retrouvée',fine_sleuth:'Fin limier',organized_search:'Battue organisée',missing_notice:'Avis de disparition',without_touching_evidence:'Sans toucher aux preuves',detective_flair:'Le flair du détective',dissectologist:'Dissectologue',cephaloclastophile:'Céphaloclastophile',indiana_and_short_round:'Indiana Jones et Demi-Lune',firebug:'Firebug'};
 async function refreshAchievements(eventKey=null){
   if(!currentPlayerAccount?.session_token)return null;
@@ -352,14 +352,23 @@ async function refreshAchievements(eventKey=null){
     return triforceResult?{triforce_unlocked:!!triforceResult.unlocked,triforce_check_ok:true}:null;
   }
 }
-async function queueAchievementNotifications(keys){
-  if(achievementQueueBusy)return;
+function queueAchievementNotifications(keys){
+  for(const key of keys||[]){
+    if(!key||achievementNotificationQueued.has(key))continue;
+    achievementNotificationQueued.add(key);
+    achievementNotificationQueue.push(key);
+  }
+  if(!achievementQueueBusy&&achievementNotificationQueue.length)void drainAchievementNotifications();
+}
+async function drainAchievementNotifications(){
   achievementQueueBusy=true;
-  for(const key of keys){
+  while(achievementNotificationQueue.length){
+    const key=achievementNotificationQueue.shift();
     let toast=$('#achievementToast');
     if(!toast){toast=document.createElement('div');toast.id='achievementToast';toast.className='achievement-toast';document.body.appendChild(toast);}
     toast.textContent=`🏆 Succès débloqué · ${ACHIEVEMENT_NAMES[key]||key}`;toast.classList.add('show');
     await new Promise(resolve=>setTimeout(resolve,2000));toast.classList.remove('show');await new Promise(resolve=>setTimeout(resolve,220));
+    achievementNotificationQueued.delete(key);
   }
   achievementQueueBusy=false;
 }
@@ -1926,7 +1935,9 @@ function openVictoryModal(){
     ? (state.gameVariant==='lost'?(state.placementBonus?'Tu as identifié la gemme perdue et reconstitué toute la grille !':'Tu as identifié la gemme perdue !'):'Tu as retrouvé la disposition exacte !')
     : (state.isDaily
       ? 'Solution incorrecte : la grille secrète est révélée ci-dessous.'
-      : 'La seconde proposition est incorrecte : la grille secrète est révélée ci-dessous.');
+      : (state.gameVariant==='lost'
+        ? 'La gemme sélectionnée n’était pas la gemme perdue : la grille secrète est révélée ci-dessous.'
+        : 'La seconde proposition est incorrecte : la grille secrète est révélée ci-dessous.'));
   $('#victoryScoreLine').textContent = formatScoreLine(entry);
   $('#victoryRankLine').textContent = lastScoreResult?.alreadyPlayed
     ? 'Ce défi avait déjà été terminé avec ce compte sur un autre appareil. Cette tentative n’a pas été enregistrée.'
