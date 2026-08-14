@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260814-0009';
+const APP_VERSION = '20260814-0010';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1592,7 +1592,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
     state.includeOnyx = decoded.includeOnyx;
     state.includeSapphire = decoded.includeSapphire;
     secret = decoded.pieces.map(p=> ({ id:'p'+(pieceIdSeq++), type:p.type, center:p.center, rotation:p.rotation, flipped:p.flipped }));
-    if(unreachablePieces(secret).length>0){
+    if(computeInvalidPieceIds(secret).size>0){
       showToast("Cet identifiant ne correspond à aucune grille valide.");
       return;
     }
@@ -1675,7 +1675,7 @@ async function startLostGame(explicitId=null,creatorRetry=0){
     if(!secret){showToast('Impossible de générer cette grille. Réessaie.');return;}
     gridId=encodeLostGridId(secret,missingType);
   }
-  if(unreachablePieces(secret).length){showToast('Cet identifiant ne correspond à aucune grille valide.');return;}
+  if(computeInvalidPieceIds(secret).size>0){showToast('Cet identifiant ne correspond à aucune grille valide.');return;}
   let gridStatus={};
   try{gridStatus=await supabaseRpc('orapa_get_lost_grid_status',{p_grid_id:gridId,p_session_token:currentPlayerAccount?.session_token||''});}
   catch(error){console.warn('Statut Gemme perdue indisponible',error);if(explicitId){showToast('Impossible de vérifier cette grille.');return;}}
