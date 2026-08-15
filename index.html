@@ -119,6 +119,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .toolbar-row .section-title{margin:0;flex:1;}
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(2px);}
 .modal-backdrop.open{display:flex;}
+#gameDialogModal{z-index:420}
 .firefox-performance .piece-poly{filter:none}
 .firefox-performance .modal-backdrop{backdrop-filter:none;-webkit-backdrop-filter:none}
 .firefox-performance .modal{animation:none}
@@ -681,7 +682,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
 
 <div class="modal-backdrop" id="soloSetupModal">
   <div class="modal">
-    <h2>🧩 Nouveau défi solo</h2>
+    <h2>🎲 Nouvelle grille aléatoire</h2>
     <p>Quelles gemmes optionnelles la grille secrète peut-elle contenir ?</p>
     <div class="setup-options" style="justify-content:flex-start;margin:14px 0;">
       <label><input type="checkbox" id="soloOptGray"> Diamant</label>
@@ -690,7 +691,18 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
     </div>
     <div class="controls" style="justify-content:flex-end;">
       <button id="soloSetupCancel" class="ghost">Annuler</button>
-      <button id="soloSetupConfirm" class="primary">Lancer le défi</button>
+      <button id="soloSetupConfirm" class="primary">Lancer la grille</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="gameDialogModal">
+  <div class="modal">
+    <h2 id="gameDialogTitle">Information</h2>
+    <p id="gameDialogMessage" style="white-space:pre-line;"></p>
+    <div class="controls" style="justify-content:flex-end;margin-top:16px;">
+      <button id="gameDialogCancel" class="ghost">Annuler</button>
+      <button id="gameDialogConfirm" class="primary">OK</button>
     </div>
   </div>
 </div>
@@ -751,6 +763,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="app.js?v=20260815-0016"></script>
+<script src="app.js?v=20260815-0017"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260815-0016';
+const APP_VERSION = '20260815-0017';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1599,12 +1599,12 @@ function randomizePlacement(){
     renderAll();
     return true;
   }
-  setTimeout(()=> alert("Je n'ai pas trouvé de disposition valide, retente en cliquant à nouveau sur Aléatoire."), 60);
+  setTimeout(()=>void gameAlert("Je n'ai pas trouvé de disposition valide. Retente en cliquant à nouveau sur Aléatoire.",'Génération impossible'),60);
   return false;
 }
 
 // ---------------------------------------------------------------------
-// MODE SOLO — une grille secrète est générée, le joueur doit la retrouver.
+// GRILLE ALÉATOIRE — une grille secrète est générée, le joueur doit la retrouver.
 // ---------------------------------------------------------------------
 async function startSoloGame(explicitId,creatorRetry=0){
   const previousOptions={includeGray:state.includeGray,includeOnyx:state.includeOnyx,includeSapphire:state.includeSapphire};
@@ -1628,7 +1628,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
   } else {
     secret = generateRandomLayout();
     if(!secret){
-      setTimeout(()=> alert("Je n'ai pas réussi à générer une grille, réessaie."), 60);
+      setTimeout(()=>void gameAlert("Je n'ai pas réussi à générer une grille aléatoire. Réessaie.",'Génération impossible'),60);
       return;
     }
     gridId = encodeGridId(secret, state.includeGray, state.includeOnyx, state.includeSapphire);
@@ -1685,7 +1685,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
   document.body.classList.remove('solo-menu-open');
   showGame();
   renderAll();
-  if(unrankedReason==='creator_protected') setTimeout(()=>alert('Vous avez créé cette grille récemment. Vous pouvez jouer normalement, mais votre score ne sera pas ajouté au classement pour le moment.'),60);
+  if(unrankedReason==='creator_protected') setTimeout(()=>void gameAlert('Vous avez créé cette grille récemment. Vous pouvez jouer normalement, mais votre score ne sera pas ajouté au classement pour le moment.','Grille non classée'),60);
   else if(unrankedReason==='already_played') setTimeout(openAlreadyPlayedGridModal,60);
 }
 
@@ -1819,16 +1819,16 @@ async function startDailyChallenge(){
     if(lock?.accepted===false){
       if(lock.reason==='already_played') reviewDailyFinalGrid(dateKey);
       else if(lock.reason==='triforce_required') openTriforcePrerequisiteModal(false);
-      else alert('Défi déjà commencé ailleurs\n\nCe défi du jour a déjà été lancé depuis un autre navigateur. Veuillez reprendre la partie sur le navigateur depuis lequel elle a été commencée.');
+      else await gameAlert('Ce défi du jour a déjà été lancé depuis un autre navigateur. Veuillez reprendre la partie sur le navigateur depuis lequel elle a été commencée.','Défi déjà commencé ailleurs');
       return;
     }
   }catch(error){
-    alert('Impossible de vérifier la disponibilité du défi du jour. Vérifie ta connexion puis réessaie.');
+    await gameAlert('Impossible de vérifier la disponibilité du défi du jour. Vérifie ta connexion puis réessaie.','Vérification impossible');
     return;
   }
   const daily = generateDailyLayout(dateKey);
   if(!daily){
-    setTimeout(()=> alert("Je n'ai pas réussi à générer le défi du jour, réessaie plus tard."), 60);
+    setTimeout(()=>void gameAlert("Je n'ai pas réussi à générer le défi du jour. Réessaie plus tard.",'Génération impossible'),60);
     return;
   }
   setHintMode(false);
@@ -2386,6 +2386,32 @@ function beamColorName(hex){
 // RENDERING
 // ---------------------------------------------------------------------
 const $ = sel => document.querySelector(sel);
+let gameDialogResolver=null;
+function closeGameDialog(result){
+  $('#gameDialogModal').classList.remove('open');
+  const resolve=gameDialogResolver;gameDialogResolver=null;
+  if(resolve)resolve(result);
+}
+function openGameDialog({title='Information',message='',confirmLabel='OK',cancelLabel=''}){
+  if(gameDialogResolver)closeGameDialog(false);
+  $('#gameDialogTitle').textContent=title;
+  $('#gameDialogMessage').textContent=message;
+  $('#gameDialogConfirm').textContent=confirmLabel;
+  $('#gameDialogCancel').textContent=cancelLabel;
+  $('#gameDialogCancel').style.display=cancelLabel?'':'none';
+  $('#gameDialogModal').classList.add('open');
+  return new Promise(resolve=>{gameDialogResolver=resolve;});
+}
+function gameAlert(message,title='Information'){return openGameDialog({title,message,confirmLabel:'OK'});}
+function gameConfirm(message,title='Confirmation',confirmLabel='Confirmer',cancelLabel='Annuler'){return openGameDialog({title,message,confirmLabel,cancelLabel});}
+function activeGridLabel(){
+  if(state.isDaily)return 'Le défi du jour';
+  if(state.gameVariant==='lost')return 'Une grille Gemme perdue';
+  return 'Une grille aléatoire';
+}
+$('#gameDialogConfirm').addEventListener('click',()=>closeGameDialog(true));
+$('#gameDialogCancel').addEventListener('click',()=>closeGameDialog(false));
+$('#gameDialogModal').addEventListener('click',event=>{if(event.target.id==='gameDialogModal')closeGameDialog(false);});
 const boardEl = $('#board');
 const pieceSvg = $('#pieceSvg');
 const traceSvg = $('#traceSvg');
@@ -2733,11 +2759,11 @@ function renderModePill(){
       if(state.isDaily){
         text = state.soloResult==='win' ? `📅 Défi du jour — ${formatDailyDate(state.dailyDate)} — Victoire !` : `📅 Défi du jour — ${formatDailyDate(state.dailyDate)} — Défaite`;
       } else {
-        text = state.gameVariant==='lost' ? `💎 Gemme perdue — ${state.soloResult==='win'?'Victoire !':'Défaite'}` : (state.soloResult==='win' ? '🏆 Victoire !' : '💥 Défaite');
+        text = state.gameVariant==='lost' ? `💎 Gemme perdue — ${state.soloResult==='win'?'Victoire !':'Défaite'}` : `🎲 Grille aléatoire — ${state.soloResult==='win'?'Victoire !':'Défaite'}`;
       }
       cls = state.soloResult==='win' ? 'win' : 'lose';
     } else {
-      text = state.isDaily ? `📅 Défi du jour — ${formatDailyDate(state.dailyDate)}` : (state.gameVariant==='lost'?'💎 Gemme perdue':'Mode solo — devine la grille');
+      text = state.isDaily ? `📅 Défi du jour — ${formatDailyDate(state.dailyDate)}` : (state.gameVariant==='lost'?'💎 Gemme perdue':'🎲 Grille aléatoire');
       cls = 'live';
     }
   } else {
@@ -3098,14 +3124,14 @@ function updateHintModeUI(){
   btn.textContent = hintModeActive ? '🔍 Mode indice actif — touche une case' : '🔍 Demander un indice';
 }
 
-function onCellClick(r,c,cellEl){
+async function onCellClick(r,c,cellEl){
   if(tutorialActive&&(![5,15,17].includes(tutorialStage)||!tutorialTargetCell||r!==tutorialTargetCell.r||c!==tutorialTargetCell.c)){showToast('Touche la case mise en \u00e9vidence.');return;}
   const key = r+','+c;
   if(state.cellUsed[key]) return;
   if(state.mode==='solo' && !hintModeActive) return;
   const coord = LEFT_LABELS[r] + (c+1);
   if(state.mode==='solo'){
-    if(!tutorialActive&&!confirm(`Révéler le contenu de la case ${coord} ?`)) return;
+    if(!tutorialActive&&!await gameConfirm(`Révéler le contenu de la case ${coord} ?`,'Demander un indice','Révéler','Annuler')) return;
     registerSoloAction('coord');
   }
   state.cellUsed[key] = true;
@@ -3150,7 +3176,9 @@ async function enterSolo(){
   }
   if(state.mode==='solo' && !state.soloOver){
     if(!await activeSoloGridIsAllowed())return;
-    showGame();return;
+    const resume=await gameConfirm(`${activeGridLabel()} est en cours. Voulez-vous la reprendre ?`,'Partie en cours','Reprendre','Choisir une autre grille');
+    if(resume)showGame();else openSoloChoiceModal();
+    return;
   }
   openSoloChoiceModal();
 }
@@ -3317,7 +3345,7 @@ function tutorialShowStage(){
   else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index),group=tutorialWaveGroup();let intro='';if(tutorialRayIndex===0)intro='Commen&ccedil;ons par observer le trajet le plus simple.';else if(tutorialRayIndex===1)intro='Teste maintenant l&rsquo;entr&eacute;e suivante pour comparer les deux trajets.';else if(tutorialRayIndex===2)intro='Poursuis avec l&rsquo;entr&eacute;e suivante.';else if(tutorialRayIndex===3)intro='Cette onde va montrer comment plusieurs couleurs peuvent se combiner.';else if(group?.placement===0&&group.offset===0)intro='L&rsquo;onde rouge d&eacute;j&agrave; observ&eacute;e permet de localiser le trap&egrave;ze. V&eacute;rifions son orientation depuis cette entr&eacute;e.';else if(group?.placement===1&&group.offset===0)intro='L&rsquo;onde verte a notamment rencontr&eacute; la gemme bleue. Cherchons maintenant une trajectoire uniquement bleue.';else if(group?.placement===3&&group.offset===0)intro='Reprenons maintenant la recherche de la gemme jaune rencontr&eacute;e par l&rsquo;onde verte.';else if(group?.placement===4&&group.offset===0)intro='Il reste maintenant &agrave; placer le triangle blanc.';else intro=['Envoie cette onde pour obtenir une nouvelle information.','Observe maintenant la gemme depuis un autre bord.','Cette derni&egrave;re direction va confirmer son placement et son orientation.'][group?.offset||0];tutorialCoach('Envoie une onde',`${intro}<br><br>Touche l&rsquo;entr&eacute;e <b>${name}</b>, mise en &eacute;vidence.`);}
   else if(tutorialStage===2){const group=tutorialWaveGroup();let follow='';if(tutorialRayIndex===1)follow='En comparant ces deux trajectoires, tu peux commencer &agrave; d&eacute;limiter la zone occup&eacute;e.';else if(tutorialRayIndex===2)follow='Cette nouvelle couleur indique qu&rsquo;une autre gemme intervient sur ce trajet.';else if(group?.placement===0&&group.offset===0)follow='Avec l&rsquo;onde rouge obtenue depuis 13, ce second trajet permet maintenant de d&eacute;duire l&rsquo;emplacement et l&rsquo;orientation du trap&egrave;ze.';else if(group?.placement===1&&group.offset===2)follow='L&rsquo;onde envoy&eacute;e depuis M est renvoy&eacute;e par le bord droit du triangle. Si celui-ci se trouvait une ligne plus haut et un cran plus &agrave; gauche, cette onde ne le toucherait pas.<br><br>Avec les r&eacute;sultats obtenus depuis 15, J et M, ainsi que l&rsquo;onde verte observ&eacute;e plus t&ocirc;t, son placement peut maintenant &ecirc;tre d&eacute;termin&eacute;.';else if(group?.placement===3&&group.offset===0)follow='Cette onde indique l&rsquo;orientation du triangle jaune. En la recoupant avec le trajet vert clair qui revient en 16, son emplacement devient lui aussi d&eacute;terminable.';else if(group?.offset===0)follow='Ce r&eacute;sultat apporte une premi&egrave;re information sur cette gemme.';else if(group?.offset===1)follow=group.count===2?'En recoupant ces deux directions avec les trajets d&eacute;j&agrave; observ&eacute;s, son placement devient d&eacute;terminable.':'Cette seconde direction pr&eacute;cise les positions encore possibles.';else if(group?.offset===2)follow='Cette troisi&egrave;me direction confirme le placement et l&rsquo;orientation retenus.';tutorialCoach('Observe le r\u00e9sultat',`${tutorialObservationText(tutorialLastResult)}${follow?'<br><br>'+follow:''}`,'Continuer');}
   else if(tutorialStage===3)tutorialCoach('Comprendre les m&eacute;langes','L&rsquo;aide pr&eacute;sente les diff&eacute;rentes combinaisons de couleurs obtenues lorsqu&rsquo;une onde rencontre plusieurs gemmes.','Afficher l\u2019aide des couleurs');
-  else if(tutorialStage===8)tutorialCoach('Propose cette solution','Toutes les gemmes sont plac&eacute;es. Dans une partie solo, tu peux proposer une solution <b>deux fois au maximum</b> : une seule erreur est donc permise.<br><br>Touche maintenant <b>Proposer une solution</b>.');
+  else if(tutorialStage===8)tutorialCoach('Propose cette solution','Toutes les gemmes sont plac&eacute;es. Dans une grille al&eacute;atoire, tu peux proposer une solution <b>deux fois au maximum</b> : une seule erreur est donc permise.<br><br>Touche maintenant <b>Proposer une solution</b>.');
   else if(tutorialStage===19)tutorialCoach('Bravo, tu as trouv&eacute; !','La disposition est correcte : tu viens de terminer le tutoriel.<br><br>Voici maintenant quelques informations suppl&eacute;mentaires sur les autres grilles et les fonctions du site.','Continuer');
   else if(tutorialStage===9)tutorialCoach('Les gemmes optionnelles','Cette grille utilise uniquement les cinq gemmes de base. D&rsquo;autres parties peuvent ajouter une ou plusieurs de ces gemmes :<br><br>&#128142; <b>Diamant</b> : d&eacute;vie l&rsquo;onde sans ajouter de couleur.<br>&#11035; <b>Corps noir</b> : absorbe l&rsquo;onde, qui ne ressort pas.<br>&#128998; <b>Saphir bleu ciel</b> : ajoute simultan&eacute;ment le bleu et le blanc au r&eacute;sultat.','D&eacute;couvrir les autres fonctions');
   else if(tutorialStage===11){const name=CONFIG.PIECES[tutorialPlacementType()].label;const start=tutorialPlacementIndex===0?4:tutorialPlacementEnds[tutorialPlacementIndex-1]+1;const count=tutorialPlacementEnds[tutorialPlacementIndex]-start+1;let explanation='';if(tutorialPlacementIndex===0)explanation='Les deux ondes rouges obtenues depuis les entr&eacute;es 13 et 7 permettent de placer et d&rsquo;orienter le trap&egrave;ze.';else if(tutorialPlacementIndex===1)explanation='Ces trois ondes bleues, recoup&eacute;es avec l&rsquo;onde verte qui a aussi rencontr&eacute; cette gemme, permettent de placer le triangle bleu sans ambigu&iuml;t&eacute;.';else if(tutorialPlacementIndex===2)explanation='La coordonn&eacute;e r&eacute;v&eacute;l&eacute;e confirme la pr&eacute;sence d&rsquo;une gemme blanche &agrave; cet endroit. L&rsquo;onde blanche envoy&eacute;e depuis 12, l&rsquo;onde bleue envoy&eacute;e depuis 4 et la ligne transparente A&ndash;11 permettent d&rsquo;identifier le losange et de d&eacute;terminer son emplacement.';else if(tutorialPlacementIndex===3)explanation='L&rsquo;onde jaune envoy&eacute;e depuis 2 indique l&rsquo;orientation du triangle. En suivant le trajet de l&rsquo;onde vert clair, qui revient &agrave; son point de d&eacute;part en 16, il ne reste qu&rsquo;une fa&ccedil;on de le placer.';else if(tutorialPlacementIndex===4)explanation='Il ne reste plus que le triangle blanc. Les trajectoires 17&ndash;Q et N&ndash;G suffisent &agrave; d&eacute;terminer sa position et son orientation.';else explanation=`Les ${count===3?'trois':'deux'} derni&egrave;res ondes, recoup&eacute;es avec les r&eacute;sultats pr&eacute;c&eacute;dents, permettent de retenir ce placement et cette orientation.`;tutorialCoach(`Place la gemme ${tutorialPlacementIndex+1} sur 5`,`${explanation}<br><br>Fais glisser <b>${name}</b> jusqu&rsquo;&agrave; cet emplacement.`);}
@@ -3333,8 +3361,8 @@ function tutorialShowStage(){
   else if(tutorialStage===22)tutorialCoach('Le compte joueur','Le compte est n&eacute;cessaire pour jouer en solo, mais il suffit d&rsquo;un <b>pseudo</b> et d&rsquo;un <b>code &agrave; 4 chiffres</b> : aucune adresse e-mail n&rsquo;est demand&eacute;e. Il permet de retrouver ton profil depuis n&rsquo;importe quel navigateur.<br><br>Tu y retrouves ton historique de grilles, tes d&eacute;fis du jour, tes grilles partag&eacute;es et tes informations de joueur. Il permet aussi d&rsquo;identifier tes r&eacute;sultats dans les classements.','Terminer');
   else tutorialCoach('Tutoriel termin\u00e9 !','Tu connais maintenant les principes du jeu et les principales fonctions du site. Tu peux revenir au tutoriel &agrave; tout moment depuis l&rsquo;accueil.','Retour \u00e0 l\u2019accueil');
 }
-function beginInteractiveTutorial(){
-  if(state.mode==='solo'&&!state.soloOver&&state.gridUnrankedReason!=='tutorial'&&!confirm('Quitter la partie solo en cours pour lancer le tutoriel ?')) return;
+async function beginInteractiveTutorial(){
+  if(state.mode==='solo'&&!state.soloOver&&state.gridUnrankedReason!=='tutorial'&&!await gameConfirm(`${activeGridLabel()} est en cours. Voulez-vous la quitter pour lancer le tutoriel ?`,'Quitter la partie','Quitter','Continuer la partie')) return;
   state.includeGray=false;state.includeOnyx=false;state.includeSapphire=false;
   const lesson=tutorialFixedLesson();
   if(!lesson.pieces||lesson.examples.length<11){showToast('Le tutoriel est momentan\u00e9ment indisponible.');return;}
@@ -3413,9 +3441,9 @@ $('#closeSoloAccountPrompt').addEventListener('click',()=>$('#soloAccountPromptM
 $('#soloAccountPromptModal').addEventListener('click',e=>{if(e.target.id==='soloAccountPromptModal')$('#soloAccountPromptModal').classList.remove('open');});
 $('#soloPromptLogin').addEventListener('click',async()=>{$('#soloAccountPromptModal').classList.remove('open');await openAccountModal();});
 $('#soloPromptRegister').addEventListener('click',async()=>{$('#soloAccountPromptModal').classList.remove('open');await openAccountModal();showAccountCreate();});
-$('#homeCreate').addEventListener('click', ()=>{
+$('#homeCreate').addEventListener('click', async()=>{
   if(state.mode==='solo'){
-    if(!state.soloOver && !confirm("Quitter la partie solo en cours ? Elle sera effacée.")) return;
+    if(!state.soloOver && !await gameConfirm(`${activeGridLabel()} est en cours. Elle sera effacée si vous créez une nouvelle grille.`,'Quitter la partie','Créer une grille','Annuler')) return;
     resetAll();
   }
   $('#createModeModal').classList.add('open');
@@ -3430,23 +3458,23 @@ $('#createLostMode').addEventListener('click',()=>{
   closeCreateModeModal();resetAll();state.mode='gm';state.gameVariant='lost';state.includeGray=true;state.includeOnyx=true;state.includeSapphire=true;state.missingType=null;state.pieces=TYPE_ORDER.map(type=>newPiece(type));showGame();renderAll();
   })();
 });
-$('#btnHome').addEventListener('click',()=>{
+$('#btnHome').addEventListener('click',async()=>{
   if(state.mode==='solo'&&!state.soloOver){
-    if(!confirm('Revenir à l’accueil ? La partie solo reste disponible tant que tu ne démarres pas une autre partie.')) return;
+    if(!await gameConfirm(`Revenir à l’accueil ? ${activeGridLabel()} restera disponible tant que vous ne démarrez pas une autre partie.`,'Retour à l’accueil','Revenir à l’accueil','Continuer la partie')) return;
   }
   if(state.mode==='solo'&&state.soloOver) resetAll();
   showHome();
 });
 $('#btnRandom').addEventListener('click', ()=>{ if(state.mode!=='gm' || state.started) return; randomizePlacement(); });
-$('#btnStart').addEventListener('click', ()=>{
+$('#btnStart').addEventListener('click', async()=>{
   if(state.mode!=='gm' || state.started) return;
   const unplaced=state.pieces.filter(piece=>!piece.center);
   if((state.gameVariant==='lost'&&unplaced.length!==1)||(state.gameVariant!=='lost'&&unplaced.length)){
-    alert(state.gameVariant==='lost'?'Place exactement sept gemmes sur la grille avant de démarrer la partie.':'Place toutes les gemmes sur la grille avant de démarrer la partie.');
+    await gameAlert(state.gameVariant==='lost'?'Place exactement sept gemmes sur la grille avant de démarrer la partie.':'Place toutes les gemmes sur la grille avant de démarrer la partie.','Placement incomplet');
     return;
   }
   if(computeInvalidPieceIds(state.pieces).size>0){
-    alert('Certaines gemmes sont en conflit (affichées en rouge sur la grille) : contact par un côté, chevauchement, ou gemme injoignable. Corrige-les avant de démarrer.');
+    await gameAlert('Certaines gemmes sont en conflit (affichées en rouge sur la grille) : contact par un côté, chevauchement ou gemme injoignable. Corrigez-les avant de démarrer.','Placement invalide');
     return;
   }
   if(state.gameVariant==='lost')state.missingType=unplaced[0].type;
@@ -3455,16 +3483,16 @@ $('#btnStart').addEventListener('click', ()=>{
   saveState();
   renderAll();
 });
-$('#btnEndGame').addEventListener('click',()=>{
+$('#btnEndGame').addEventListener('click',async()=>{
   if(state.mode!=='gm'||!state.started) return;
-  if(!confirm('Terminer cette partie et revenir à l’accueil ?')) return;
+  if(!await gameConfirm('Terminer cette partie et revenir à l’accueil ?','Fin de partie','Terminer','Annuler')) return;
   resetAll();
   showHome();
 });
 $('#btnShareGrid').addEventListener('click',async()=>{
   if(state.mode!=='gm'||state.started||$('#btnShareGrid').disabled) return;
   if(!currentPlayerAccount){
-    alert('Connectez-vous pour enregistrer cette grille comme la vôtre et la partager. Aucune adresse mail n’est nécessaire.');
+    await gameAlert('Connectez-vous pour enregistrer cette grille comme la vôtre et la partager. Aucune adresse mail n’est nécessaire.','Connexion nécessaire');
     await openAccountModal();
     return;
   }
@@ -3505,7 +3533,7 @@ $('#btnCopyGridId').addEventListener('click', async()=>{
 $('#btnBackToGM').addEventListener('click', ()=>{
   showHome();
 });
-$('#btnReset').addEventListener('click', ()=>{
+$('#btnReset').addEventListener('click', async()=>{
   if(state.mode==='solo'){
     if(state.gameVariant==='lost'){
       startLostGame();
@@ -3514,7 +3542,7 @@ $('#btnReset').addEventListener('click', ()=>{
     openSoloSetupModal();
     return;
   }
-  if(!confirm("Recommencer efface le placement des gemmes et tout l'historique. Continuer ?")) return;
+  if(!await gameConfirm("Recommencer efface le placement des gemmes et tout l’historique. Continuer ?",'Recommencer','Recommencer','Annuler')) return;
   resetAll();
 });
 
@@ -4119,8 +4147,8 @@ async function loadNextGlobalSoloPage(){
 async function renderGlobalSoloScores(filterKey='ALL'){
   const el=$('#rankingList');
   const savedScrollTop=el.scrollTop;
-  if(!currentPlayerAccount){ el.innerHTML='<div class="history-empty">Connectez-vous pour consulter les résultats solo.</div>'; return; }
-  if(!globalSoloScoresCache) el.innerHTML='<div class="history-empty">Chargement des résultats solo…</div>';
+  if(!currentPlayerAccount){ el.innerHTML='<div class="history-empty">Connectez-vous pour consulter l’historique des grilles aléatoires.</div>'; return; }
+  if(!globalSoloScoresCache) el.innerHTML='<div class="history-empty">Chargement des grilles aléatoires…</div>';
   try{
     const visibleTarget=globalSoloVisibleCounts[filterKey]||GLOBAL_SOLO_PAGE_SIZE;
     globalSoloVisibleCounts[filterKey]=visibleTarget;
@@ -4131,7 +4159,7 @@ async function renderGlobalSoloScores(filterKey='ALL'){
       matchingRows=filterGlobalSoloRows(filterKey);
     }
     const rows=matchingRows.slice(0,visibleTarget);
-    if(!rows?.length && !globalSoloScoresCache.hasMore){ el.innerHTML='<div class="history-empty">Aucun résultat solo enregistré.</div>'; return; }
+    if(!rows?.length && !globalSoloScoresCache.hasMore){ el.innerHTML='<div class="history-empty">Aucune grille aléatoire enregistrée.</div>'; return; }
     const rowsHtml=rows.map((row,i)=>{
       const decoded=decodeGridId(row.grid_id);
       const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
