@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260814-0013';
+const APP_VERSION = '20260815-0014';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -149,6 +149,11 @@ let state = {
   occupiedMarks:[],
   coordDots:[]
 };
+let paletteScale = 1;
+function normalizePaletteScale(value){
+  const scale=Number(value);
+  return [0.25,0.5,0.75,1].includes(scale)?scale:1;
+}
 let pieceIdSeq = 1;
 
 // ---------------------------------------------------------------------
@@ -484,7 +489,7 @@ async function renderAccountHome(){
     <h3 class="account-section-title">📅 Défis du jour</h3>
     <div id="accountStats"><div class="history-empty">Chargement des statistiques…</div></div>
     <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Enregistrer mes scores sans redemander le code sur cet appareil</b></span></label>
-    <div class="achievement-preferences"><label class="account-trust"><input type="checkbox" id="accountHideAchievementNotifications"><span><b>Ne pas afficher les notifications des succès</b></span></label><label class="account-trust"><input type="checkbox" id="accountHideAchievementRankings"><span><b>Ne pas afficher mon pseudo dans les classements des succès</b></span></label></div>
+    <div class="achievement-preferences"><label class="account-palette-size"><span><b>Taille des gemmes à placer</b></span><select id="accountPaletteScale" class="ranking-select"><option value="0.25">25 %</option><option value="0.5">50 %</option><option value="0.75">75 %</option><option value="1">100 %</option></select></label><label class="account-trust"><input type="checkbox" id="accountHideAchievementNotifications"><span><b>Ne pas afficher les notifications des succès</b></span></label><label class="account-trust"><input type="checkbox" id="accountHideAchievementRankings"><span><b>Ne pas afficher mon pseudo dans les classements des succès</b></span></label></div>
     ${isFirefox()?`<div class="achievement-preferences"><label class="account-trust"><input type="checkbox" id="accountFirefoxPerformance" ${firefoxPerformanceEnabled()?'checked':''}><span><b>Mode performances Firefox</b><small>Réduit certains effets visuels et opérations d’affichage afin d’améliorer la fluidité sur Firefox.</small></span></label></div>`:''}
     <div class="account-actions">
       <button class="ghost" id="accountAchievementsBtn">🏆 Mes succès</button>
@@ -516,8 +521,11 @@ async function renderAccountHome(){
     ]);
     $('#accountHideAchievementNotifications').checked=!!achievementPreferences.hide_notifications;
     $('#accountHideAchievementRankings').checked=!!achievementPreferences.hide_from_rankings;
-    const saveAchievementPreferences=async()=>{try{await supabaseRpc('orapa_set_achievement_preferences',{p_session_token:currentPlayerAccount.session_token,p_hide_notifications:$('#accountHideAchievementNotifications').checked,p_hide_from_rankings:$('#accountHideAchievementRankings').checked});showToast('Préférences enregistrées');}catch(e){showToast('Enregistrement impossible : '+e.message);}};
-    $('#accountHideAchievementNotifications').onchange=saveAchievementPreferences;$('#accountHideAchievementRankings').onchange=saveAchievementPreferences;
+    paletteScale=normalizePaletteScale(achievementPreferences.palette_scale);
+    $('#accountPaletteScale').value=String(paletteScale);
+    renderPalette();
+    const saveAchievementPreferences=async()=>{paletteScale=normalizePaletteScale($('#accountPaletteScale').value);renderPalette();try{await supabaseRpc('orapa_set_achievement_preferences',{p_session_token:currentPlayerAccount.session_token,p_hide_notifications:$('#accountHideAchievementNotifications').checked,p_hide_from_rankings:$('#accountHideAchievementRankings').checked,p_palette_scale:Math.round(paletteScale*100)});showToast('Préférences enregistrées');}catch(e){showToast('Enregistrement impossible : '+e.message);}};
+    $('#accountPaletteScale').onchange=saveAchievementPreferences;$('#accountHideAchievementNotifications').onchange=saveAchievementPreferences;$('#accountHideAchievementRankings').onchange=saveAchievementPreferences;
     const rate=st.participations?Math.round(st.wins/st.participations*100):0;
     $('#accountStats').innerHTML=`<div class="account-stats-grid">
       <div class="account-stat"><b>${st.participations||0}</b>défis</div>
@@ -534,7 +542,7 @@ async function renderAccountHome(){
       <div class="account-stat"><b>${gridStats.average_score==null?'—':gridStats.average_score+' pts'}</b>score moyen</div>
       <div class="account-stat"><b>${gridStats.average_rank==null?'—':'#'+gridStats.average_rank}</b>rang moyen</div>
     </div>`:''}${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.shared||0}</b>partagées</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}
-    <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid"><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked).length}</b>débloqués</div><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked).reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div></div>`;
+    <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid"><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked&&row.visibility!=='hidden').length}</b>débloqués</div><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked&&row.visibility!=='hidden').reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div></div>`;
   }catch(e){ $('#accountStats').innerHTML=`<div class="account-error" style="display:block;">${escapeHtml(e.message)}</div>`; }
 }
 function showRenameAccount(){
@@ -2614,6 +2622,8 @@ function renderPalette(){
     : "Glisse une gemme sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir";
   if(!showPalette) return;
   const cs = computeCellSize();
+  const reserveScale=normalizePaletteScale(paletteScale);
+  paletteEl.style.setProperty('--palette-scale',String(reserveScale));
   inPalette.forEach(piece=>{
     const shape = SHAPES[piece.type];
     // Encombrement maximal possible (à rotation 0, une rotation de 90° ne fait qu'échanger
@@ -2630,8 +2640,8 @@ function renderPalette(){
     const cx=(Math.min(...xs)+Math.max(...xs))/2, cy=(Math.min(...ys)+Math.max(...ys))/2;
     const svg = document.createElementNS(SVGNS,'svg');
     svg.setAttribute('viewBox', `${cx-boxSize/2} ${cy-boxSize/2} ${boxSize} ${boxSize}`);
-    svg.style.width = (boxSize*cs)+'px';
-    svg.style.height = (boxSize*cs)+'px';
+    svg.style.width = (boxSize*cs*reserveScale)+'px';
+    svg.style.height = (boxSize*cs*reserveScale)+'px';
     svg.classList.add('palette-tile');
     const def = CONFIG.PIECES[piece.type];
     const poly = document.createElementNS(SVGNS,'polygon');
@@ -4164,7 +4174,9 @@ async function openPlayerAchievements(accountId,name){
       supabaseRpc('orapa_player_achievements',{p_session_token:currentPlayerAccount.session_token,p_account_id:accountId})
     ]);
     const unlockedByKey=new Map((unlockedRows||[]).map(row=>[row.achievement_key,row]));
-    const normalized=(catalog||[]).map((row,index)=>{const unlocked=unlockedByKey.get(row.achievement_key);return {...row,unlocked:!!unlocked,unlocked_at:unlocked?.unlocked_at||null,display_order:Number(row.display_order||index+1),unlock_count:Number(row.unlock_count||0),has_progress:false,progress_value:null,progress_target:null,progress_data:null};});
+    const combined=[...(catalog||[])];
+    (unlockedRows||[]).forEach(row=>{if(!combined.some(item=>item.achievement_key===row.achievement_key))combined.push(row);});
+    const normalized=combined.map((row,index)=>{const unlocked=unlockedByKey.get(row.achievement_key);return {...row,unlocked:!!unlocked,unlocked_at:unlocked?.unlocked_at||null,display_order:Number(row.display_order||index+1),unlock_count:Number(unlocked?.unlock_count??row.unlock_count??0),has_progress:false,progress_value:null,progress_target:null,progress_data:null};});
     if(!normalized.length){$('#achievementDetailContent').innerHTML='<div class="history-empty">Aucun succès visible.</div>';return;}
     renderAchievementsInto($('#achievementDetailContent'),normalized,false,$('#achievementDetailToolbar'));
   }catch(e){$('#achievementDetailContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;}
@@ -4314,6 +4326,13 @@ function init(){
   // Une éventuelle grille créée par ce compte est fermée après validation.
   void validateSavedAccount().then(async()=>{
     updateAccountFab();
+    if(currentPlayerAccount?.session_token){
+      try{
+        const preferences=await supabaseRpc('orapa_get_achievement_preferences',{p_session_token:currentPlayerAccount.session_token});
+        paletteScale=normalizePaletteScale(preferences?.palette_scale);
+        renderPalette();
+      }catch(error){console.error('Chargement de la taille des gemmes impossible :',error);}
+    }
     if(state.mode==='solo'&&!state.soloOver&&!state.isDaily&&state.gridId){
       await activeSoloGridIsAllowed();
     }
