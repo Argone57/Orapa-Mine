@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260816-0019';
+const APP_VERSION = '20260816-0020';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2643,7 +2643,7 @@ function renderPalette(){
   $('#paletteTitle').style.display = showPalette?'':'none';
   paletteEl.style.display = showPalette?'flex':'none';
   $('#setupOptions').style.display = showCheckboxes?'flex':'none';
-  $('#setupHint').style.display = showPalette?'block':'none';
+  $('#setupHint').style.display = showPalette&&state.mode==='gm'?'block':'none';
   $('#setupHint').textContent = state.mode==='solo'
     ? "Place tes gemmes comme tu penses que la grille secrète est composée · tape pour pivoter · reste appuyé pour retourner en miroir · clique un bord ou une case pour indice"
     : "Glisse une gemme sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir";
@@ -2713,7 +2713,7 @@ function renderHistory(){
   }
   if(firefoxPerformanceEnabled()&&$('#historyDisclosure')?.classList.contains('collapsed'))return;
   if(state.history.length===0){
-    el.innerHTML='<div class="history-empty">Démarre la partie puis clique sur une lettre, un chiffre ou une case pour interroger la mine.</div>';
+    el.innerHTML='';
     return;
   }
   el.innerHTML = state.history.slice().reverse().map(h=>{
