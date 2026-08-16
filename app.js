@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260815-0018';
+const APP_VERSION = '20260816-0019';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2775,7 +2775,10 @@ function renderModePill(){
 }
 function renderControls(){
   $('#masterSubtitle').style.display=state.isDaily?'none':'';
-  $('#setupOptions').style.display=state.gameVariant==='lost'?'none':'';
+  // Ces options ne servent qu'à préparer une grille classique côté maître du jeu.
+  // Elles ne doivent jamais réapparaître lors du rendu d'une partie en cours.
+  const showSetupOptions=state.mode==='gm'&&!state.started&&state.gameVariant!=='lost';
+  $('#setupOptions').style.display=showSetupOptions?'flex':'none';
   $('#setupHint').textContent=state.gameVariant==='lost'?'Place sept gemmes sur la grille : celle qui restera dans la réserve deviendra la gemme perdue.':'Glisse une gemme sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir';
   const gmPreStart = state.mode==='gm' && !state.started;
   $('#btnRandom').style.display = gmPreStart ? '' : 'none';
@@ -3009,11 +3012,15 @@ function onPieceDown(ev, piece, el){
     if(document.hidden) onCancel();
   }
   function onMove(e){
+    if(e.pointerId!==ev.pointerId)return;
+    if(e.cancelable)e.preventDefault();
     const dx=e.clientX-startX, dy=e.clientY-startY;
     if(!moved && Math.hypot(dx,dy) > 9){ moved=true; clearTimeout(longPressTimer); startDrag(); }
     if(dragging) positionGhost(e.clientX, e.clientY);
   }
   function onUp(e){
+    if(e.pointerId!==ev.pointerId)return;
+    if(e.cancelable)e.preventDefault();
     cleanupGesture();
     clearTimeout(longPressTimer);
     if(dragging){
@@ -3044,7 +3051,8 @@ function onPieceDown(ev, piece, el){
       tutorialAfterPieceAction(piece);
     }
   }
-  function onCancel(){
+  function onCancel(e){
+    if(e?.pointerId!==undefined&&e.pointerId!==ev.pointerId)return;
     cleanupGesture();
     clearTimeout(longPressTimer);
     if(ghost?.isConnected) ghost.remove();
