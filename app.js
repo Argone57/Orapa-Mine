@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260818-0022';
+const APP_VERSION = '20260818-0023';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1996,6 +1996,9 @@ async function proposeSolution(){
         if(globalResult?.reason){ state.gridUnrankedReason=globalResult.reason; state.gridRanked=false; }
       }
     }else lastScoreResult=null;
+    if(!state.isDaily&&state.gameVariant==='classic'&&state.gridUnrankedReason==='already_played'){
+      void refreshAchievements('deja_vu');
+    }
     if(state.isDaily) saveDailyFinalSnapshot();
     saveState();renderAll();setTimeout(()=>openVictoryModal(),60);return;
   }
@@ -2019,6 +2022,9 @@ async function proposeSolution(){
         const globalResult=await submitGlobalGridScore(entry,identity);
         if(globalResult?.reason){ state.gridUnrankedReason=globalResult.reason; state.gridRanked=false; }
       }
+    }
+    if(!state.isDaily&&state.gameVariant==='classic'&&state.gridUnrankedReason==='already_played'){
+      void refreshAchievements('deja_vu');
     }
     if(state.isDaily) saveDailyFinalSnapshot();
     saveState();renderAll();setTimeout(()=>openVictoryModal(),60);
