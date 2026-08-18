@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260818-0021';
+const APP_VERSION = '20260818-0022';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -4359,9 +4359,10 @@ function init(){
   disclosure?.classList.add('collapsed');
   toggle?.setAttribute('aria-expanded','false');
   if(indicator)indicator.textContent='+';
-  const hasActiveGame = state.mode==='solo' || state.started || state.history.length>0;
-  if(tutorialLoadProgress()||!hasActiveGame)showHome();
-  else showGame();
+  // Une sauvegarde peut contenir une partie à reprendre, une grille terminée
+  // ou de simples éléments d'historique. Elle reste disponible, mais le site
+  // s'ouvre toujours sur l'accueil : la reprise est proposée depuis « Jouer en solo ».
+  showHome();
   requestAnimationFrame(()=>document.body.classList.remove('app-loading'));
 
   // Les contrôles Supabase ne doivent jamais bloquer l'affichage initial.
