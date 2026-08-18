@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260816-0020';
+const APP_VERSION = '20260818-0021';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1098,13 +1098,16 @@ function raysEnabled(){
   return state.started;
 }
 
-function allTypes(){
-  if(state.gameVariant==='lost') return TYPE_ORDER.slice();
+function classicTypes(){
   const t = ['red','yellow','blue','white','rhombus'];
   if(state.includeGray) t.push('gray');
   if(state.includeOnyx) t.push('onyx');
   if(state.includeSapphire) t.push('sapphire');
   return t;
+}
+function allTypes(){
+  if(state.gameVariant==='lost') return TYPE_ORDER.slice();
+  return classicTypes();
 }
 function freshPieceSet(){ return allTypes().map(t=> newPiece(t)); }
 function newPiece(type){ return { id:'p'+(pieceIdSeq++), type, center:null, rotation:0, flipped:false }; }
@@ -1626,7 +1629,9 @@ async function startSoloGame(explicitId,creatorRetry=0){
     gridId = decoded.id;
     ranked = true;
   } else {
-    secret = generateRandomLayout();
+    // La génération classique ne doit jamais dépendre du mode précédent
+    // (notamment après avoir quitté une partie « Gemme perdue »).
+    secret = generateRandomLayout(60,classicTypes());
     if(!secret){
       setTimeout(()=>void gameAlert("Je n'ai pas réussi à générer une grille aléatoire. Réessaie.",'Génération impossible'),60);
       return;
