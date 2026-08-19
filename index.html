@@ -214,11 +214,12 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 
 .toast-msg{
   position:fixed; left:50%; bottom:80px; transform:translateX(-50%) translateY(20px);
-  background:#2a1712; border:1px solid var(--danger); color:#f5b8ae;
+  background:#292724; border:1px solid #77716a; color:#eeeae4;
   padding:10px 16px; border-radius:8px; font-size:.82rem; font-weight:600;
   box-shadow:0 6px 18px rgba(0,0,0,.5); opacity:0; pointer-events:none;
   transition:opacity .2s ease, transform .2s ease; z-index:300; max-width:88vw; text-align:center;
 }
+.toast-msg.error{background:#2a1712;border-color:var(--danger);color:#f5b8ae}
 .toast-msg.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 .label-bubble{
   position:fixed; transform:translate(-50%,-100%) translateY(-8px);
@@ -762,6 +763,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="app.js?v=20260818-0023"></script>
+<script src="app.js?v=20260819-0024"></script>
 </body>
 </html>

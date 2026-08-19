@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260818-0023';
+const APP_VERSION = '20260819-0024';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -525,7 +525,7 @@ async function renderAccountHome(){
     paletteScale=normalizePaletteScale(achievementPreferences.palette_scale);
     $('#accountPaletteScale').value=String(paletteScale);
     renderPalette();
-    const saveAchievementPreferences=async()=>{paletteScale=normalizePaletteScale($('#accountPaletteScale').value);renderPalette();try{await supabaseRpc('orapa_set_achievement_preferences',{p_session_token:currentPlayerAccount.session_token,p_hide_notifications:$('#accountHideAchievementNotifications').checked,p_hide_from_rankings:$('#accountHideAchievementRankings').checked,p_palette_scale:Math.round(paletteScale*100)});showToast('Préférences enregistrées');}catch(e){showToast('Enregistrement impossible : '+e.message);}};
+    const saveAchievementPreferences=async()=>{paletteScale=normalizePaletteScale($('#accountPaletteScale').value);renderPalette();try{await supabaseRpc('orapa_set_achievement_preferences',{p_session_token:currentPlayerAccount.session_token,p_hide_notifications:$('#accountHideAchievementNotifications').checked,p_hide_from_rankings:$('#accountHideAchievementRankings').checked,p_palette_scale:Math.round(paletteScale*100)});showToast('Préférences enregistrées');}catch(e){showErrorToast('Enregistrement impossible : '+e.message);}};
     $('#accountPaletteScale').onchange=saveAchievementPreferences;$('#accountHideAchievementNotifications').onchange=saveAchievementPreferences;$('#accountHideAchievementRankings').onchange=saveAchievementPreferences;
     const rate=st.participations?Math.round(st.wins/st.participations*100):0;
     $('#accountStats').innerHTML=`<div class="account-stats-grid">
@@ -673,7 +673,7 @@ async function openMyGridHistory(){
       $('#gridDataContent').querySelectorAll('.history-copy-id').forEach(btn=>btn.onclick=()=>{const id=activeRows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
       $('#gridDataContent').querySelectorAll('.history-summary').forEach(btn=>btn.onclick=()=>{const row=activeRows[Number(btn.dataset.gridIndex)];navigator.clipboard?.writeText(formatShareText({name:currentPlayerAccount.display_name,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,gridId:row.grid_id,date:new Date(row.played_at).getTime(),success:row.success})).then(()=>showToast('Résumé copié !'));});
       const loadMore=$('#historyLoadMore');
-      if(loadMore) loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderHistory();}catch(e){showToast(`Chargement impossible : ${e.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
+      if(loadMore) loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderHistory();}catch(e){showErrorToast(`Chargement impossible : ${e.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
     };
     $('#accountHistoryConfigSelect').addEventListener('change',renderHistory);
     $('#accountHistoryClassic').addEventListener('click',openMyGridHistory);
@@ -723,7 +723,7 @@ async function openMyDailyHistory(){
       $('#gridDataContent').querySelectorAll('.account-daily-row').forEach(el=>el.onclick=ev=>{if(ev.target.closest('button'))return;const row=rows[Number(el.dataset.dailyIndex)],key=`daily-history:${row.id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderDaily();});
       $('#gridDataContent').querySelectorAll('.daily-history-summary').forEach(btn=>btn.onclick=()=>{const row=rows[Number(btn.dataset.dailyIndex)];navigator.clipboard?.writeText(formatShareText({name:currentPlayerAccount.display_name,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,dailyDate:String(row.daily_date).slice(0,10),isDaily:true,date:new Date(row.played_at).getTime(),success:row.success})).then(()=>showToast('Résumé copié !'));});
       const loadMore=$('#dailyHistoryLoadMore');
-      if(loadMore) loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderDaily();}catch(e){showToast(`Chargement impossible : ${e.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
+      if(loadMore) loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderDaily();}catch(e){showErrorToast(`Chargement impossible : ${e.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
     };
     renderDaily();
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
@@ -739,7 +739,7 @@ function readOnlyGridSvg(decoded){
 }
 function openSharedGridPreview(gridId){
   const decoded=decodeGridId(gridId);
-  if(!decoded){showToast('Identifiant de grille invalide.');return;}
+  if(!decoded){showErrorToast('Identifiant de grille invalide.');return;}
   const gems=decoded.variant==='lost'?'💎 Gemme perdue':gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire);
   $('#sharedGridPreviewContent').innerHTML=`<div class="readonly-grid-meta"><b>${escapeHtml(decoded.id)}</b><span>${gems}</span></div><div class="readonly-grid-board">${readOnlyGridSvg(decoded)}</div><p class="readonly-grid-note">Aucune action n’est possible dans cet aperçu.</p><div class="controls readonly-grid-actions"><button class="ghost" id="sharedPreviewCopyId">📋 Copier l’ID</button><button class="primary" id="sharedPreviewRanking">🏆 Classement</button></div>`;
   $('#sharedPreviewCopyId').onclick=()=>navigator.clipboard?.writeText(decoded.id).then(()=>showToast('Identifiant copié : '+decoded.id));
@@ -811,7 +811,7 @@ async function openMySharedGrids(){
       $('#gridDataContent').querySelectorAll('.shared-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
       $('#gridDataContent').querySelectorAll('.shared-preview').forEach(btn=>btn.onclick=()=>openSharedGridPreview(rows[Number(btn.dataset.gridIndex)].grid_id));
       const loadMore=$('#sharedLoadMore');
-      if(loadMore) loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderShared();}catch(e){showToast(`Chargement impossible : ${e.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
+      if(loadMore) loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderShared();}catch(e){showErrorToast(`Chargement impossible : ${e.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
     };
     $('#accountSharedConfigSelect').addEventListener('change',renderShared);
     $('#accountSharedSortSelect').addEventListener('change',renderShared);
@@ -858,7 +858,7 @@ async function openMySharedLostGrids(){
       $('#gridDataContent').querySelectorAll('.shared-lost-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));
       $('#gridDataContent').querySelectorAll('.shared-lost-preview').forEach(button=>button.onclick=()=>openSharedGridPreview(rows[Number(button.dataset.index)].grid_id));
       const loadMore=$('#sharedLostLoadMore');
-      if(loadMore)loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderShared();}catch(error){showToast(`Chargement impossible : ${error.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
+      if(loadMore)loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderShared();}catch(error){showErrorToast(`Chargement impossible : ${error.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
     };
     $('#accountSharedLostSortSelect').addEventListener('change',renderShared);
     $('#accountSharedLostSortReverse').addEventListener('click',()=>{sharedState.reverse=!sharedState.reverse;$('#accountSharedLostSortReverse').textContent=sharedState.reverse?'↑':'↓';renderShared();});
@@ -996,7 +996,7 @@ async function submitGlobalDailyScore(entry, identity){
     return row;
   }catch(err){
     console.error('Envoi du score global impossible :',err);
-    showToast(`⚠️ Envoi global impossible : ${err.message}`);
+    showErrorToast(`⚠️ Envoi global impossible : ${err.message}`);
     return null;
   }
 }
@@ -1028,7 +1028,7 @@ async function submitGlobalGridScore(entry, identity){
     return row;
   }catch(err){
     console.error('Envoi du score de grille impossible :',err);
-    showToast(`⚠️ Envoi global impossible : ${err.message}`);
+    showErrorToast(`⚠️ Envoi global impossible : ${err.message}`);
     return null;
   }
 }
@@ -1048,7 +1048,7 @@ async function submitLostGridScore(entry,identity){
       if(notices.length&&!result?.hide_notifications)queueAchievementNotifications(notices);
     }
     return row;
-  }catch(error){console.error('Envoi Gemme perdue impossible',error);showToast(`⚠️ Envoi global impossible : ${error.message}`);return null;}
+  }catch(error){console.error('Envoi Gemme perdue impossible',error);showErrorToast(`⚠️ Envoi global impossible : ${error.message}`);return null;}
 }
 async function shareLostGridGlobally(gridId){
   return supabaseRpc('orapa_share_lost_grid',{p_grid_id:gridId,p_session_token:currentPlayerAccount?.session_token||''});
@@ -1615,7 +1615,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
   if(explicitId){
     const decoded = decodeGridId(explicitId);
     if(!decoded){
-      showToast("Identifiant invalide. Vérifie qu’il a été copié en entier.");
+      showErrorToast("Identifiant invalide. Vérifie qu’il a été copié en entier.");
       return;
     }
     state.includeGray = decoded.includeGray;
@@ -1623,7 +1623,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
     state.includeSapphire = decoded.includeSapphire;
     secret = decoded.pieces.map(p=> ({ id:'p'+(pieceIdSeq++), type:p.type, center:p.center, rotation:p.rotation, flipped:p.flipped }));
     if(computeInvalidPieceIds(secret).size>0){
-      showToast("Cet identifiant ne correspond à aucune grille valide.");
+      showErrorToast("Cet identifiant ne correspond à aucune grille valide.");
       return;
     }
     gridId = decoded.id;
@@ -1644,7 +1644,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
     gridStatus=await supabaseRpc('orapa_get_grid_status',{p_grid_id:gridId,p_session_token:currentPlayerAccount.session_token});
   }catch(e){
     console.warn('Statut de grille indisponible',e);
-    showToast('Impossible de vérifier cette grille. Vérifie ta connexion puis réessaie.');
+    showErrorToast('Impossible de vérifier cette grille. Vérifie ta connexion puis réessaie.');
     return;
   }
   if(gridStatus?.is_creator){
@@ -1698,19 +1698,19 @@ async function startLostGame(explicitId=null,creatorRetry=0){
   let decoded=null,secret=null,gridId=null,missingType=null;
   if(explicitId){
     decoded=decodeGridId(explicitId);
-    if(!decoded||decoded.variant!=='lost'){showToast('Cet identifiant ne correspond pas à une grille Gemme perdue.');return;}
+    if(!decoded||decoded.variant!=='lost'){showErrorToast('Cet identifiant ne correspond pas à une grille Gemme perdue.');return;}
     secret=decoded.pieces.map(p=>({id:'p'+(pieceIdSeq++),type:p.type,center:{...p.center},rotation:p.rotation,flipped:p.flipped}));
     missingType=decoded.missingType;gridId=decoded.id;
   }else{
     missingType=TYPE_ORDER[Math.floor(Math.random()*TYPE_ORDER.length)];
     secret=generateRandomLayout(100,TYPE_ORDER.filter(type=>type!==missingType));
-    if(!secret){showToast('Impossible de générer cette grille. Réessaie.');return;}
+    if(!secret){showErrorToast('Impossible de générer cette grille. Réessaie.');return;}
     gridId=encodeLostGridId(secret,missingType);
   }
-  if(computeInvalidPieceIds(secret).size>0){showToast('Cet identifiant ne correspond à aucune grille valide.');return;}
+  if(computeInvalidPieceIds(secret).size>0){showErrorToast('Cet identifiant ne correspond à aucune grille valide.');return;}
   let gridStatus={};
   try{gridStatus=await supabaseRpc('orapa_get_lost_grid_status',{p_grid_id:gridId,p_session_token:currentPlayerAccount?.session_token||''});}
-  catch(error){console.warn('Statut Gemme perdue indisponible',error);if(explicitId){showToast('Impossible de vérifier cette grille.');return;}}
+  catch(error){console.warn('Statut Gemme perdue indisponible',error);if(explicitId){showErrorToast('Impossible de vérifier cette grille.');return;}}
   if(gridStatus?.is_creator){
     if(!explicitId&&creatorRetry<24)return startLostGame(null,creatorRetry+1);
     openCreatorGridBlockedModal(gridId);return;
@@ -1759,7 +1759,7 @@ function formatDailyDate(dateKey){
 }
 function reviewDailyFinalGrid(dateKey){
   const snapshot=loadDailyFinalSnapshot(dateKey);
-  if(!snapshot){ showToast('La grille finale n’est plus disponible sur ce navigateur.'); return; }
+  if(!snapshot){ showErrorToast('La grille finale n’est plus disponible sur ce navigateur.'); return; }
   state=JSON.parse(JSON.stringify(snapshot.state));
   lastScoreResult=snapshot.lastScoreResult?JSON.parse(JSON.stringify(snapshot.lastScoreResult)):null;
   pieceIdSeq=1+state.pieces.concat(state.secretPieces||[]).reduce((max,piece)=>Math.max(max,parseInt((piece.id||'p0').slice(1))||0),0);
@@ -2938,7 +2938,7 @@ function attachPieceInteraction(el, piece){
   el.addEventListener('pointerdown', ev=> onPieceDown(ev, piece, el));
 }
 let toastTimer = null;
-function showToast(msg,duration=1600){
+function showToast(msg,duration=1600,tone='neutral'){
   let toast = document.getElementById('toastMsg');
   if(!toast){
     toast = document.createElement('div');
@@ -2947,13 +2947,15 @@ function showToast(msg,duration=1600){
     document.body.appendChild(toast);
   }
   toast.textContent = msg;
+  toast.classList.toggle('error',tone==='error');
   toast.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=> toast.classList.remove('show'), duration);
 }
+function showErrorToast(msg,duration=1600){showToast(msg,duration,'error');}
 function onPieceDown(ev, piece, el){
   if(!piecesEditable()) return;
-  if(tutorialActive&&!((tutorialStage===7&&piece.id===tutorialWrongPieceId)||([11,12].includes(tutorialStage)&&piece.id===tutorialPlacementPieceId))){showToast('Utilise uniquement l’élément mis en évidence.');return;}
+  if(tutorialActive&&!((tutorialStage===7&&piece.id===tutorialWrongPieceId)||([11,12].includes(tutorialStage)&&piece.id===tutorialPlacementPieceId))){showErrorToast('Utilise uniquement l’élément mis en évidence.');return;}
   ev.preventDefault();
   try{ el.setPointerCapture(ev.pointerId); }catch(e){}
   const startX=ev.clientX, startY=ev.clientY;
@@ -3085,7 +3087,7 @@ function onPieceDown(ev, piece, el){
 function timeNow(){ const d=new Date(); return d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 
 function onLabelClick(side,index){
-  if(tutorialActive&&(tutorialStage!==1||!tutorialTargetLabel||side!==tutorialTargetLabel.side||index!==tutorialTargetLabel.index)){showToast('Touche l’entrée mise en évidence.');return;}
+  if(tutorialActive&&(tutorialStage!==1||!tutorialTargetLabel||side!==tutorialTargetLabel.side||index!==tutorialTargetLabel.index)){showErrorToast('Touche l’entrée mise en évidence.');return;}
   if(state.labelColor[side][index] !== undefined) return;
   registerSoloAction('ray');
   const piecesForRay = state.mode==='solo' ? state.secretPieces : state.pieces;
@@ -3144,7 +3146,7 @@ function updateHintModeUI(){
 }
 
 async function onCellClick(r,c,cellEl){
-  if(tutorialActive&&(![5,15,17].includes(tutorialStage)||!tutorialTargetCell||r!==tutorialTargetCell.r||c!==tutorialTargetCell.c)){showToast('Touche la case mise en \u00e9vidence.');return;}
+  if(tutorialActive&&(![5,15,17].includes(tutorialStage)||!tutorialTargetCell||r!==tutorialTargetCell.r||c!==tutorialTargetCell.c)){showErrorToast('Touche la case mise en \u00e9vidence.');return;}
   const key = r+','+c;
   if(state.cellUsed[key]) return;
   if(state.mode==='solo' && !hintModeActive) return;
@@ -3208,7 +3210,7 @@ async function activeSoloGridIsAllowed(){
     const status=await supabaseRpc(state.gameVariant==='lost'?'orapa_get_lost_grid_status':'orapa_get_grid_status',{p_grid_id:state.gridId,p_session_token:currentPlayerAccount.session_token});
     if(status?.is_creator){showHome();openCreatorGridBlockedModal(state.gridId);return false;}
     return true;
-  }catch(error){showToast('Vérification de la grille impossible.');return false;}
+  }catch(error){showErrorToast('Vérification de la grille impossible.');return false;}
 }
 const TUTORIAL_PROGRESS_KEY='orapaTutorialProgressV1';
 let tutorialActive=false,tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null,tutorialPlacementEnds=[],tutorialStepNumber=0,tutorialStepKey='';
@@ -3321,7 +3323,7 @@ function tutorialAfterPiecePlacement(piece){
   const secret=state.secretPieces.find(p=>p.type===piece.type);
   if(!secret||!piece.center)return;
   const close=Math.hypot(piece.center.x-secret.center.x,piece.center.y-secret.center.y)<1.1;
-  if(!close){piece.center=null;showToast('Place la gemme dans la zone mise en \u00e9vidence.');renderPalette();renderPieces();tutorialShowStage();return;}
+  if(!close){piece.center=null;showErrorToast('Place la gemme dans la zone mise en \u00e9vidence.');renderPalette();renderPieces();tutorialShowStage();return;}
   piece.center={...secret.center};
   renderPalette();renderPieces();renderTraces();
   if(polygonsMatch(piece,secret))tutorialCompletePlacement();
@@ -3384,7 +3386,7 @@ async function beginInteractiveTutorial(){
   if(state.mode==='solo'&&!state.soloOver&&state.gridUnrankedReason!=='tutorial'&&!await gameConfirm(`${activeGridLabel()} est en cours. Voulez-vous la quitter pour lancer le tutoriel ?`,'Quitter la partie','Quitter','Continuer la partie')) return;
   state.includeGray=false;state.includeOnyx=false;state.includeSapphire=false;
   const lesson=tutorialFixedLesson();
-  if(!lesson.pieces||lesson.examples.length<11){showToast('Le tutoriel est momentan\u00e9ment indisponible.');return;}
+  if(!lesson.pieces||lesson.examples.length<11){showErrorToast('Le tutoriel est momentan\u00e9ment indisponible.');return;}
   tutorialRayExamples=lesson.examples;tutorialPlacementEnds=lesson.ends;tutorialRayIndex=0;tutorialPlacementIndex=0;tutorialPlacementPieceId=null;
   tutorialActive=true;tutorialStage=0;tutorialStepNumber=0;tutorialStepKey='';tutorialTargetLabel={side:tutorialRayExamples[0].side,index:tutorialRayExamples[0].index};tutorialTargetCell=null;tutorialWrongPieceId=null;tutorialLastResult=null;
   document.body.classList.add('tutorial-active');
@@ -3419,7 +3421,7 @@ function tutorialAfterPieceAction(piece){
   else tutorialShowStage();
 }
 function tutorialPropose(){
-  if(tutorialStage!==8){showToast('Suis d\u2019abord l\u2019\u00e9tape mise en \u00e9vidence.');tutorialShowStage();return;}
+  if(tutorialStage!==8){showErrorToast('Suis d\u2019abord l\u2019\u00e9tape mise en \u00e9vidence.');tutorialShowStage();return;}
   if(!evaluateGuess()){tutorialCoach('Pas encore','La gemme mise en &eacute;vidence n&rsquo;est pas dans la bonne orientation. Touche-la encore avant de proposer.');return;}
   tutorialStage=19;tutorialClearTargets();tutorialShowStage();
 }
@@ -3524,7 +3526,7 @@ $('#btnShareGrid').addEventListener('click',async()=>{
     await (state.gameVariant==='lost'?shareLostGridGlobally(gridId):shareGridGlobally(gridId));
     await navigator.clipboard?.writeText(text);
     showToast('Grille partagée et défi copié !');
-  }catch(err){ showToast(`⚠️ Partage impossible : ${err.message}`); }
+  }catch(err){ showErrorToast(`⚠️ Partage impossible : ${err.message}`); }
 });
 $('#btnHint').addEventListener('click', ()=> setHintMode(!hintModeActive));
 $('#btnPropose').addEventListener('click', ()=> proposeSolution());
@@ -3543,7 +3545,7 @@ $('#btnCopyGridId').addEventListener('click', async()=>{
     }catch(err){
       console.error('Partage Supabase impossible :',err);
       await navigator.clipboard.writeText(text);
-      showToast('Défi copié · enregistrement en ligne impossible');
+      showErrorToast('Défi copié · enregistrement en ligne impossible');
     }
   } else {
     navigator.clipboard.writeText(state.gridId).then(()=> showToast('Identifiant copié : '+state.gridId));
@@ -4204,7 +4206,7 @@ async function renderGlobalSoloScores(filterKey='ALL'){
       loadMore.disabled=true;
       loadMore.textContent='Chargement…';
       try{ globalSoloVisibleCounts[filterKey]=visibleTarget+GLOBAL_SOLO_PAGE_SIZE; await renderGlobalSoloScores(filterKey); }
-      catch(e){ showToast(`Chargement impossible : ${e.message}`); loadMore.disabled=false; loadMore.textContent='Afficher les résultats suivants'; }
+      catch(e){ showErrorToast(`Chargement impossible : ${e.message}`); loadMore.disabled=false; loadMore.textContent='Afficher les résultats suivants'; }
     };
     el.scrollTop=savedScrollTop;
   }catch(e){ el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
