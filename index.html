@@ -60,7 +60,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .section-title{display:flex;align-items:center;gap:8px;margin:22px 0 10px;color:var(--gold);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;}
 .section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--vein),transparent);}
 .palette{display:flex;gap:calc(5px + 9px * var(--palette-scale,1));flex-wrap:wrap;align-items:center;padding:calc(5px + 7px * var(--palette-scale,1));border-radius:var(--radius);background:var(--panel);border:1px solid var(--vein);min-height:calc(34px + 42px * var(--palette-scale,1));position:relative;}
-.palette.empty::before{content:'Toutes les gemmes sont placées sur la grille.';color:var(--text-faint);font-size:.8rem;font-style:italic;padding:8px;}
+.palette.empty::before{content:attr(data-empty-label);color:var(--text-faint);font-size:.8rem;font-style:italic;padding:8px;}
 .palette-tile{touch-action:none;cursor:grab;flex:0 0 auto;}
 .board-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;touch-action:pan-x pan-y;}
 @media(min-width:600px){.board-scroll{text-align:center;}}
@@ -295,6 +295,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
 @media(max-width:600px){.grid-catalog-row .ranking-row-top{grid-template-columns:28px minmax(0,1fr) 18px 36px 32px}}
 .lost-gem-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:14px 0}.lost-gem-choice{display:flex;min-width:0;min-height:104px;align-items:center;justify-content:center;padding:9px;border:1px solid var(--border);border-radius:11px;background:rgba(15,12,9,.42);transition:opacity .12s,border-color .12s,box-shadow .12s}.lost-gem-choice svg{display:block;width:100%;height:76px;pointer-events:none}.lost-gem-choices.has-selection .lost-gem-choice:not(.selected){opacity:.3}.lost-gem-choice.selected{border-color:var(--gold-bright);box-shadow:0 0 0 2px rgba(238,193,96,.2),0 0 18px rgba(238,193,96,.22)}@media(max-width:520px){.lost-gem-choices{grid-template-columns:repeat(2,minmax(0,1fr))}.lost-gem-choice{min-height:88px}.lost-gem-choice svg{height:62px}}
 #invalidGridIdModal{z-index:390}
+.choice-zone{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.choice-zone:first-of-type{margin-top:0;padding-top:0;border:0}.choice-zone-title{margin:0 0 8px;color:var(--gold-bright);font-family:Cinzel,serif;font-size:.82rem}.solo-choice-by-id{width:100%;margin-top:9px!important}.achievement-subtabs.three{grid-template-columns:repeat(3,minmax(0,1fr))}.space-prison-icon{display:inline-flex;gap:1px;align-items:center;justify-content:center;min-width:1.15em;height:1.15em;border-radius:3px;background:#25222b;color:#e8e1ef;font-size:.62rem;letter-spacing:-1px}.space-prison-icon i{display:block;width:2px;height:.8em;background:#e8e1ef}.space-prison-label{background:#211d29!important;color:#f5f1e8!important;box-shadow:inset 0 0 0 2px #8e849e!important}.space-prison-label .label-value{display:none}.space-prison-swatch{background:#211d29!important;border:1px solid #8e849e!important;position:relative}.space-prison-swatch:after{content:'▮▮▮';position:absolute;inset:0;display:grid;place-items:center;color:#e8e4f2;font-size:.42rem;letter-spacing:-1px}.space-disappeared{border-color:#0d0b08!important}
 </style>
 </head>
 <body class="home-view app-loading">
@@ -313,7 +314,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
     </div>
   </section>
   <header>
-    <h1>💎 Orapa Mine</h1>
+    <h1 id="appGameTitle">💎 Orapa Mine</h1>
     <div class="subtitle" id="masterSubtitle">Console du maître du jeu</div>
     <div id="modePill" class="mode-pill"><span class="dot"></span><span>Placement des gemmes</span></div>
     <div id="gridIdRow" style="display:none;align-items:center;gap:8px;font-size:.75rem;color:var(--text-dim);">
@@ -343,6 +344,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
     <label><input type="checkbox" id="optGray" checked> Diamant</label>
     <label><input type="checkbox" id="optOnyx" checked> Corps noir</label>
     <label><input type="checkbox" id="optSapphire" checked> Saphir bleu ciel</label>
+    <label id="optBlackHoleLabel" style="display:none"><input type="checkbox" id="optBlackHole"> 🕳️ Trou noir</label>
   </div>
   <div id="setupHint" style="text-align:center;color:var(--text-faint);font-size:.78rem;margin:6px 0 0;">
     Glisse une gemme sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir
@@ -351,7 +353,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   <div class="section-title" id="paletteTitle">Gemmes à placer</div>
   <div id="palette" class="palette"></div>
 
-  <div class="section-title">Plateau de la mine</div>
+  <div class="section-title" id="boardSectionTitle">Plateau de la mine</div>
   <div class="board-scroll">
     <div id="boardFrame" class="board-frame">
       <div class="label-row top" id="labelsTop"></div>
@@ -384,6 +386,10 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   <div id="tutorialCoachStep" class="tutorial-coach-step"></div>
   <div class="tutorial-coach-actions"><button id="tutorialCoachMinimize" class="ghost">Réduire</button><button id="tutorialCoachAction" class="primary"></button></div>
 </aside>
+
+<div class="modal-backdrop" id="tutorialChoiceModal"><div class="modal"><button class="close-x" id="tutorialChoiceClose">×</button><h2>📖 Apprendre à jouer</h2><p>Choisis l’univers à découvrir.</p><div class="solo-choice-grid"><button class="primary solo-choice-card" id="tutorialMine"><span class="choice-icon">💎</span><span class="choice-copy"><strong>Orapa Mine</strong><em>Le tutoriel complet pour apprendre les principes du jeu.</em></span></button><button class="ghost solo-choice-card" id="tutorialSpace"><span class="choice-icon">🚀</span><span class="choice-copy"><strong>Orapa Space</strong><em>Un guide court consacré aux nouvelles planètes et au trou noir.</em></span></button></div></div></div>
+
+<div class="modal-backdrop" id="spaceTutorialModal"><div class="modal"><button class="close-x" id="spaceTutorialClose">×</button><h2 id="spaceTutorialTitle">🚀 Orapa Space</h2><div id="spaceTutorialContent"></div><div class="controls" style="justify-content:flex-end"><button class="ghost" id="spaceTutorialPrevious">Précédent</button><button class="primary" id="spaceTutorialNext">Suivant</button></div></div></div>
 
 <div class="modal-backdrop" id="tutorialExitModal">
   <div class="modal compact-modal">
@@ -419,11 +425,11 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
     <div id="rankingSoloIntro">
       <p></p>
       <p>Clique sur un pseudo pour afficher le détail, puis sur <b>Grille</b> pour consulter le classement de celle-ci.</p>
-      <div class="achievement-subtabs"><button id="historyModeClassic" class="ghost active">Classique</button><button id="historyModeLost" class="ghost">Gemme perdue</button></div>
+      <div class="achievement-subtabs"><button id="historyModeClassic" class="ghost active">Mine</button><button id="historyModeLost" class="ghost">Gemme perdue</button><button id="historyModeSpace" class="ghost">Space</button></div>
     </div>
     <div id="rankingDailyIntro" style="display:none;">
       <p>Clique sur une grille pour accéder à son classement.</p>
-      <div class="achievement-subtabs"><button id="gridModeClassic" class="ghost active">Classique</button><button id="gridModeLost" class="ghost">Gemme perdue</button></div>
+      <div class="achievement-subtabs"><button id="gridModeClassic" class="ghost active">Mine</button><button id="gridModeLost" class="ghost">Gemme perdue</button><button id="gridModeSpace" class="ghost">Space</button></div>
       <form id="gridSearchForm" class="grid-search">
         <input id="gridSearchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Identifiant de la grille" aria-label="Identifiant de la grille">
         <button class="primary" type="submit">🔎 Rechercher</button>
@@ -615,12 +621,13 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   <div class="modal">
     <div class="solo-choice-heading"><span class="pickaxe">⛏︎</span><h2>Jouer en solo</h2></div>
     <p class="solo-choice-intro">Choisis le type de grille que tu souhaites résoudre.</p>
-    <div class="solo-choice-grid">
+    <section class="choice-zone"><h3 class="choice-zone-title">💎 Orapa Mine</h3><div class="solo-choice-grid">
       <button id="soloChoiceRandom" class="primary solo-choice-card"><span class="choice-icon">🎲</span><span class="choice-copy"><strong>Aléatoire</strong><em>Une grille classique générée au hasard.</em></span></button>
       <button id="soloChoiceLost" class="ghost solo-choice-card"><span class="choice-icon">💎</span><span class="choice-copy"><strong>Gemme perdue</strong><em>Retrouve laquelle des huit gemmes est absente.</em></span></button>
       <button id="soloChoiceDaily" class="ghost solo-choice-card solo-choice-daily"><span class="choice-icon">📅</span><span class="choice-copy"><strong>Défi du jour</strong><em>La grille quotidienne et ses règles spéciales.</em><small>Revoir la grille</small></span></button>
-      <button id="soloChoiceById" class="ghost solo-choice-card"><span class="choice-icon">🔑</span><span class="choice-copy"><strong>Par identifiant</strong><em>Rejoins une grille précise partagée par un joueur.</em></span></button>
-    </div>
+    </div></section>
+    <section class="choice-zone"><h3 class="choice-zone-title">🪐 Orapa Space</h3><div class="solo-choice-grid"><button id="soloChoiceSpace" class="ghost solo-choice-card"><span class="choice-icon">🚀</span><span class="choice-copy"><strong>Aléatoire</strong><em>Explore l’espace avec les nouvelles planètes et le trou noir optionnel.</em></span></button></div></section>
+    <button id="soloChoiceById" class="ghost solo-choice-card solo-choice-by-id"><span class="choice-icon">🔑</span><span class="choice-copy"><strong>Par identifiant</strong><em>Rejoins automatiquement une grille Mine, Gemme perdue ou Space.</em></span></button>
     <div class="solo-choice-footer"><div id="dailyStatusLine" style="display:none;text-align:center;font-size:.75rem;color:var(--text-faint);margin-top:-4px;"></div><div class="controls" style="justify-content:flex-end;">
       <button id="soloChoiceCancel" class="ghost">Annuler</button></div>
     </div>
@@ -660,12 +667,14 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
     <button class="close-x" id="closeCreateMode">×</button>
     <h2>✏️ Créer une grille</h2>
     <p>Quel type de grille souhaites-tu créer ?</p>
-    <div class="controls" style="justify-content:center;margin-top:16px;">
+    <section class="choice-zone"><h3 class="choice-zone-title">💎 Orapa Mine</h3><div class="controls" style="justify-content:center;margin-top:10px;">
       <button class="primary" id="createClassicMode">Grille classique</button>
       <button class="ghost" id="createLostMode">💎 Gemme perdue</button>
-    </div>
+    </div></section><section class="choice-zone"><h3 class="choice-zone-title">🪐 Orapa Space</h3><div class="controls" style="justify-content:center;margin-top:10px;"><button class="ghost" id="createSpaceMode">🚀 Grille classique</button></div></section>
   </div>
 </div>
+
+<div class="modal-backdrop" id="spaceIntroModal"><div class="modal"><button class="close-x" id="closeSpaceIntro">×</button><h2>🚀 Orapa Space</h2><p>Retrouve la position et l’orientation des six planètes en interprétant les ondes. Les couleurs et le calcul des points restent identiques à Orapa Mine.</p><p>La grande planète blanche doit poser son grand côté contre un bord. Deux planètes ne peuvent pas partager une même case.</p><p>Le <b>🕳️ Trou noir</b> est optionnel : une onde directe disparaît, une onde voisine est déviée une seule fois et certaines trajectoires peuvent rester <b>prisonnières</b>.</p><label class="checkline"><input type="checkbox" id="spaceOptBlackHole"> 🕳️ Ajouter le trou noir</label><div class="controls" style="justify-content:flex-end"><button class="ghost" id="cancelSpaceIntro">Annuler</button><button class="primary" id="startSpaceGame">Décoller</button></div></div></div>
 
 <div class="modal-backdrop" id="triforcePrerequisiteModal">
   <div class="modal">
@@ -763,6 +772,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="app.js?v=20260819-0024"></script>
+<script src="app.js?v=20260820-0001"></script>
 </body>
 </html>
