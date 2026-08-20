@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0004';
+const APP_VERSION = '20260820-0005';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1443,11 +1443,11 @@ function tryRandomLayout(rngFn,requestedTypes){
       const probe = { id:'r_'+type, type, center:{x:COLS/2,y:ROWS/2}, rotation, flipped };
       const {hw,hh} = boundingHalfExtents(probe);
       if(hw*2>COLS || hh*2>ROWS) break; // ne rentre pas, inutile d'insister sur cette rotation
-      const rawX = hw + rngFn()*(COLS-2*hw);
-      const rawY = hh + rngFn()*(ROWS-2*hh);
-      let {x:cx,y:cy} = snapPieceCenter(rawX, rawY, probe);
-      cx = Math.min(COLS-hw, Math.max(hw,cx));
-      cy = Math.min(ROWS-hh, Math.max(hh,cy));
+      const bounds=pieceLocalBounds(probe);
+      const minX=state.gameVariant==='space'?-bounds.minX:hw,maxX=state.gameVariant==='space'?COLS-bounds.maxX:COLS-hw;
+      const minY=state.gameVariant==='space'?-bounds.minY:hh,maxY=state.gameVariant==='space'?ROWS-bounds.maxY:ROWS-hh;
+      const rawX=minX+rngFn()*(maxX-minX),rawY=minY+rngFn()*(maxY-minY);
+      const {x:cx,y:cy}=snapPieceCenterWithinBounds(rawX,rawY,probe);
       const candidate = { id:'r_'+type, type, center:{x:cx,y:cy}, rotation, flipped };
       if(placementValid(candidate, null, placed)){
         placed.push(candidate);
@@ -2244,10 +2244,13 @@ function beamEdges(piece){
   return edges;
 }
 function boundingHalfExtents(piece){
-  const shape = SHAPES[piece.type];
-  const pts = shape.pts.map(v=> transformVertex(v, piece.flipped, piece.rotation, {x:0,y:0}));
-  const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
-  return { hw:(Math.max(...xs)-Math.min(...xs))/2, hh:(Math.max(...ys)-Math.min(...ys))/2 };
+  const bounds=pieceLocalBounds(piece);
+  return {hw:(bounds.maxX-bounds.minX)/2,hh:(bounds.maxY-bounds.minY)/2};
+}
+function pieceLocalBounds(piece){
+  const pts=SHAPES[piece.type].pts.map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0}));
+  const xs=pts.map(point=>point.x),ys=pts.map(point=>point.y);
+  return {minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)};
 }
 // Aligne les SOMMETS de la gemme sur les intersections de la grille.
 // C'est plus fiable que l'alignement basé uniquement sur sa largeur/hauteur,
@@ -2280,10 +2283,14 @@ function snapPieceCenter(rawX, rawY, piece){
 function snapPieceCenterWithinBounds(rawX, rawY, piece){
   const {hw,hh} = boundingHalfExtents(piece);
   const {fracX,fracY} = pieceSnapFractions(piece);
-  const minX = state.isDaily ? -hw+0.5 : hw;
-  const maxX = state.isDaily ? COLS+hw-0.5 : COLS-hw;
-  const minY = state.isDaily ? -hh+0.5 : hh;
-  const maxY = state.isDaily ? ROWS+hh-0.5 : ROWS-hh;
+  const bounds=pieceLocalBounds(piece);
+  // Les planètes d’Orapa Space ne sont pas toutes centrées autour de leur
+  // point de rotation. On utilise donc leurs limites réelles plutôt qu’une
+  // demi-largeur symétrique (indispensable pour poser le grand côté blanc au bord).
+  const minX = state.gameVariant==='space' ? -bounds.minX : (state.isDaily ? -hw+0.5 : hw);
+  const maxX = state.gameVariant==='space' ? COLS-bounds.maxX : (state.isDaily ? COLS+hw-0.5 : COLS-hw);
+  const minY = state.gameVariant==='space' ? -bounds.minY : (state.isDaily ? -hh+0.5 : hh);
+  const maxY = state.gameVariant==='space' ? ROWS-bounds.maxY : (state.isDaily ? ROWS+hh-0.5 : ROWS-hh);
   return {
     x: clampOnLattice(rawX, minX, maxX, fracX),
     y: clampOnLattice(rawY, minY, maxY, fracY)
@@ -2391,8 +2398,10 @@ function spaceEdgeConstraintValid(piece){
 function placementValid(candidate, excludeId, piecesList){
   piecesList = piecesList || state.pieces;
   const {hw,hh} = boundingHalfExtents(candidate);
-  if(candidate.center.x-hw < -1e-6 || candidate.center.x+hw > COLS+1e-6) return false;
-  if(candidate.center.y-hh < -1e-6 || candidate.center.y+hh > ROWS+1e-6) return false;
+  if(state.gameVariant==='space'){
+    const vertices=pieceVertices(candidate),xs=vertices.map(point=>point.x),ys=vertices.map(point=>point.y);
+    if(Math.min(...xs)<-1e-6||Math.max(...xs)>COLS+1e-6||Math.min(...ys)<-1e-6||Math.max(...ys)>ROWS+1e-6)return false;
+  }else if(candidate.center.x-hw < -1e-6 || candidate.center.x+hw > COLS+1e-6 || candidate.center.y-hh < -1e-6 || candidate.center.y+hh > ROWS+1e-6) return false;
   if(state.gameVariant==='space'&&!spaceEdgeConstraintValid(candidate))return false;
   for(const other of piecesList){
     if(!other.center || other.id===excludeId) continue;
