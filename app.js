@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0002';
+const APP_VERSION = '20260820-0003';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -74,13 +74,16 @@ const SHAPES = {
   rhombus: { pts: [[0,-1],[1,0],[0,1],[-1,0]] },                     // losange 2x2
   gray:    { pts: isocelesPts(2,1) },                                // base 2, hauteur 1
   sapphire:{ pts: [[-0.5,-0.5],[0.5,-0.5],[0.5,0.5],[-0.5,0.5]] },   // carré plein 1x1
-  spaceWhiteLarge:{pts:[[-2,-1],[1,-1],[2,0],[1,1],[-2,1]]},
+  // Quadrilatère de 2×4 : le grand côté (4 cases) est le premier côté.
+  // Cette orientation source pose ce grand côté à gauche ; les rotations
+  // permettent ensuite de le placer contre n’importe quel bord.
+  spaceWhiteLarge:{pts:[[-1,-2],[1,-1],[1,1],[-1,2]]},
   spaceRedSmall:{pts:[[-0.5,-0.5],[0.5,-0.5],[0.5,0.5],[-0.5,0.5]]},
   spaceRedLarge:{pts:[[0,-1],[1,0],[0,1],[-1,0]]},
   spaceBlue:{pts:[[0,-1],[1,0],[0,1],[-1,0]]},
   spaceYellow:{pts:[[-0.5,-1.5],[0.5,-1.5],[1.5,-0.5],[1.5,0.5],[0.5,1.5],[-0.5,1.5],[-1.5,0.5],[-1.5,-0.5]]},
-  // Losange central de 2×2 prolongé par les deux bras de l'anneau.
-  spaceRing:{pts:[[-2,-0.16],[-1,-0.16],[0,-1],[1,-0.16],[2,-0.16],[2,0.16],[1,0.16],[0,1],[-1,0.16],[-2,0.16]]},
+  // Losange central de 2×2 prolongé par deux anneaux centrés sur son axe.
+  spaceRing:{pts:[[-2,-0.18],[-1,-0.18],[0,-1],[1,-0.18],[2,-0.18],[2,0.18],[1,0.18],[0,1],[-1,0.18],[-2,0.18]]},
   spaceBlackHole:{pts:[[-0.5,-0.5],[0.5,-0.5],[0.5,0.5],[-0.5,0.5]]}
 };
 
@@ -780,7 +783,7 @@ function readOnlyGridSvg(decoded){
     if(def.isRing){
       const outer=polyPointsAttr(pieceVertices(piece));
       const core=polyPointsAttr([[-1,0],[0,-1],[1,0],[0,1]].map(vertex=>transformVertex(vertex,piece.flipped,piece.rotation,piece.center)));
-      return `<polygon points="${outer}" fill="rgba(245,241,232,.3)" stroke="#f5f1e8" stroke-width=".12"/><polygon points="${core}" fill="none" stroke="#f5f1e8" stroke-width=".1"/>`;
+      return `<polygon points="${outer}" fill="none" stroke="#f5f1e8" stroke-width=".12"/><polygon points="${core}" fill="#f5f1e8" stroke="#f5f1e8" stroke-width=".06"/>`;
     }
     const fill=def.isDiamond?'rgba(207,216,220,.62)':def.hex;
     return `<polygon points="${polyPointsAttr(pieceVertices(piece))}" fill="${fill}" stroke="rgba(0,0,0,.42)" stroke-width=".045"/>`;
@@ -1643,6 +1646,9 @@ function rerollDailyLayoutV2Roles(plan,rngFn){
       }else{
         touchTypes=seededShuffle(types.filter(type=>type!==partialType),rngFn).slice(0,2);
       }
+    }else if(def.isRing){
+      const outer=document.createElementNS(SVGNS,'polygon');outer.setAttribute('points',polyPointsAttr(pts));outer.setAttribute('fill','none');outer.setAttribute('stroke',def.hex);outer.setAttribute('stroke-width','.14');outer.setAttribute('stroke-linejoin','round');svg.appendChild(outer);
+      const core=document.createElementNS(SVGNS,'polygon');const corePts=[[-1,0],[0,-1],[1,0],[0,1]].map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0}));core.setAttribute('points',polyPointsAttr(corePts));core.setAttribute('fill',def.hex);core.setAttribute('stroke',def.hex);core.setAttribute('stroke-width','.05');svg.appendChild(core);
     }else{
       touchTypes=seededShuffle(types,rngFn).slice(0,2);
     }
@@ -2230,8 +2236,9 @@ function pieceVertices(piece){
 // qui entre exactement à cet endroit repart par sa propre entrée (N→N, O→O, etc.).
 function beamEdges(piece){
   if(CONFIG.PIECES[piece.type]?.isRing){
-    const core=[[-1,0],[0,-1],[1,0],[0,1]].map(vertex=>transformVertex(vertex,piece.flipped,piece.rotation,piece.center));
-    return core.map((point,index)=>[point,core[(index+1)%core.length]]);
+    // Toutes les parties visibles de la planète annulaire dévient l’onde :
+    // le losange central ET les deux anneaux latéraux.
+    return pieceCollisionPolygons(piece).flatMap(poly=>poly.map((point,index)=>[point,poly[(index+1)%poly.length]]));
   }
   const boardPoly = ensureCCW([{x:0,y:0},{x:COLS,y:0},{x:COLS,y:ROWS},{x:0,y:ROWS}]);
   const clipped = clipPolygon(ensureCCW(pieceVertices(piece)), boardPoly);
@@ -2250,6 +2257,9 @@ function boundingHalfExtents(piece){
 // C'est plus fiable que l'alignement basé uniquement sur sa largeur/hauteur,
 // notamment pour les triangles et les pièces partiellement hors plateau.
 function pieceSnapFractions(piece){
+  // Le centre du losange et l’axe des anneaux doivent rester exactement sur
+  // les lignes de la grille ; leur faible épaisseur ne doit pas décaler la pièce.
+  if(piece.type==='spaceRing')return {fracX:0,fracY:0};
   const local = SHAPES[piece.type].pts.map(v=> transformVertex(v, piece.flipped, piece.rotation, {x:0,y:0}));
   return {
     fracX: ((-local[0].x % 1) + 1) % 1,
@@ -2360,8 +2370,8 @@ function pieceCollisionPolygons(piece){
   // les collisions et les coordonnées révélées suivent sa silhouette réelle.
   const parts=[
     [[-1,0],[0,-1],[1,0],[0,1]],
-    [[-2,-0.16],[-1,-0.16],[-1,0.16],[-2,0.16]],
-    [[1,-0.16],[2,-0.16],[2,0.16],[1,0.16]]
+    [[-2,-0.18],[-1,-0.18],[-1,0.18],[-2,0.18]],
+    [[1,-0.18],[2,-0.18],[2,0.18],[1,0.18]]
   ];
   return parts.map(part=>part.map(vertex=>transformVertex(vertex,piece.flipped,piece.rotation,piece.center)));
 }
@@ -2374,9 +2384,8 @@ function spacePiecesOverlap(pieceA,pieceB){
 function spaceEdgeConstraintValid(piece){
   if(piece.type!=='spaceWhiteLarge')return true;
   const vertices=pieceVertices(piece);
-  // Dans la forme source, le grand côté est celui qui relie le dernier
-  // sommet au premier. Les autres côtés peuvent être plus longs à l’écran,
-  // mais ce n’est pas eux que la règle impose de placer contre le bord.
+  // Dans la forme source, le grand côté de quatre cases relie le dernier
+  // sommet au premier. Lui seul doit être posé contre un bord.
   const a=vertices[vertices.length-1],b=vertices[0];
   return (Math.abs(a.x)<1e-6&&Math.abs(b.x)<1e-6)||(Math.abs(a.x-COLS)<1e-6&&Math.abs(b.x-COLS)<1e-6)||(Math.abs(a.y)<1e-6&&Math.abs(b.y)<1e-6)||(Math.abs(a.y-ROWS)<1e-6&&Math.abs(b.y-ROWS)<1e-6);
 }
@@ -2538,11 +2547,19 @@ function simulateBeam(side,index,piecesList){
         if(hit && hit.t < best.t - EPS) best = { t:hit.t, point:hit.point, kind:'edge', piece, edgeType:edgeKind(A,B), edgeIdx:ei };
       }
       if(CONFIG.PIECES[piece.type]?.isBlackHole&&!blackHoleBent&&!directBlackHoleHit){
-        const c=piece.center,gravity=[[{x:c.x-1,y:c.y-1},{x:c.x+1,y:c.y-1}],[{x:c.x+1,y:c.y-1},{x:c.x+1,y:c.y+1}],[{x:c.x+1,y:c.y+1},{x:c.x-1,y:c.y+1}],[{x:c.x-1,y:c.y+1},{x:c.x-1,y:c.y-1}]];
-        for(let gi=0;gi<gravity.length;gi++){
-          const hit=intersectRaySegment(pos,dir,gravity[gi][0],gravity[gi][1]);
-          if(hit&&hit.t>EPS&&hit.t<best.t-EPS)best={t:hit.t,point:hit.point,kind:'gravity',piece,gravityEdge:gi};
+        const c=piece.center;
+        let gravityPoint=null;
+        // L’onde est attirée uniquement en traversant la case située
+        // orthogonalement à côté du trou noir. Elle dévie sur le bord de
+        // sortie de cette case, donc après l’avoir entièrement parcourue.
+        if(dir.dx!==0&&Math.abs(Math.abs(pos.y-c.y)-1)<EPS){
+          const x=c.x+dir.dx*.5,t=(x-pos.x)/dir.dx;
+          if(t>EPS)gravityPoint={t,point:{x,y:pos.y}};
+        }else if(dir.dy!==0&&Math.abs(Math.abs(pos.x-c.x)-1)<EPS){
+          const y=c.y+dir.dy*.5,t=(y-pos.y)/dir.dy;
+          if(t>EPS)gravityPoint={t,point:{x:pos.x,y}};
         }
+        if(gravityPoint&&gravityPoint.t<best.t-EPS)best={...gravityPoint,kind:'gravity',piece};
       }
     }
     if(best.kind==='boundary'){
@@ -2571,18 +2588,8 @@ function simulateBeam(side,index,piecesList){
     if(def.isBlackHole){absorbed='disappeared';break;}
     if(def.colorKey) colorsHit.add(def.colorKey);
     if(def.colorKeys) def.colorKeys.forEach(k=> colorsHit.add(k));
-    if(def.isRing){
-      const axisHorizontal=((best.piece.rotation%180)+180)%180===0;
-      const travelsAlongAxis=(axisHorizontal&&dir.dx!==0)||(!axisHorizontal&&dir.dy!==0);
-      if(travelsAlongAxis){
-        pos={x:best.point.x+dir.dx*EPS*20,y:best.point.y+dir.dy*EPS*20};
-        passThroughPieceId=best.piece.id;skipPieceId=null;skipEdgeIdx=null;
-        continue;
-      }
-      dir={dx:-dir.dx,dy:-dir.dy};
-      pos=best.point;skipPieceId=best.piece.id;skipEdgeIdx=best.edgeIdx;
-      continue;
-    }
+    // La planète annulaire suit la géométrie de ses contours, comme les
+    // autres planètes : diagonale = déviation à 90°, côté droit = retour.
     dir = best.edgeType==='wall' ? {dx:-dir.dx,dy:-dir.dy} : reflect(dir, best.edgeType);
     pos = best.point;
     skipPieceId = best.piece.id; skipEdgeIdx = best.edgeIdx;
@@ -2788,8 +2795,8 @@ function svgPolyForPiece(piece, opts){
     const circle=document.createElementNS(SVGNS,'circle');circle.setAttribute('cx',piece.center.x);circle.setAttribute('cy',piece.center.y);circle.setAttribute('r','.48');circle.setAttribute('fill','#050407');circle.setAttribute('stroke',opts.invalid?'#ff8a5c':'#655b72');circle.setAttribute('stroke-width','.06');circle.setAttribute('class','piece-poly'+(piecesEditable()?' interactive':'')+(opts.invalid?' piece-invalid':''));circle.dataset.id=piece.id;return circle;
   }
   if(def.isRing&&!opts.outline){
-    const group=document.createElementNS(SVGNS,'g'),outer=document.createElementNS(SVGNS,'polygon');outer.setAttribute('points',polyPointsAttr(verts));outer.setAttribute('fill','rgba(245,241,232,.3)');outer.setAttribute('stroke',opts.invalid?'#ff8a5c':def.hex);outer.setAttribute('stroke-width','.14');outer.setAttribute('class','piece-poly'+(piecesEditable()?' interactive':'')+(opts.invalid?' piece-invalid':''));outer.dataset.id=piece.id;group.appendChild(outer);
-    const center=document.createElementNS(SVGNS,'polygon'),local=[[-1,0],[0,-.72],[1,0],[0,.72]].map(v=>transformVertex(v,piece.flipped,piece.rotation,piece.center));center.setAttribute('points',polyPointsAttr(local));center.setAttribute('fill','none');center.setAttribute('stroke',def.hex);center.setAttribute('stroke-width','.12');center.setAttribute('pointer-events','none');group.appendChild(center);group.dataset.id=piece.id;return group;
+    const group=document.createElementNS(SVGNS,'g'),outer=document.createElementNS(SVGNS,'polygon');outer.setAttribute('points',polyPointsAttr(verts));outer.setAttribute('fill','none');outer.setAttribute('stroke',opts.invalid?'#ff8a5c':def.hex);outer.setAttribute('stroke-width','.14');outer.setAttribute('stroke-linejoin','round');outer.setAttribute('class','piece-poly'+(piecesEditable()?' interactive':'')+(opts.invalid?' piece-invalid':''));outer.dataset.id=piece.id;group.appendChild(outer);
+    const center=document.createElementNS(SVGNS,'polygon'),local=[[-1,0],[0,-1],[1,0],[0,1]].map(v=>transformVertex(v,piece.flipped,piece.rotation,piece.center));center.setAttribute('points',polyPointsAttr(local));center.setAttribute('fill',opts.invalid?'rgba(180,60,50,.75)':def.hex);center.setAttribute('stroke',opts.invalid?'#ff8a5c':def.hex);center.setAttribute('stroke-width','.06');center.setAttribute('pointer-events','none');group.appendChild(center);group.dataset.id=piece.id;return group;
   }
   const poly = document.createElementNS(SVGNS,'polygon');
   poly.setAttribute('points', polyPointsAttr(verts));
@@ -2939,7 +2946,6 @@ function renderPalette(){
       poly.setAttribute('stroke-width', 0.05);
       poly.setAttribute('vector-effect','non-scaling-stroke');
       svg.appendChild(poly);
-      if(def.isRing){const hole=document.createElementNS(SVGNS,'polygon');const ringHole=[{x:cx,y:cy-.38},{x:cx+.38,y:cy},{x:cx,y:cy+.38},{x:cx-.38,y:cy}];hole.setAttribute('points',polyPointsAttr(ringHole));hole.setAttribute('fill','#18130e');hole.setAttribute('stroke','#f3eee5');hole.setAttribute('stroke-width','.06');svg.appendChild(hole);}
     }
     svg.dataset.id = piece.id;
     paletteEl.appendChild(svg);
@@ -3260,9 +3266,13 @@ function onPieceDown(ev, piece, el){
     ghostHalfW=((w+2*pad)*csVal)/2;
     ghostHalfH=((h+2*pad)*csVal)/2;
     const def = CONFIG.PIECES[piece.type];
-    ghost.innerHTML = `<svg viewBox="${minX-pad} ${minY-pad} ${w+2*pad} ${h+2*pad}" width="100%" height="100%">
-      <polygon points="${polyPointsAttr(pts)}" fill="${def.isDiamond?'rgba(207,216,220,0.55)':def.hex}" stroke="rgba(0,0,0,.4)" stroke-width="0.06"/>
-    </svg>`;
+    const ringCorePts=def.isRing?[[-1,0],[0,-1],[1,0],[0,1]].map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0})):[];
+    const ghostShape=def.isBlackHole
+      ? `<circle cx="0" cy="0" r=".48" fill="#050407"/>`
+      : def.isRing
+        ? `<polygon points="${polyPointsAttr(pts)}" fill="none" stroke="${def.hex}" stroke-width=".14"/><polygon points="${polyPointsAttr(ringCorePts)}" fill="${def.hex}"/>`
+        : `<polygon points="${polyPointsAttr(pts)}" fill="${def.isDiamond?'rgba(207,216,220,0.55)':def.hex}" stroke="rgba(0,0,0,.4)" stroke-width="0.06"/>`;
+    ghost.innerHTML = `<svg viewBox="${minX-pad} ${minY-pad} ${w+2*pad} ${h+2*pad}" width="100%" height="100%">${ghostShape}</svg>`;
     document.body.appendChild(ghost);
     positionGhost(ev.clientX, ev.clientY);
   }
@@ -3845,8 +3855,18 @@ $('#btnReset').addEventListener('click', async()=>{
     openSoloSetupModal();
     return;
   }
-  if(!await gameConfirm("Recommencer efface le placement des gemmes et tout l’historique. Continuer ?",'Recommencer','Recommencer','Annuler')) return;
+  const resetSubject=state.gameVariant==='space'?'planètes':'gemmes';
+  if(!await gameConfirm(`Recommencer efface le placement des ${resetSubject} et tout l’historique. Continuer ?`,'Recommencer','Recommencer','Annuler')) return;
+  const variant=state.gameVariant;
+  const includeBlackHole=!!state.includeBlackHole;
   resetAll();
+  if(variant==='space'){
+    state.mode='gm';state.gameVariant='space';state.includeBlackHole=includeBlackHole;
+    state.pieces=spaceTypes().map(type=>newPiece(type));saveState();renderAll();
+  }else if(variant==='lost'){
+    state.mode='gm';state.gameVariant='lost';state.includeGray=true;state.includeOnyx=true;state.includeSapphire=true;
+    state.pieces=TYPE_ORDER.map(type=>newPiece(type));saveState();renderAll();
+  }
 });
 
 let dailyTriforceState={checked:false,unlocked:false,error:false};
