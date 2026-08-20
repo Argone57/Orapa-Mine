@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0003';
+const APP_VERSION = '20260821-0004';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3635,7 +3635,7 @@ async function activeSoloGridIsAllowed(){
 const TUTORIAL_PROGRESS_KEY='orapaTutorialProgressV1',SPACE_TUTORIAL_PROGRESS_KEY='orapaSpaceTutorialProgressV1';
 let tutorialActive=false,tutorialKind='mine',tutorialResumeKind='mine',tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null,tutorialPlacementEnds=[],tutorialStepNumber=0,tutorialStepKey='';
 function tutorialProgressKey(kind=tutorialKind){return kind==='space'?SPACE_TUTORIAL_PROGRESS_KEY:TUTORIAL_PROGRESS_KEY;}
-function tutorialProgressVersion(kind=tutorialKind){return kind==='space'?5:1;}
+function tutorialProgressVersion(kind=tutorialKind){return kind==='space'?6:1;}
 function tutorialLoadProgress(kind=tutorialKind){try{const data=JSON.parse(localStorage.getItem(tutorialProgressKey(kind))||'null');return data?.version===tutorialProgressVersion(kind)&&data.state?data:null;}catch(e){return null;}}
 function tutorialSaveProgress(){
   if(!tutorialActive)return;
@@ -3906,7 +3906,7 @@ function spaceTutorialAfterRay(){
   else if(tutorialStage===113)setSpaceTutorialTarget(115,'top',4);
   else if(tutorialStage===115)setSpaceTutorialTarget(117,'right',5);
   else if(tutorialStage===117){tutorialStage=118;tutorialShowStage();}
-  else if(tutorialStage===119)setSpaceTutorialTarget(121,'right',5);
+  else if(tutorialStage===119){tutorialStage=120;tutorialShowStage();}
   else if(tutorialStage===124){applySpaceTutorialBoard(2);setSpaceTutorialTarget(127,'bottom',6);}
   else if(tutorialStage===127)setSpaceTutorialTarget(129,'top',8);
   else if(tutorialStage===129){applySpaceTutorialBoard(3);setSpaceTutorialTarget(132,'right',5);}
@@ -3932,6 +3932,7 @@ function spaceTutorialShowStage(){
   else if(tutorialStage===117)tutorialCoach('La r&eacute;fraction','La grande nouveaut&eacute; du trou noir est sa capacit&eacute; &agrave; r&eacute;fracter les ondes qui passent juste &agrave; c&ocirc;t&eacute; de lui.<br><br>Touche l&rsquo;entr&eacute;e <b>16</b>.');
   else if(tutorialStage===118)tutorialCoach('Observe le r&eacute;sultat','L&rsquo;onde a long&eacute; le trou noir avant d&rsquo;&ecirc;tre redirig&eacute;e vers le bas : c&rsquo;est la <b>r&eacute;fraction</b>.<br><br>Elle ressort en <b>O</b>. Prends le temps d&rsquo;observer son trajet sur la grille et son résultat dans l&rsquo;historique.','Continuer');
   else if(tutorialStage===119)tutorialCoach('Une sortie sans couleur','Comme tu peux le constater, la couleur de la sortie n&rsquo;est plus affich&eacute;e sur la case ! Avec la r&eacute;fraction, il est maintenant possible que plusieurs ondes diff&eacute;rentes ressortent par un m&ecirc;me endroit.<br><br>Touche l&rsquo;entr&eacute;e <b>18</b>.');
+  else if(tutorialStage===120)tutorialCoach('Observe cette seconde onde','Cette onde ressort elle aussi en <b>O</b>. Observe son trajet sur la grille et compare-le au pr&eacute;c&eacute;dent dans l&rsquo;historique.','Continuer');
   else if(tutorialStage===121)tutorialCoach('Premier point important','Comme tu peux le constater, cette onde est &eacute;galement ressortie par <b>O</b>. Cela am&egrave;ne un premier point tr&egrave;s important : une onde ne subira qu&rsquo;<b>une seule et unique r&eacute;fraction</b> sur son trajet.<br><br>C&rsquo;est pour cette raison qu&rsquo;apr&egrave;s avoir rebondi sur l&rsquo;anneau de la plan&egrave;te blanche, l&rsquo;onde n&rsquo;a pas &eacute;t&eacute; d&eacute;vi&eacute;e pour ressortir en 18, mais a continu&eacute; tout droit vers O.<br><br>Reclique sur <b>16</b> pour revoir sa sortie.');
   else if(tutorialStage===122)tutorialCoach('Comparer les deux ondes','Reclique maintenant sur <b>18</b>.');
   else if(tutorialStage===124)tutorialCoach('V&eacute;rifier depuis la sortie','N&rsquo;oublie pas que tu peux aussi envoyer une onde depuis une sortie afin de v&eacute;rifier son propre parcours.<br><br>Touche la lettre <b>O</b>.');
