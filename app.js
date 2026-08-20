@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0011';
+const APP_VERSION = '20260820-0012';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2720,7 +2720,7 @@ function contrastText(hex){
 function beamColorName(hex){
   if(!hex) return '';
   const normalized = String(hex).toLowerCase();
-  const colors = [...Object.values(CONFIG.MIX), CONFIG.NONE, CONFIG.ABSORBED];
+  const colors = [...Object.values(CONFIG.MIX), CONFIG.NONE, CONFIG.ABSORBED, CONFIG.TRAPPED];
   const match = colors.find(color => color.hex.toLowerCase() === normalized);
   return match ? match.name : '';
 }
