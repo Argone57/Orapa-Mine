@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0008';
+const APP_VERSION = '20260820-0009';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -166,7 +166,7 @@ let state = {
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
   labelPair:{ top:{}, bottom:{}, left:{}, right:{} },
   labelPartner:{ top:{}, bottom:{}, left:{}, right:{} },
-  labelLaunched:{ top:{}, bottom:{}, left:{}, right:{} },
+  labelExitMarker:{ top:{}, bottom:{}, left:{}, right:{} },
   cellUsed:{},
   traces:[],
   emptyMarks:[],
@@ -1240,8 +1240,8 @@ function loadState(){
     state.labelBounce = state.labelBounce || {top:{},bottom:{},left:{},right:{}};
     state.labelPair = state.labelPair || {top:{},bottom:{},left:{},right:{}};
     state.labelPartner = state.labelPartner || {top:{},bottom:{},left:{},right:{}};
-    const hadLabelLaunched=!!state.labelLaunched;
-    state.labelLaunched = state.labelLaunched || {top:{},bottom:{},left:{},right:{}};
+    const hadLabelExitMarker=!!state.labelExitMarker;
+    state.labelExitMarker = state.labelExitMarker || {top:{},bottom:{},left:{},right:{}};
     state.cellUsed = state.cellUsed || {};
     state.occupiedMarks = state.occupiedMarks || [];
     state.coordDots = state.coordDots || [];
@@ -1258,7 +1258,7 @@ function loadState(){
     if(state.soloShowGuess === undefined) state.soloShowGuess = true;
     if(state.soloShowSecret === undefined) state.soloShowSecret = true;
     if(state.includeSapphire === undefined) state.includeSapphire = true;
-    if(!hadLabelLaunched) rebuildPlayedLabelRecalls();
+    if(!hadLabelExitMarker&&spaceBlackHoleExitMode()) rebuildSpaceBlackHoleLabelState();
     pieceIdSeq = 1 + state.pieces.concat(state.secretPieces).reduce((m,p)=>Math.max(m, parseInt((p.id||'p0').slice(1))||0), 0);
     // Resynchronise state.pieces avec les cases à cocher (répare les sauvegardes antérieures
     // à l'ajout d'une extension : le drapeau existe mais la pièce n'a jamais été créée).
@@ -1283,7 +1283,7 @@ function resetAll(){
             labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
             labelPair:{top:{},bottom:{},left:{},right:{}},
             labelPartner:{top:{},bottom:{},left:{},right:{}},
-            labelLaunched:{top:{},bottom:{},left:{},right:{}},
+            labelExitMarker:{top:{},bottom:{},left:{},right:{}},
             cellUsed:{}, traces:[], emptyMarks:[], occupiedMarks:[], coordDots:[] };
   resetHistoryDisclosure();
   lastScoreResult = null;
@@ -1730,7 +1730,7 @@ function randomizePlacement(){
     state.labelBounce = {top:{},bottom:{},left:{},right:{}};
     state.labelPair = {top:{},bottom:{},left:{},right:{}};
     state.labelPartner = {top:{},bottom:{},left:{},right:{}};
-    state.labelLaunched = {top:{},bottom:{},left:{},right:{}};
+    state.labelExitMarker = {top:{},bottom:{},left:{},right:{}};
     state.cellUsed = {};
     state.traces = [];
     state.emptyMarks = [];
@@ -1821,7 +1821,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
   state.labelPair = {top:{},bottom:{},left:{},right:{}};
   state.labelPartner = {top:{},bottom:{},left:{},right:{}};
-  state.labelLaunched = {top:{},bottom:{},left:{},right:{}};
+  state.labelExitMarker = {top:{},bottom:{},left:{},right:{}};
   state.cellUsed = {};
   state.traces = [];
   state.emptyMarks = [];
@@ -1856,7 +1856,7 @@ async function startSpaceSoloGame(explicitId,creatorRetry=0){
     state.gameVariant=previousVariant;state.includeBlackHole=previousBlackHole;openCreatorGridBlockedModal(gridId);return;
   }
   setHintMode(false);
-  Object.assign(state,{mode:'solo',gameVariant:'space',started:false,secretPieces:secret,pieces:spaceTypes().map(type=>newPiece(type)),gridId,gridRanked:!status?.already_played,gridUnrankedReason:status?.already_played?'already_played':null,soloAttempts:0,soloOver:false,soloResult:null,soloShowGuess:true,soloShowSecret:true,moveCost:0,firstActionTime:null,finalTimeMs:null,rayCount:0,coordCount:0,isDaily:false,dailyDate:null,history:[],labelColor:{top:{},bottom:{},left:{},right:{}},labelBounce:{top:{},bottom:{},left:{},right:{}},labelPair:{top:{},bottom:{},left:{},right:{}},labelPartner:{top:{},bottom:{},left:{},right:{}},labelLaunched:{top:{},bottom:{},left:{},right:{}},cellUsed:{},traces:[],emptyMarks:[],occupiedMarks:[],coordDots:[]});
+  Object.assign(state,{mode:'solo',gameVariant:'space',started:false,secretPieces:secret,pieces:spaceTypes().map(type=>newPiece(type)),gridId,gridRanked:!status?.already_played,gridUnrankedReason:status?.already_played?'already_played':null,soloAttempts:0,soloOver:false,soloResult:null,soloShowGuess:true,soloShowSecret:true,moveCost:0,firstActionTime:null,finalTimeMs:null,rayCount:0,coordCount:0,isDaily:false,dailyDate:null,history:[],labelColor:{top:{},bottom:{},left:{},right:{}},labelBounce:{top:{},bottom:{},left:{},right:{}},labelPair:{top:{},bottom:{},left:{},right:{}},labelPartner:{top:{},bottom:{},left:{},right:{}},labelExitMarker:{top:{},bottom:{},left:{},right:{}},cellUsed:{},traces:[],emptyMarks:[],occupiedMarks:[],coordDots:[]});
   resetHistoryDisclosure();lastScoreResult=null;saveState();document.body.classList.remove('solo-menu-open');showGame();renderAll();
   if(status?.already_played)setTimeout(openAlreadyPlayedGridModal,60);
 }
@@ -1886,7 +1886,7 @@ async function startLostGame(explicitId=null,creatorRetry=0){
   state.mode='solo';state.gameVariant='lost';state.started=false;state.includeGray=true;state.includeOnyx=true;state.includeSapphire=true;
   state.secretPieces=secret;state.pieces=TYPE_ORDER.map(type=>newPiece(type));state.missingType=missingType;state.selectedMissingType=null;state.placementBonus=false;
   state.gridId=gridId;state.gridRanked=!gridStatus?.already_played;state.gridUnrankedReason=gridStatus?.already_played?'already_played':null;
-  state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;lastScoreResult=null;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.labelLaunched={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.occupiedMarks=[];state.coordDots=[];
+  state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;lastScoreResult=null;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.labelExitMarker={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.occupiedMarks=[];state.coordDots=[];
   saveState();closeSoloChoiceModal();showGame();renderAll();
   if(gridStatus?.already_played)setTimeout(openAlreadyPlayedGridModal,60);
 }
@@ -2033,7 +2033,7 @@ async function startDailyChallenge(){
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
   state.labelPair = {top:{},bottom:{},left:{},right:{}};
   state.labelPartner = {top:{},bottom:{},left:{},right:{}};
-  state.labelLaunched = {top:{},bottom:{},left:{},right:{}};
+  state.labelExitMarker = {top:{},bottom:{},left:{},right:{}};
   state.cellUsed = {};
   state.traces = [];
   state.emptyMarks = [];
@@ -2641,25 +2641,51 @@ function labelLocationFromText(value){
   index=LEFT_LABELS.indexOf(text);if(index>=0)return {side:'left',index};
   return null;
 }
-function rebuildPlayedLabelRecalls(){
+function spaceBlackHoleExitMode(pieces){
+  const list=pieces||(state.mode==='solo'?state.secretPieces:state.pieces);
+  return state.gameVariant==='space'&&Array.isArray(list)&&list.some(piece=>piece.type==='spaceBlackHole'&&piece.center);
+}
+function applyBeamLabelResult(side,index,result,pieces){
+  state.labelExitMarker=state.labelExitMarker||{top:{},bottom:{},left:{},right:{}};
+  delete state.labelExitMarker[side][index];
+  state.labelColor[side][index]=result.color.hex;
+  if(result.absorbed){
+    const outcome=result.absorbed==='loop'?'Prisonnière':(result.absorbed==='disappeared'?'Disparue':'Absorbé');
+    state.labelPair[side][index]=`${outcome} (aucune sortie)`;
+    state.labelPartner[side][index]=null;
+    return;
+  }
+  const bounced=result.exitSide===side&&result.exitIndex===index;
+  if(bounced){
+    state.labelBounce[side][index]=true;
+    state.labelPair[side][index]='Ressort ici même (↔)';
+    state.labelPartner[side][index]={side,index};
+    return;
+  }
+  state.labelPair[side][index]=`Sort en ${labelText(result.exitSide,result.exitIndex)}`;
+  state.labelPartner[side][index]={side:result.exitSide,index:result.exitIndex};
+  if(spaceBlackHoleExitMode(pieces)){
+    state.labelExitMarker[result.exitSide][result.exitIndex]=true;
+    return;
+  }
+  if(state.labelColor[result.exitSide][result.exitIndex]===undefined){
+    state.labelColor[result.exitSide][result.exitIndex]=result.color.hex;
+  }
+  state.labelPair[result.exitSide][result.exitIndex]=`Sort en ${labelText(side,index)}`;
+  state.labelPartner[result.exitSide][result.exitIndex]={side,index};
+}
+function rebuildSpaceBlackHoleLabelState(){
   if(!Array.isArray(state.history))return;
   const pieces=state.mode==='solo'?state.secretPieces:state.pieces;
+  state.labelColor={top:{},bottom:{},left:{},right:{}};
+  state.labelBounce={top:{},bottom:{},left:{},right:{}};
+  state.labelPair={top:{},bottom:{},left:{},right:{}};
+  state.labelPartner={top:{},bottom:{},left:{},right:{}};
+  state.labelExitMarker={top:{},bottom:{},left:{},right:{}};
   state.history.filter(item=>item?.kind==='ray').forEach(item=>{
     const match=String(item.text||'').match(/^<b>([^<]+)<\/b>/);
     const entry=labelLocationFromText(match?.[1]);if(!entry)return;
-    const result=simulateBeam(entry.side,entry.index,pieces);
-    state.labelLaunched[entry.side][entry.index]=true;
-    if(result.absorbed){
-      const outcome=result.absorbed==='loop'?'Prisonnière':(result.absorbed==='disappeared'?'Disparue':'Absorbé');
-      state.labelPair[entry.side][entry.index]=`${outcome} (aucune sortie)`;
-      state.labelPartner[entry.side][entry.index]=null;
-    }else if(result.exitSide===entry.side&&result.exitIndex===entry.index){
-      state.labelPair[entry.side][entry.index]='Ressort ici même (↔)';
-      state.labelPartner[entry.side][entry.index]={...entry};
-    }else{
-      state.labelPair[entry.side][entry.index]=`Sort en ${labelText(result.exitSide,result.exitIndex)}`;
-      state.labelPartner[entry.side][entry.index]={side:result.exitSide,index:result.exitIndex};
-    }
+    applyBeamLabelResult(entry.side,entry.index,simulateBeam(entry.side,entry.index,pieces),pieces);
   });
 }
 
@@ -2734,6 +2760,7 @@ function renderLabels(){
 function makeLabel(side,index){
   const div=document.createElement('div');
   const used = state.labelColor[side][index] !== undefined;
+  const exitOnly = !used&&!!state.labelExitMarker?.[side]?.[index];
   div.className='label'+(raysEnabled() ? ' clickable':'');
   const labelValue=document.createElement('span');
   labelValue.className='label-value';
@@ -2741,6 +2768,7 @@ function makeLabel(side,index){
   div.appendChild(labelValue);
   div.dataset.side = side;
   div.dataset.index = index;
+  if(exitOnly)div.classList.add('space-exit-marker');
   if(used){
     const hex = state.labelColor[side][index];
     const colorName=beamColorName(hex);
@@ -3426,38 +3454,16 @@ function onLabelClick(side,index){
   registerSoloAction('ray');
   const piecesForRay = state.mode==='solo' ? state.secretPieces : state.pieces;
   const result = simulateBeam(side,index,piecesForRay);
-  state.labelLaunched = state.labelLaunched || {top:{},bottom:{},left:{},right:{}};
-  state.labelLaunched[side][index] = true;
-  state.labelColor[side][index] = result.color.hex;
+  applyBeamLabelResult(side,index,result,piecesForRay);
   const entryLabelTxt = labelText(side,index);
   let text;
   if(result.absorbed){
     const outcome=result.absorbed==='loop'?'Prisonnière':(result.absorbed==='disappeared'?'Disparue':'Absorbé');
     text = `<b>${entryLabelTxt}</b> — ${outcome}`;
-    state.labelPair[side][index] = `${outcome} (aucune sortie)`;
-    state.labelPartner[side][index] = null;
     if(result.absorbed==='loop'&&state.gameVariant==='space'&&currentPlayerAccount?.session_token){awardSpaceEvent('trapped').catch(()=>{});}
   } else {
     const bounced = result.exitSide===side && result.exitIndex===index;
     const exitLabel = labelText(result.exitSide, result.exitIndex);
-    if(state.labelColor[result.exitSide][result.exitIndex] === undefined){
-      state.labelColor[result.exitSide][result.exitIndex] = result.color.hex;
-    }
-    if(bounced){
-      state.labelBounce[side][index] = true;
-      state.labelPair[side][index] = 'Ressort ici même (↔)';
-      state.labelPartner[side][index] = { side, index };
-    } else {
-      state.labelPair[side][index] = `Sort en ${exitLabel}`;
-      state.labelPartner[side][index] = { side: result.exitSide, index: result.exitIndex };
-      // Une sortie peut aussi avoir déjà servi d'entrée et posséder son propre
-      // résultat (notamment avec la gravité du trou noir). Dans ce cas, son
-      // rappel ne doit jamais être remplacé par le trajet qui vient d'y finir.
-      if(!state.labelLaunched[result.exitSide][result.exitIndex]){
-        state.labelPair[result.exitSide][result.exitIndex] = `Sort en ${entryLabelTxt}`;
-        state.labelPartner[result.exitSide][result.exitIndex] = { side, index };
-      }
-    }
     text = bounced
       ? `<b>${entryLabelTxt}</b> ↔ — ${result.color.name}`
       : `<b>${entryLabelTxt}</b> — <b>${exitLabel}</b> — ${result.color.name}`;
@@ -3734,7 +3740,7 @@ async function beginInteractiveTutorial(){
   tutorialActive=true;tutorialStage=0;tutorialStepNumber=0;tutorialStepKey='';tutorialTargetLabel={side:tutorialRayExamples[0].side,index:tutorialRayExamples[0].index};tutorialTargetCell=null;tutorialWrongPieceId=null;tutorialLastResult=null;
   document.body.classList.add('tutorial-active');
   state.mode='solo';state.gameVariant='classic';state.missingType=null;state.selectedMissingType=null;state.placementBonus=false;state.started=false;state.secretPieces=lesson.pieces.map(p=>({...p,center:{...p.center}}));state.pieces=freshPieceSet();
-  state.gridId=null;state.gridRanked=false;state.gridUnrankedReason='tutorial';state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.labelLaunched={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.coordDots=[];
+  state.gridId=null;state.gridRanked=false;state.gridUnrankedReason='tutorial';state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.labelExitMarker={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.coordDots=[];
   showGame();setTimeout(tutorialShowStage,80);
 }
 function startInteractiveTutorial(){
