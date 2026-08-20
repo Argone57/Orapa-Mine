@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0006';
+const APP_VERSION = '20260820-0008';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -166,6 +166,7 @@ let state = {
   labelBounce:{ top:{}, bottom:{}, left:{}, right:{} },
   labelPair:{ top:{}, bottom:{}, left:{}, right:{} },
   labelPartner:{ top:{}, bottom:{}, left:{}, right:{} },
+  labelLaunched:{ top:{}, bottom:{}, left:{}, right:{} },
   cellUsed:{},
   traces:[],
   emptyMarks:[],
@@ -1239,6 +1240,8 @@ function loadState(){
     state.labelBounce = state.labelBounce || {top:{},bottom:{},left:{},right:{}};
     state.labelPair = state.labelPair || {top:{},bottom:{},left:{},right:{}};
     state.labelPartner = state.labelPartner || {top:{},bottom:{},left:{},right:{}};
+    const hadLabelLaunched=!!state.labelLaunched;
+    state.labelLaunched = state.labelLaunched || {top:{},bottom:{},left:{},right:{}};
     state.cellUsed = state.cellUsed || {};
     state.occupiedMarks = state.occupiedMarks || [];
     state.coordDots = state.coordDots || [];
@@ -1255,6 +1258,7 @@ function loadState(){
     if(state.soloShowGuess === undefined) state.soloShowGuess = true;
     if(state.soloShowSecret === undefined) state.soloShowSecret = true;
     if(state.includeSapphire === undefined) state.includeSapphire = true;
+    if(!hadLabelLaunched) rebuildPlayedLabelRecalls();
     pieceIdSeq = 1 + state.pieces.concat(state.secretPieces).reduce((m,p)=>Math.max(m, parseInt((p.id||'p0').slice(1))||0), 0);
     // Resynchronise state.pieces avec les cases à cocher (répare les sauvegardes antérieures
     // à l'ajout d'une extension : le drapeau existe mais la pièce n'a jamais été créée).
@@ -1279,6 +1283,7 @@ function resetAll(){
             labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
             labelPair:{top:{},bottom:{},left:{},right:{}},
             labelPartner:{top:{},bottom:{},left:{},right:{}},
+            labelLaunched:{top:{},bottom:{},left:{},right:{}},
             cellUsed:{}, traces:[], emptyMarks:[], occupiedMarks:[], coordDots:[] };
   resetHistoryDisclosure();
   lastScoreResult = null;
@@ -1723,6 +1728,9 @@ function randomizePlacement(){
     resetHistoryDisclosure();
     state.labelColor = {top:{},bottom:{},left:{},right:{}};
     state.labelBounce = {top:{},bottom:{},left:{},right:{}};
+    state.labelPair = {top:{},bottom:{},left:{},right:{}};
+    state.labelPartner = {top:{},bottom:{},left:{},right:{}};
+    state.labelLaunched = {top:{},bottom:{},left:{},right:{}};
     state.cellUsed = {};
     state.traces = [];
     state.emptyMarks = [];
@@ -1813,6 +1821,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
   state.labelPair = {top:{},bottom:{},left:{},right:{}};
   state.labelPartner = {top:{},bottom:{},left:{},right:{}};
+  state.labelLaunched = {top:{},bottom:{},left:{},right:{}};
   state.cellUsed = {};
   state.traces = [];
   state.emptyMarks = [];
@@ -1847,7 +1856,7 @@ async function startSpaceSoloGame(explicitId,creatorRetry=0){
     state.gameVariant=previousVariant;state.includeBlackHole=previousBlackHole;openCreatorGridBlockedModal(gridId);return;
   }
   setHintMode(false);
-  Object.assign(state,{mode:'solo',gameVariant:'space',started:false,secretPieces:secret,pieces:spaceTypes().map(type=>newPiece(type)),gridId,gridRanked:!status?.already_played,gridUnrankedReason:status?.already_played?'already_played':null,soloAttempts:0,soloOver:false,soloResult:null,soloShowGuess:true,soloShowSecret:true,moveCost:0,firstActionTime:null,finalTimeMs:null,rayCount:0,coordCount:0,isDaily:false,dailyDate:null,history:[],labelColor:{top:{},bottom:{},left:{},right:{}},labelBounce:{top:{},bottom:{},left:{},right:{}},labelPair:{top:{},bottom:{},left:{},right:{}},labelPartner:{top:{},bottom:{},left:{},right:{}},cellUsed:{},traces:[],emptyMarks:[],occupiedMarks:[],coordDots:[]});
+  Object.assign(state,{mode:'solo',gameVariant:'space',started:false,secretPieces:secret,pieces:spaceTypes().map(type=>newPiece(type)),gridId,gridRanked:!status?.already_played,gridUnrankedReason:status?.already_played?'already_played':null,soloAttempts:0,soloOver:false,soloResult:null,soloShowGuess:true,soloShowSecret:true,moveCost:0,firstActionTime:null,finalTimeMs:null,rayCount:0,coordCount:0,isDaily:false,dailyDate:null,history:[],labelColor:{top:{},bottom:{},left:{},right:{}},labelBounce:{top:{},bottom:{},left:{},right:{}},labelPair:{top:{},bottom:{},left:{},right:{}},labelPartner:{top:{},bottom:{},left:{},right:{}},labelLaunched:{top:{},bottom:{},left:{},right:{}},cellUsed:{},traces:[],emptyMarks:[],occupiedMarks:[],coordDots:[]});
   resetHistoryDisclosure();lastScoreResult=null;saveState();document.body.classList.remove('solo-menu-open');showGame();renderAll();
   if(status?.already_played)setTimeout(openAlreadyPlayedGridModal,60);
 }
@@ -1877,7 +1886,7 @@ async function startLostGame(explicitId=null,creatorRetry=0){
   state.mode='solo';state.gameVariant='lost';state.started=false;state.includeGray=true;state.includeOnyx=true;state.includeSapphire=true;
   state.secretPieces=secret;state.pieces=TYPE_ORDER.map(type=>newPiece(type));state.missingType=missingType;state.selectedMissingType=null;state.placementBonus=false;
   state.gridId=gridId;state.gridRanked=!gridStatus?.already_played;state.gridUnrankedReason=gridStatus?.already_played?'already_played':null;
-  state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;lastScoreResult=null;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.occupiedMarks=[];state.coordDots=[];
+  state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;lastScoreResult=null;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.labelLaunched={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.occupiedMarks=[];state.coordDots=[];
   saveState();closeSoloChoiceModal();showGame();renderAll();
   if(gridStatus?.already_played)setTimeout(openAlreadyPlayedGridModal,60);
 }
@@ -2024,6 +2033,7 @@ async function startDailyChallenge(){
   state.labelBounce = {top:{},bottom:{},left:{},right:{}};
   state.labelPair = {top:{},bottom:{},left:{},right:{}};
   state.labelPartner = {top:{},bottom:{},left:{},right:{}};
+  state.labelLaunched = {top:{},bottom:{},left:{},right:{}};
   state.cellUsed = {};
   state.traces = [];
   state.emptyMarks = [];
@@ -2393,7 +2403,10 @@ function spaceRingVisualParts(){
 function spacePiecesOverlap(pieceA,pieceB){
   return pieceCollisionPolygons(pieceA).some(polyA=>pieceCollisionPolygons(pieceB).some(polyB=>{
     const intersection=clipPolygon(ensureCCW(polyA),ensureCCW(polyB));
-    return intersection.length>0&&polyArea(intersection)>1e-4;
+    if(intersection.length===0)return false;
+    // Comme dans Orapa Mine, un simple contact par une pointe reste permis,
+    // mais deux planètes ne peuvent ni se chevaucher ni partager un côté.
+    return polyArea(intersection)>1e-4||maxExtent(intersection)>1e-3;
   }));
 }
 function spaceEdgeConstraintValid(piece){
@@ -2619,6 +2632,35 @@ function labelText(side,index){
   if(side==='bottom') return BOTTOM_LABELS[index];
   if(side==='left') return LEFT_LABELS[index];
   return RIGHT_LABELS[index];
+}
+function labelLocationFromText(value){
+  const text=String(value||'').trim().toUpperCase();
+  let index=TOP_LABELS.indexOf(text);if(index>=0)return {side:'top',index};
+  index=RIGHT_LABELS.indexOf(text);if(index>=0)return {side:'right',index};
+  index=BOTTOM_LABELS.indexOf(text);if(index>=0)return {side:'bottom',index};
+  index=LEFT_LABELS.indexOf(text);if(index>=0)return {side:'left',index};
+  return null;
+}
+function rebuildPlayedLabelRecalls(){
+  if(!Array.isArray(state.history))return;
+  const pieces=state.mode==='solo'?state.secretPieces:state.pieces;
+  state.history.filter(item=>item?.kind==='ray').forEach(item=>{
+    const match=String(item.text||'').match(/^<b>([^<]+)<\/b>/);
+    const entry=labelLocationFromText(match?.[1]);if(!entry)return;
+    const result=simulateBeam(entry.side,entry.index,pieces);
+    state.labelLaunched[entry.side][entry.index]=true;
+    if(result.absorbed){
+      const outcome=result.absorbed==='loop'?'Prisonnière':(result.absorbed==='disappeared'?'Disparue':'Absorbé');
+      state.labelPair[entry.side][entry.index]=`${outcome} (aucune sortie)`;
+      state.labelPartner[entry.side][entry.index]=null;
+    }else if(result.exitSide===entry.side&&result.exitIndex===entry.index){
+      state.labelPair[entry.side][entry.index]='Ressort ici même (↔)';
+      state.labelPartner[entry.side][entry.index]={...entry};
+    }else{
+      state.labelPair[entry.side][entry.index]=`Sort en ${labelText(result.exitSide,result.exitIndex)}`;
+      state.labelPartner[entry.side][entry.index]={side:result.exitSide,index:result.exitIndex};
+    }
+  });
 }
 
 // ---------------------------------------------------------------------
@@ -3384,6 +3426,8 @@ function onLabelClick(side,index){
   registerSoloAction('ray');
   const piecesForRay = state.mode==='solo' ? state.secretPieces : state.pieces;
   const result = simulateBeam(side,index,piecesForRay);
+  state.labelLaunched = state.labelLaunched || {top:{},bottom:{},left:{},right:{}};
+  state.labelLaunched[side][index] = true;
   state.labelColor[side][index] = result.color.hex;
   const entryLabelTxt = labelText(side,index);
   let text;
@@ -3405,9 +3449,14 @@ function onLabelClick(side,index){
       state.labelPartner[side][index] = { side, index };
     } else {
       state.labelPair[side][index] = `Sort en ${exitLabel}`;
-      state.labelPair[result.exitSide][result.exitIndex] = `Sort en ${entryLabelTxt}`;
       state.labelPartner[side][index] = { side: result.exitSide, index: result.exitIndex };
-      state.labelPartner[result.exitSide][result.exitIndex] = { side, index };
+      // Une sortie peut aussi avoir déjà servi d'entrée et posséder son propre
+      // résultat (notamment avec la gravité du trou noir). Dans ce cas, son
+      // rappel ne doit jamais être remplacé par le trajet qui vient d'y finir.
+      if(!state.labelLaunched[result.exitSide][result.exitIndex]){
+        state.labelPair[result.exitSide][result.exitIndex] = `Sort en ${entryLabelTxt}`;
+        state.labelPartner[result.exitSide][result.exitIndex] = { side, index };
+      }
     }
     text = bounced
       ? `<b>${entryLabelTxt}</b> ↔ — ${result.color.name}`
@@ -3685,7 +3734,7 @@ async function beginInteractiveTutorial(){
   tutorialActive=true;tutorialStage=0;tutorialStepNumber=0;tutorialStepKey='';tutorialTargetLabel={side:tutorialRayExamples[0].side,index:tutorialRayExamples[0].index};tutorialTargetCell=null;tutorialWrongPieceId=null;tutorialLastResult=null;
   document.body.classList.add('tutorial-active');
   state.mode='solo';state.gameVariant='classic';state.missingType=null;state.selectedMissingType=null;state.placementBonus=false;state.started=false;state.secretPieces=lesson.pieces.map(p=>({...p,center:{...p.center}}));state.pieces=freshPieceSet();
-  state.gridId=null;state.gridRanked=false;state.gridUnrankedReason='tutorial';state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.coordDots=[];
+  state.gridId=null;state.gridRanked=false;state.gridUnrankedReason='tutorial';state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.labelLaunched={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.coordDots=[];
   showGame();setTimeout(tutorialShowStage,80);
 }
 function startInteractiveTutorial(){
@@ -3806,7 +3855,7 @@ $('#btnStart').addEventListener('click', async()=>{
     return;
   }
   if(computeInvalidPieceIds(state.pieces).size>0){
-    await gameAlert(state.gameVariant==='space'?'Certaines planètes sont invalides (affichées en rouge) : chevauchement, planète inaccessible directement ou grand côté de la grande planète blanche non placé contre un bord. Corrigez-les avant de démarrer.':'Certaines gemmes sont en conflit (affichées en rouge sur la grille) : contact par un côté, chevauchement ou gemme injoignable. Corrigez-les avant de démarrer.','Placement invalide');
+    await gameAlert(state.gameVariant==='space'?'Certaines planètes sont invalides (affichées en rouge) : côté partagé, chevauchement, planète inaccessible directement ou grand côté de la grande planète blanche non placé contre un bord. Corrigez-les avant de démarrer.':'Certaines gemmes sont en conflit (affichées en rouge sur la grille) : contact par un côté, chevauchement ou gemme injoignable. Corrigez-les avant de démarrer.','Placement invalide');
     return;
   }
   if(state.gameVariant==='lost')state.missingType=unplaced[0].type;
