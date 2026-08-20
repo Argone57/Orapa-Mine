@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0017';
+const APP_VERSION = '20260820-0018';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3891,6 +3891,8 @@ $('#homeCreate').addEventListener('click', async()=>{
     if(!state.soloOver && !await gameConfirm(`${activeGridLabel()} est en cours. Elle sera effacée si vous créez une nouvelle grille.`,'Quitter la partie','Créer une grille','Annuler')) return;
     resetAll();
   }
+  const spaceCreationZone=$('#createSpaceMode').closest('.choice-zone');
+  if(spaceCreationZone)spaceCreationZone.hidden=!canPreviewSpaceTutorial();
   $('#createModeModal').classList.add('open');
 });
 function closeCreateModeModal(){$('#createModeModal').classList.remove('open');}
@@ -3903,7 +3905,7 @@ $('#createLostMode').addEventListener('click',()=>{
   closeCreateModeModal();resetAll();state.mode='gm';state.gameVariant='lost';state.includeGray=true;state.includeOnyx=true;state.includeSapphire=true;state.missingType=null;state.pieces=TYPE_ORDER.map(type=>newPiece(type));showGame();renderAll();
   })();
 });
-$('#createSpaceMode').addEventListener('click',()=>{closeCreateModeModal();resetAll();state.mode='gm';state.gameVariant='space';state.includeBlackHole=false;state.pieces=spaceTypes().map(type=>newPiece(type));showGame();renderAll();});
+$('#createSpaceMode').addEventListener('click',()=>{if(!canPreviewSpaceTutorial())return;closeCreateModeModal();resetAll();state.mode='gm';state.gameVariant='space';state.includeBlackHole=false;state.pieces=spaceTypes().map(type=>newPiece(type));showGame();renderAll();});
 $('#btnHome').addEventListener('click',async()=>{
   if(state.mode==='solo'&&!state.soloOver){
     if(!await gameConfirm(`Revenir à l’accueil ? ${activeGridLabel()} restera disponible tant que vous ne démarrez pas une autre partie.`,'Retour à l’accueil','Revenir à l’accueil','Continuer la partie')) return;
@@ -4004,6 +4006,7 @@ $('#btnReset').addEventListener('click', async()=>{
 });
 
 let dailyTriforceState={checked:false,unlocked:false,error:false};
+let prerequisiteModalContext='triforce';
 function renderDailyStatusLine(status){
   const line=$('#dailyStatusLine');
   const button=$('#soloChoiceDaily');
@@ -4026,10 +4029,21 @@ function renderDailyStatusLine(status){
   }
 }
 function openTriforcePrerequisiteModal(checkError=false){
+  prerequisiteModalContext='triforce';
   $('#triforcePrerequisiteTitle').textContent=checkError?'⚠️ Vérification impossible':'🔒 Défi du jour verrouillé';
   $('#triforcePrerequisiteText').innerHTML=checkError
     ? 'Impossible de vérifier le succès <b>Triforce</b>. Vérifie ta connexion puis réessaie.'
     : 'Pour accéder aux défis du jour, débloque d’abord le succès <b>Triforce</b> en remportant une grille aléatoire comprenant les trois gemmes optionnelles : Diamant, Corps noir et Saphir bleu ciel.';
+  $('#triforcePrerequisiteAchievement').style.display=checkError?'none':'';
+  $('#triforcePrerequisiteRetry').style.display=checkError?'':'none';
+  $('#triforcePrerequisiteModal').classList.add('open');
+}
+function openSpaceStudentPrerequisiteModal(checkError=false){
+  prerequisiteModalContext='space_student';
+  $('#triforcePrerequisiteTitle').textContent=checkError?'⚠️ Vérification impossible':'🔒 Orapa Space verrouillé';
+  $('#triforcePrerequisiteText').innerHTML=checkError
+    ? 'Impossible de vérifier le succès <b>Aspirant astronaute</b>. Vérifie ta connexion puis réessaie.'
+    : 'Pour accéder aux grilles aléatoires <b>Orapa Space</b>, termine d’abord le tutoriel correspondant afin de débloquer le succès <b>Aspirant astronaute</b>.';
   $('#triforcePrerequisiteAchievement').style.display=checkError?'none':'';
   $('#triforcePrerequisiteRetry').style.display=checkError?'':'none';
   $('#triforcePrerequisiteModal').classList.add('open');
@@ -4049,6 +4063,21 @@ async function verifyTriforcePrerequisite(showModal=false){
   renderDailyStatusLine(dailyStatusToday());
   if(showModal&&!dailyTriforceState.unlocked)openTriforcePrerequisiteModal(dailyTriforceState.error);
   return dailyTriforceState.unlocked;
+}
+async function verifySpaceStudentPrerequisite(showModal=false){
+  if(!currentPlayerAccount?.session_token){
+    if(showModal)openSpaceStudentPrerequisiteModal(false);
+    return false;
+  }
+  try{
+    const catalog=await getAchievementCatalog(true);
+    const unlocked=catalog.some(row=>row.achievement_key==='space_student'&&row.unlocked);
+    if(showModal&&!unlocked)openSpaceStudentPrerequisiteModal(false);
+    return unlocked;
+  }catch(error){
+    if(showModal)openSpaceStudentPrerequisiteModal(true);
+    return false;
+  }
 }
 async function openSoloChoiceModal(){
   document.body.classList.add('solo-menu-open');
@@ -4089,7 +4118,9 @@ $('#triforcePrerequisiteClose').addEventListener('click',closeTriforcePrerequisi
 $('#triforcePrerequisiteModal').addEventListener('click',e=>{if(e.target.id==='triforcePrerequisiteModal')closeTriforcePrerequisiteModal();});
 $('#triforcePrerequisiteRetry').addEventListener('click',async()=>{
   closeTriforcePrerequisiteModal();
-  if(await verifyTriforcePrerequisite(true))showToast('Succès Triforce vérifié.');
+  if(prerequisiteModalContext==='space_student'){
+    if(await verifySpaceStudentPrerequisite(true))showToast('Succès Aspirant astronaute vérifié.');
+  }else if(await verifyTriforcePrerequisite(true))showToast('Succès Triforce vérifié.');
 });
 $('#triforcePrerequisiteAchievement').addEventListener('click',async()=>{
   closeTriforcePrerequisiteModal();
@@ -4121,7 +4152,7 @@ $('#appUpdateConfirm').addEventListener('click',async e=>{
 });
 $('#appUpdateModal').addEventListener('click',e=>{if(e.target.id==='appUpdateModal')closeAppUpdateModal();});
 $('#soloChoiceRandom').addEventListener('click', ()=>{ closeSoloChoiceModal(); openSoloSetupModal(); });
-$('#soloChoiceSpace').addEventListener('click',()=>{closeSoloChoiceModal();$('#spaceOptBlackHole').checked=!!state.includeBlackHole;$('#spaceIntroModal').classList.add('open');});
+$('#soloChoiceSpace').addEventListener('click',async()=>{if(!await verifySpaceStudentPrerequisite(true))return;closeSoloChoiceModal();$('#spaceOptBlackHole').checked=!!state.includeBlackHole;$('#spaceIntroModal').classList.add('open');});
 function closeSpaceIntro(){$('#spaceIntroModal').classList.remove('open');}
 $('#closeSpaceIntro').addEventListener('click',closeSpaceIntro);
 $('#cancelSpaceIntro').addEventListener('click',()=>{closeSpaceIntro();openSoloChoiceModal();});
