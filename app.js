@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0002';
+const APP_VERSION = '20260821-0003';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3150,13 +3150,20 @@ function resetHistoryDisclosure(){
   state.historyHintShown=false;
   const disclosure=$('#historyDisclosure'),toggle=$('#historyToggle'),indicator=$('#historyToggleIndicator');
   if(!disclosure||!toggle||!indicator)return;
-  disclosure.classList.add('collapsed');
-  toggle.setAttribute('aria-expanded','false');
-  indicator.textContent='+';
+  const keepOpen=tutorialActive;
+  disclosure.classList.toggle('collapsed',!keepOpen);
+  toggle.setAttribute('aria-expanded',String(keepOpen));
+  indicator.textContent=keepOpen?'−':'+';
 }
 function toggleHistoryDisclosure(){
   const disclosure=$('#historyDisclosure'),toggle=$('#historyToggle'),indicator=$('#historyToggleIndicator');
   if(!disclosure||!toggle||!indicator)return;
+  if(tutorialActive){
+    disclosure.classList.remove('collapsed');
+    toggle.setAttribute('aria-expanded','true');
+    indicator.textContent='−';
+    return;
+  }
   const opening=disclosure.classList.contains('collapsed');
   disclosure.classList.toggle('collapsed',!opening);
   toggle.setAttribute('aria-expanded',String(opening));
@@ -3628,7 +3635,7 @@ async function activeSoloGridIsAllowed(){
 const TUTORIAL_PROGRESS_KEY='orapaTutorialProgressV1',SPACE_TUTORIAL_PROGRESS_KEY='orapaSpaceTutorialProgressV1';
 let tutorialActive=false,tutorialKind='mine',tutorialResumeKind='mine',tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null,tutorialPlacementEnds=[],tutorialStepNumber=0,tutorialStepKey='';
 function tutorialProgressKey(kind=tutorialKind){return kind==='space'?SPACE_TUTORIAL_PROGRESS_KEY:TUTORIAL_PROGRESS_KEY;}
-function tutorialProgressVersion(kind=tutorialKind){return kind==='space'?4:1;}
+function tutorialProgressVersion(kind=tutorialKind){return kind==='space'?5:1;}
 function tutorialLoadProgress(kind=tutorialKind){try{const data=JSON.parse(localStorage.getItem(tutorialProgressKey(kind))||'null');return data?.version===tutorialProgressVersion(kind)&&data.state?data:null;}catch(e){return null;}}
 function tutorialSaveProgress(){
   if(!tutorialActive)return;
@@ -3776,6 +3783,13 @@ function tutorialWaveGroup(){
   return {placement,start,count:tutorialPlacementEnds[placement]-start+1,offset:tutorialRayIndex-start};
 }
 function tutorialShowStage(){
+  if(tutorialActive){
+    const disclosure=$('#historyDisclosure'),toggle=$('#historyToggle'),indicator=$('#historyToggleIndicator');
+    disclosure?.classList.remove('collapsed');
+    toggle?.setAttribute('aria-expanded','true');
+    if(indicator)indicator.textContent='−';
+    renderHistory();
+  }
   if(!tutorialActive)return;
   if(tutorialKind==='space'){spaceTutorialShowStage();return;}
   if(tutorialStage===0)tutorialCoach('Bienvenue dans le tutoriel','Nous avons re&ccedil;u la mission de localiser les gemmes de la mine d&rsquo;Orapa. En envoyant des ondes supersoniques &agrave; travers le sol et en interpr&eacute;tant correctement les signaux qui nous reviennent, nous devons &ecirc;tre capables de d&eacute;terminer la position et l&rsquo;&eacute;tat des gemmes recherch&eacute;es&hellip;','D&eacute;couvrir les actions');
@@ -3891,7 +3905,7 @@ function spaceTutorialAfterRay(){
   else if(tutorialStage===110){tutorialStage=111;tutorialShowStage();}
   else if(tutorialStage===113)setSpaceTutorialTarget(115,'top',4);
   else if(tutorialStage===115)setSpaceTutorialTarget(117,'right',5);
-  else if(tutorialStage===117)setSpaceTutorialTarget(119,'right',7);
+  else if(tutorialStage===117){tutorialStage=118;tutorialShowStage();}
   else if(tutorialStage===119)setSpaceTutorialTarget(121,'right',5);
   else if(tutorialStage===124){applySpaceTutorialBoard(2);setSpaceTutorialTarget(127,'bottom',6);}
   else if(tutorialStage===127)setSpaceTutorialTarget(129,'top',8);
@@ -3916,7 +3930,8 @@ function spaceTutorialShowStage(){
   else if(tutorialStage===113)tutorialCoach('Disparition','Touche l&rsquo;entr&eacute;e <b>P</b>.');
   else if(tutorialStage===115)tutorialCoach('Aucune sortie','L&rsquo;onde dirig&eacute;e sur le trou noir a disparu : aucune sortie ni couleur ne peut &ecirc;tre observ&eacute;e.<br><br>Touche maintenant l&rsquo;entr&eacute;e <b>5</b>.');
   else if(tutorialStage===117)tutorialCoach('La r&eacute;fraction','La grande nouveaut&eacute; du trou noir est sa capacit&eacute; &agrave; r&eacute;fracter les ondes qui passent juste &agrave; c&ocirc;t&eacute; de lui.<br><br>Touche l&rsquo;entr&eacute;e <b>16</b>.');
-  else if(tutorialStage===119)tutorialCoach('Une trajectoire redirig&eacute;e','L&rsquo;onde a long&eacute; le trou noir avant d&rsquo;&ecirc;tre redirig&eacute;e vers le bas : c&rsquo;est la <b>r&eacute;fraction</b>.<br><br>Comme tu peux le constater, la couleur de la sortie n&rsquo;est plus affich&eacute;e sur la case ! Avec la r&eacute;fraction, il est maintenant possible que plusieurs ondes diff&eacute;rentes ressortent par un m&ecirc;me endroit.<br><br>Touche l&rsquo;entr&eacute;e <b>18</b>.');
+  else if(tutorialStage===118)tutorialCoach('Observe le r&eacute;sultat','L&rsquo;onde a long&eacute; le trou noir avant d&rsquo;&ecirc;tre redirig&eacute;e vers le bas : c&rsquo;est la <b>r&eacute;fraction</b>.<br><br>Elle ressort en <b>O</b>. Prends le temps d&rsquo;observer son trajet sur la grille et son résultat dans l&rsquo;historique.','Continuer');
+  else if(tutorialStage===119)tutorialCoach('Une sortie sans couleur','Comme tu peux le constater, la couleur de la sortie n&rsquo;est plus affich&eacute;e sur la case ! Avec la r&eacute;fraction, il est maintenant possible que plusieurs ondes diff&eacute;rentes ressortent par un m&ecirc;me endroit.<br><br>Touche l&rsquo;entr&eacute;e <b>18</b>.');
   else if(tutorialStage===121)tutorialCoach('Premier point important','Comme tu peux le constater, cette onde est &eacute;galement ressortie par <b>O</b>. Cela am&egrave;ne un premier point tr&egrave;s important : une onde ne subira qu&rsquo;<b>une seule et unique r&eacute;fraction</b> sur son trajet.<br><br>C&rsquo;est pour cette raison qu&rsquo;apr&egrave;s avoir rebondi sur l&rsquo;anneau de la plan&egrave;te blanche, l&rsquo;onde n&rsquo;a pas &eacute;t&eacute; d&eacute;vi&eacute;e pour ressortir en 18, mais a continu&eacute; tout droit vers O.<br><br>Reclique sur <b>16</b> pour revoir sa sortie.');
   else if(tutorialStage===122)tutorialCoach('Comparer les deux ondes','Reclique maintenant sur <b>18</b>.');
   else if(tutorialStage===124)tutorialCoach('V&eacute;rifier depuis la sortie','N&rsquo;oublie pas que tu peux aussi envoyer une onde depuis une sortie afin de v&eacute;rifier son propre parcours.<br><br>Touche la lettre <b>O</b>.');
