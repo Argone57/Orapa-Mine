@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0018';
+const APP_VERSION = '20260820-0019';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2852,6 +2852,9 @@ function makeLabel(side,index){
   if(raysEnabled()){
     if(used){
       div.addEventListener('click', ()=>{
+        if(tutorialActive&&tutorialKind==='space'){
+          if(!spaceTutorialWaitingStage(tutorialStage)||!tutorialTargetLabel||side!==tutorialTargetLabel.side||index!==tutorialTargetLabel.index){showErrorToast('Touche l’entrée mise en évidence.');return;}
+        }
         const colorName = beamColorName(state.labelColor[side][index]);
         // Compatibilité avec les parties déjà enregistrées avant la correction :
         // les anciennes valeurs « Entré par X » sont affichées comme « Sort en X ».
@@ -2860,6 +2863,7 @@ function makeLabel(side,index){
         const noExit=/aucune sortie/i.test(pairText);
         showLabelBubble(div, colorName&&!noExit ? `${pairText}\n${colorName}` : pairText);
         pulseLabelPair(side, index);
+        if(tutorialActive&&tutorialKind==='space')spaceTutorialAfterUsedLabel();
       });
     } else {
       div.addEventListener('click', ()=> onLabelClick(side,index));
@@ -3502,7 +3506,12 @@ function onPieceDown(ev, piece, el){
 function timeNow(){ const d=new Date(); return d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 
 function onLabelClick(side,index){
-  if(tutorialActive&&(tutorialStage!==1||!tutorialTargetLabel||side!==tutorialTargetLabel.side||index!==tutorialTargetLabel.index)){showErrorToast('Touche l’entrée mise en évidence.');return;}
+  if(tutorialActive){
+    const allowed=tutorialKind==='space'
+      ? spaceTutorialWaitingStage(tutorialStage)&&tutorialTargetLabel&&side===tutorialTargetLabel.side&&index===tutorialTargetLabel.index
+      : tutorialStage===1&&tutorialTargetLabel&&side===tutorialTargetLabel.side&&index===tutorialTargetLabel.index;
+    if(!allowed){showErrorToast('Touche l’entrée mise en évidence.');return;}
+  }
   if(state.labelColor[side][index] !== undefined) return;
   registerSoloAction('ray');
   const piecesForRay = state.mode==='solo' ? state.secretPieces : state.pieces;
@@ -3614,20 +3623,22 @@ async function activeSoloGridIsAllowed(){
     return true;
   }catch(error){showErrorToast('Vérification de la grille impossible.');return false;}
 }
-const TUTORIAL_PROGRESS_KEY='orapaTutorialProgressV1';
-let tutorialActive=false,tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null,tutorialPlacementEnds=[],tutorialStepNumber=0,tutorialStepKey='';
-function tutorialLoadProgress(){try{const data=JSON.parse(localStorage.getItem(TUTORIAL_PROGRESS_KEY)||'null');return data?.version===1&&data.state?data:null;}catch(e){return null;}}
+const TUTORIAL_PROGRESS_KEY='orapaTutorialProgressV1',SPACE_TUTORIAL_PROGRESS_KEY='orapaSpaceTutorialProgressV1';
+let tutorialActive=false,tutorialKind='mine',tutorialResumeKind='mine',tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null,tutorialPlacementEnds=[],tutorialStepNumber=0,tutorialStepKey='';
+function tutorialProgressKey(kind=tutorialKind){return kind==='space'?SPACE_TUTORIAL_PROGRESS_KEY:TUTORIAL_PROGRESS_KEY;}
+function tutorialLoadProgress(kind=tutorialKind){try{const data=JSON.parse(localStorage.getItem(tutorialProgressKey(kind))||'null');return data?.version===1&&data.state?data:null;}catch(e){return null;}}
 function tutorialSaveProgress(){
   if(!tutorialActive)return;
-  try{localStorage.setItem(TUTORIAL_PROGRESS_KEY,JSON.stringify({version:1,state,tutorialStage,tutorialTargetLabel,tutorialTargetCell,tutorialWrongPieceId,tutorialLastResult,tutorialRayIndex,tutorialPlacementIndex,tutorialPlacementPieceId,tutorialStepNumber,tutorialStepKey}));}catch(e){}
+  try{localStorage.setItem(tutorialProgressKey(),JSON.stringify({version:1,tutorialKind,state,tutorialStage,tutorialTargetLabel,tutorialTargetCell,tutorialWrongPieceId,tutorialLastResult,tutorialRayIndex,tutorialPlacementIndex,tutorialPlacementPieceId,tutorialStepNumber,tutorialStepKey}));}catch(e){}
 }
-function tutorialClearProgress(){try{localStorage.removeItem(TUTORIAL_PROGRESS_KEY);}catch(e){}}
+function tutorialClearProgress(kind=tutorialKind){try{localStorage.removeItem(tutorialProgressKey(kind));}catch(e){}}
 function tutorialClearTargets(){document.querySelectorAll('.tutorial-target').forEach(el=>el.classList.remove('tutorial-target'));document.querySelectorAll('.tutorial-placement-target').forEach(el=>el.remove());}
 function tutorialCoach(title,text,actionLabel=''){
   tutorialClearTargets();
   const coach=$('#tutorialCoach');
   coach.classList.remove('minimized');
-  coach.classList.toggle('tutorial-coach-top',![8,11,12].includes(tutorialStage));
+  const spaceAtTop=tutorialKind==='space'&&tutorialTargetLabel?.side==='bottom';
+  coach.classList.toggle('tutorial-coach-top',tutorialKind==='space'?spaceAtTop:![8,11,12].includes(tutorialStage));
   $('#tutorialCoachTitle').innerHTML=title;
   $('#tutorialCoachText').innerHTML=text;
   const stepKey=`${tutorialStage}:${tutorialRayIndex}:${tutorialPlacementIndex}`;
@@ -3635,14 +3646,14 @@ function tutorialCoach(title,text,actionLabel=''){
   $('#tutorialCoachStep').textContent=`\u00c9tape ${tutorialStepNumber}`;
   $('#tutorialCoachAction').innerHTML=actionLabel;
   $('#tutorialCoachAction').style.display=actionLabel?'':'none';
-  $('#tutorialCoachStep').style.display=([9,10].includes(tutorialStage)||tutorialStage>=13)?'none':'';
+  $('#tutorialCoachStep').style.display=tutorialKind==='space'?'':(([9,10].includes(tutorialStage)||tutorialStage>=13)?'none':'');
   tutorialSaveProgress();
   setTimeout(tutorialHighlightTarget,40);
 }
 function tutorialHighlightTarget(){
   tutorialClearTargets();
   let target=null;
-  if(tutorialStage===1&&tutorialTargetLabel){
+  if((tutorialStage===1||(tutorialKind==='space'&&spaceTutorialWaitingStage(tutorialStage)))&&tutorialTargetLabel){
     target=document.querySelector(`#labels${tutorialTargetLabel.side[0].toUpperCase()+tutorialTargetLabel.side.slice(1)} .label:nth-child(${tutorialTargetLabel.index+1})`);
   }else if([5,15,17].includes(tutorialStage)&&tutorialTargetCell){
     target=document.querySelector(`.cellhit[data-row="${tutorialTargetCell.r}"][data-col="${tutorialTargetCell.c}"]`);
@@ -3763,6 +3774,7 @@ function tutorialWaveGroup(){
 }
 function tutorialShowStage(){
   if(!tutorialActive)return;
+  if(tutorialKind==='space'){spaceTutorialShowStage();return;}
   if(tutorialStage===0)tutorialCoach('Bienvenue dans le tutoriel','Nous avons re&ccedil;u la mission de localiser les gemmes de la mine d&rsquo;Orapa. En envoyant des ondes supersoniques &agrave; travers le sol et en interpr&eacute;tant correctement les signaux qui nous reviennent, nous devons &ecirc;tre capables de d&eacute;terminer la position et l&rsquo;&eacute;tat des gemmes recherch&eacute;es&hellip;','D&eacute;couvrir les actions');
   else if(tutorialStage===24)tutorialCoach('Deux actions pour enqu&ecirc;ter','Tu peux obtenir des informations de deux fa&ccedil;ons :<br><br><b>Envoyer une onde</b> co&ucirc;te 1 point et r&eacute;v&egrave;le sa sortie ainsi que sa couleur.<br><br><b>Demander une coordonn&eacute;e</b> co&ucirc;te 3 points et indique directement si une case est vide ou occup&eacute;e.<br><br>Commen&ccedil;ons par l&rsquo;action principale : envoyer des ondes.','Commencer l&rsquo;enqu&ecirc;te');
   else if(tutorialStage===1){const name=labelText(tutorialTargetLabel.side,tutorialTargetLabel.index),group=tutorialWaveGroup();let intro='';if(tutorialRayIndex===0)intro='Commen&ccedil;ons par observer le trajet le plus simple.';else if(tutorialRayIndex===1)intro='Teste maintenant l&rsquo;entr&eacute;e suivante pour comparer les deux trajets.';else if(tutorialRayIndex===2)intro='Poursuis avec l&rsquo;entr&eacute;e suivante.';else if(tutorialRayIndex===3)intro='Cette onde va montrer comment plusieurs couleurs peuvent se combiner.';else if(group?.placement===0&&group.offset===0)intro='L&rsquo;onde rouge d&eacute;j&agrave; observ&eacute;e permet de localiser le trap&egrave;ze. V&eacute;rifions son orientation depuis cette entr&eacute;e.';else if(group?.placement===1&&group.offset===0)intro='L&rsquo;onde verte a notamment rencontr&eacute; la gemme bleue. Cherchons maintenant une trajectoire uniquement bleue.';else if(group?.placement===3&&group.offset===0)intro='Reprenons maintenant la recherche de la gemme jaune rencontr&eacute;e par l&rsquo;onde verte.';else if(group?.placement===4&&group.offset===0)intro='Il reste maintenant &agrave; placer le triangle blanc.';else intro=['Envoie cette onde pour obtenir une nouvelle information.','Observe maintenant la gemme depuis un autre bord.','Cette derni&egrave;re direction va confirmer son placement et son orientation.'][group?.offset||0];tutorialCoach('Envoie une onde',`${intro}<br><br>Touche l&rsquo;entr&eacute;e <b>${name}</b>, mise en &eacute;vidence.`);}
@@ -3786,7 +3798,7 @@ function tutorialShowStage(){
 }
 async function beginInteractiveTutorial(){
   if(state.mode==='solo'&&!state.soloOver&&state.gridUnrankedReason!=='tutorial'&&!await gameConfirm(`${activeGridLabel()} est en cours. Voulez-vous la quitter pour lancer le tutoriel ?`,'Quitter la partie','Quitter','Continuer la partie')) return;
-  state.includeGray=false;state.includeOnyx=false;state.includeSapphire=false;
+  tutorialKind='mine';state.includeGray=false;state.includeOnyx=false;state.includeSapphire=false;
   const lesson=tutorialFixedLesson();
   if(!lesson.pieces||lesson.examples.length<11){showErrorToast('Le tutoriel est momentan\u00e9ment indisponible.');return;}
   tutorialRayExamples=lesson.examples;tutorialPlacementEnds=lesson.ends;tutorialRayIndex=0;tutorialPlacementIndex=0;tutorialPlacementPieceId=null;
@@ -3797,18 +3809,24 @@ async function beginInteractiveTutorial(){
   showGame();setTimeout(tutorialShowStage,80);
 }
 function startInteractiveTutorial(){
-  if(tutorialLoadProgress()){$('#tutorialResumeModal').classList.add('open');return;}
+  tutorialKind='mine';tutorialResumeKind='mine';
+  if(tutorialLoadProgress('mine')){$('#tutorialResumeModal').classList.add('open');return;}
   beginInteractiveTutorial();
 }
 function resumeInteractiveTutorial(){
-  const saved=tutorialLoadProgress();if(!saved)return beginInteractiveTutorial();
+  if(tutorialResumeKind==='space')return resumeSpaceInteractiveTutorial();
+  tutorialKind='mine';const saved=tutorialLoadProgress('mine');if(!saved)return beginInteractiveTutorial();
   state=saved.state;tutorialStage=saved.tutorialStage;tutorialTargetLabel=saved.tutorialTargetLabel;tutorialTargetCell=saved.tutorialTargetCell;tutorialWrongPieceId=saved.tutorialWrongPieceId;tutorialLastResult=saved.tutorialLastResult;tutorialRayIndex=saved.tutorialRayIndex||0;tutorialPlacementIndex=saved.tutorialPlacementIndex||0;tutorialPlacementPieceId=saved.tutorialPlacementPieceId||null;tutorialStepNumber=saved.tutorialStepNumber||0;tutorialStepKey=saved.tutorialStepKey||'';
   pieceIdSeq=1+state.pieces.concat(state.secretPieces).reduce((max,piece)=>Math.max(max,parseInt((piece.id||'p0').slice(1))||0),0);
   const lesson=tutorialFixedLesson();tutorialRayExamples=lesson.examples;tutorialPlacementEnds=lesson.ends;tutorialActive=true;document.body.classList.add('tutorial-active');
   $('#tutorialResumeModal').classList.remove('open');showGame();setTimeout(tutorialShowStage,100);
 }
 function exitInteractiveTutorial(completed=false){tutorialActive=false;document.body.classList.remove('tutorial-active');tutorialClearTargets();if(completed)tutorialClearProgress();resetAll();showHome();}
-function tutorialAfterRay(result){tutorialLastResult=result;tutorialStage=2;tutorialShowStage();}
+function tutorialAfterRay(result){
+  tutorialLastResult=result;
+  if(tutorialKind==='space'){spaceTutorialAfterRay();return;}
+  tutorialStage=2;tutorialShowStage();
+}
 function tutorialAfterCell(){
   if(tutorialStage===15)tutorialStage=16;
   else if(tutorialStage===17)tutorialStage=18;
@@ -3826,6 +3844,103 @@ function tutorialPropose(){
   if(tutorialStage!==8){showErrorToast('Suis d\u2019abord l\u2019\u00e9tape mise en \u00e9vidence.');tutorialShowStage();return;}
   if(!evaluateGuess()){tutorialCoach('Pas encore','La gemme mise en &eacute;vidence n&rsquo;est pas dans la bonne orientation. Touche-la encore avant de proposer.');return;}
   tutorialStage=19;tutorialClearTargets();tutorialShowStage();
+}
+function spaceTutorialPiece(id,type,x,y,rotation=0){return {id,type,center:{x,y},rotation,flipped:false};}
+function spaceTutorialBoards(){
+  return [
+    [
+      spaceTutorialPiece('st1-white','spaceWhiteLarge',1,5,0),spaceTutorialPiece('st1-ring','spaceRing',3,3,90),
+      spaceTutorialPiece('st1-yellow','spaceYellow',6.5,2.5),spaceTutorialPiece('st1-red-small','spaceRedSmall',8.5,1.5),
+      spaceTutorialPiece('st1-red-large','spaceRedLarge',6,5.5),spaceTutorialPiece('st1-blue','spaceBlue',3,6.5)
+    ],
+    [
+      spaceTutorialPiece('st2-white','spaceWhiteLarge',2,1,90),spaceTutorialPiece('st2-red-small','spaceRedSmall',5.5,2.5),
+      spaceTutorialPiece('st2-blue','spaceBlue',1,3.5),spaceTutorialPiece('st2-red-large','spaceRedLarge',4,3.5),
+      spaceTutorialPiece('st2-yellow','spaceYellow',3.5,6.5),spaceTutorialPiece('st2-ring','spaceRing',8,3.5),
+      spaceTutorialPiece('st2-hole','spaceBlackHole',7.5,6.5)
+    ],
+    [
+      spaceTutorialPiece('st3-white','spaceWhiteLarge',1,3.5),spaceTutorialPiece('st3-ring','spaceRing',3,2,90),
+      spaceTutorialPiece('st3-blue','spaceBlue',6,1),spaceTutorialPiece('st3-hole','spaceBlackHole',7.5,2.5),
+      spaceTutorialPiece('st3-red-large','spaceRedLarge',8,3.5),spaceTutorialPiece('st3-yellow','spaceYellow',3.5,6.5),
+      spaceTutorialPiece('st3-red-small','spaceRedSmall',.5,7.5)
+    ],
+    [
+      spaceTutorialPiece('st4-yellow','spaceYellow',3.5,1.5),spaceTutorialPiece('st4-blue','spaceBlue',8,1),
+      spaceTutorialPiece('st4-ring','spaceRing',4,4),spaceTutorialPiece('st4-hole','spaceBlackHole',6.5,4.5),
+      spaceTutorialPiece('st4-red-large','spaceRedLarge',1,6.5),spaceTutorialPiece('st4-white','spaceWhiteLarge',5,7,270),
+      spaceTutorialPiece('st4-red-small','spaceRedSmall',8.5,6.5)
+    ]
+  ];
+}
+function resetSpaceTutorialBoardState(){
+  state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.labelExitMarker={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.occupiedMarks=[];state.coordDots=[];
+}
+function applySpaceTutorialBoard(index){
+  state.mode='gm';state.gameVariant='space';state.started=true;state.includeBlackHole=index>0;state.pieces=spaceTutorialBoards()[index].map(piece=>({...piece,center:{...piece.center}}));state.secretPieces=[];resetSpaceTutorialBoardState();renderAll();
+}
+function spaceTutorialWaitingStage(stage){return [104,106,108,110,113,115,117,119,121,122,124,127,129,132].includes(stage);}
+function setSpaceTutorialTarget(stage,side,index){tutorialStage=stage;tutorialTargetLabel={side,index};renderLabels();tutorialShowStage();}
+function spaceTutorialAfterRay(){
+  const next={104:105,106:107,108:109,110:111,113:114,115:116,117:118,119:120,124:125,127:128,129:130,132:133}[tutorialStage];
+  if(next){tutorialStage=next;tutorialShowStage();}
+}
+function spaceTutorialAfterUsedLabel(){
+  if(tutorialStage===121)setSpaceTutorialTarget(122,'right',7);
+  else if(tutorialStage===122){tutorialStage=123;tutorialShowStage();}
+}
+function spaceTutorialShowStage(){
+  if(tutorialStage===100)tutorialCoach('Bienvenue dans Orapa Space','Tout comme dans Orapa Mine, l&rsquo;objectif est de reconstituer la grille avec les diff&eacute;rents astres. Les actions disponibles pour y parvenir sont identiques.<br><br>Il est donc pr&eacute;f&eacute;rable de terminer le tutoriel d&rsquo;Orapa Mine avant celui-ci.','D&eacute;couvrir les plan&egrave;tes');
+  else if(tutorialStage===101)tutorialCoach('Les plan&egrave;tes &agrave; replacer','Voici les six plan&egrave;tes de base &agrave; replacer. Une option permet d&rsquo;ajouter le trou noir, que nous verrons plus tard.','Voir les r&egrave;gles de placement');
+  else if(tutorialStage===102)tutorialCoach('Les r&egrave;gles de placement','Les r&egrave;gles sont identiques &agrave; Orapa Mine :<br><br>&bull; Chaque plan&egrave;te doit pouvoir &ecirc;tre atteinte directement par au moins une onde sans rebond.<br>&bull; Deux plan&egrave;tes ne peuvent pas partager une m&ecirc;me case.<br>&bull; Deux plan&egrave;tes ne peuvent pas &ecirc;tre coll&eacute;es par un c&ocirc;t&eacute;, mais peuvent se toucher par une pointe.<br><br>La grande plan&egrave;te blanche poss&egrave;de une contrainte particuli&egrave;re : son plus grand c&ocirc;t&eacute; doit obligatoirement se trouver contre un bord de la grille.','Voir un exemple');
+  else if(tutorialStage===103)tutorialCoach('La plan&egrave;te annulaire','Voici un exemple de placement. Nous allons observer le fonctionnement de la plan&egrave;te blanche et de son anneau. Les ondes sont disponibles comme dans une partie d&eacute;marr&eacute;e depuis le mode de cr&eacute;ation.','Tester l&rsquo;anneau');
+  else if(tutorialStage===104)tutorialCoach('Un anneau qui renvoie','L&rsquo;anneau fonctionne comme un mur : il renvoie les ondes qui arrivent perpendiculairement.<br><br>Touche l&rsquo;entr&eacute;e <b>B</b>.');
+  else if(tutorialStage===105)tutorialCoach('Renvoi par l&rsquo;anneau','L&rsquo;onde est revenue &agrave; son point de d&eacute;part apr&egrave;s avoir rencontr&eacute; l&rsquo;anneau. Observons le m&ecirc;me comportement sur une autre forme.','Tester l&rsquo;entr&eacute;e 6');
+  else if(tutorialStage===106)tutorialCoach('Une face droite','Touche l&rsquo;entr&eacute;e <b>6</b> pour observer le renvoi par une face droite.');
+  else if(tutorialStage===107)tutorialCoach('Dans l&rsquo;axe de l&rsquo;anneau','Lorsqu&rsquo;une onde longe l&rsquo;anneau dans son axe, celui-ci ne la d&eacute;vie pas.','Tester l&rsquo;entr&eacute;e 3');
+  else if(tutorialStage===108)tutorialCoach('Le long de l&rsquo;anneau','Touche l&rsquo;entr&eacute;e <b>3</b>.');
+  else if(tutorialStage===109)tutorialCoach('Une seconde trajectoire','Cette onde a suivi l&rsquo;axe de l&rsquo;anneau. V&eacute;rifions la ligne voisine.','Tester l&rsquo;entr&eacute;e 4');
+  else if(tutorialStage===110)tutorialCoach('Ligne voisine','Touche l&rsquo;entr&eacute;e <b>4</b>.');
+  else if(tutorialStage===111)tutorialCoach('Les plan&egrave;tes de base','Sans le trou noir, seules les formes changent par rapport &agrave; Orapa Mine. Tu disposes &eacute;galement de deux tentatives pour r&eacute;soudre la grille.<br><br>Voyons maintenant le fonctionnement du trou noir.','D&eacute;couvrir le trou noir');
+  else if(tutorialStage===112)tutorialCoach('Le trou noir','Le trou noir produit plusieurs effets sur les ondes. Comme le corps noir, il fait dispara&icirc;tre une onde qui arrive directement sur lui.','Envoyer une onde depuis P');
+  else if(tutorialStage===113)tutorialCoach('Disparition','Touche l&rsquo;entr&eacute;e <b>P</b>.');
+  else if(tutorialStage===114)tutorialCoach('Aucune sortie','L&rsquo;onde dirig&eacute;e sur le trou noir a disparu : aucune sortie ni couleur ne peut &ecirc;tre observ&eacute;e.','Tester l&rsquo;entr&eacute;e 5');
+  else if(tutorialStage===115)tutorialCoach('Un autre trajet','Touche maintenant l&rsquo;entr&eacute;e <b>5</b>.');
+  else if(tutorialStage===116)tutorialCoach('La r&eacute;fraction','La grande nouveaut&eacute; du trou noir est sa capacit&eacute; &agrave; r&eacute;fracter les ondes qui passent juste &agrave; c&ocirc;t&eacute; de lui. Voyons ce que cela signifie.','Tester l&rsquo;entr&eacute;e 16');
+  else if(tutorialStage===117)tutorialCoach('Une onde voisine','Touche l&rsquo;entr&eacute;e <b>16</b>.');
+  else if(tutorialStage===118)tutorialCoach('Une trajectoire redirig&eacute;e','L&rsquo;onde a long&eacute; le trou noir avant d&rsquo;&ecirc;tre redirig&eacute;e vers le bas : c&rsquo;est la <b>r&eacute;fraction</b>.<br><br>La couleur n&rsquo;est plus indiqu&eacute;e sur la sortie. Plusieurs ondes diff&eacute;rentes peuvent maintenant ressortir au m&ecirc;me endroit.','Tester l&rsquo;entr&eacute;e 18');
+  else if(tutorialStage===119)tutorialCoach('Une seconde onde','Touche l&rsquo;entr&eacute;e <b>18</b>.');
+  else if(tutorialStage===120)tutorialCoach('Une seule r&eacute;fraction','Cette onde ressort &eacute;galement par <b>O</b>. Une onde ne subit qu&rsquo;<b>une seule et unique r&eacute;fraction</b> pendant son trajet.<br><br>Apr&egrave;s avoir rebondi sur l&rsquo;anneau, elle n&rsquo;est donc pas d&eacute;vi&eacute;e une seconde fois vers 18 et continue tout droit vers O.<br><br>Tu peux recliquer sur une entr&eacute;e d&eacute;j&agrave; utilis&eacute;e pour revoir sa sortie.','Revoir l&rsquo;onde 16');
+  else if(tutorialStage===121)tutorialCoach('Revoir une sortie','Reclique sur <b>16</b>.');
+  else if(tutorialStage===122)tutorialCoach('Comparer les deux ondes','Reclique maintenant sur <b>18</b>.');
+  else if(tutorialStage===123)tutorialCoach('V&eacute;rifier depuis la sortie','N&rsquo;oublie pas que tu peux aussi envoyer une onde depuis une sortie afin de v&eacute;rifier son propre parcours.','Envoyer une onde depuis O');
+  else if(tutorialStage===124)tutorialCoach('Depuis la sortie commune','Touche l&rsquo;entr&eacute;e <b>O</b>.');
+  else if(tutorialStage===125)tutorialCoach('R&eacute;flexion prioritaire','Un trou noir peut se trouver &agrave; proximit&eacute; d&rsquo;une ou plusieurs plan&egrave;tes.<br><br>Lorsqu&rsquo;une r&eacute;fraction devrait se produire sur la m&ecirc;me case qu&rsquo;un rebond, elle est annul&eacute;e. Elle pourra donc encore se d&eacute;clencher plus loin sur le trajet.','Voir un exemple');
+  else if(tutorialStage===126)tutorialCoach('R&eacute;fraction report&eacute;e','La r&eacute;fraction possible en B7 sera annul&eacute;e par le rebond sur la plan&egrave;te bleue. L&rsquo;onde sera dirig&eacute;e vers 12, puis la r&eacute;fraction pourra finalement avoir lieu en B9.','Envoyer l&rsquo;onde depuis O');
+  else if(tutorialStage===127)tutorialCoach('Premier parcours','Touche l&rsquo;entr&eacute;e <b>O</b>.');
+  else if(tutorialStage===128)tutorialCoach('Deux effets successifs','Le rebond sur la plan&egrave;te bleue a annul&eacute; la premi&egrave;re r&eacute;fraction. Celle-ci s&rsquo;est ensuite produite en B9, dirigeant l&rsquo;onde vers la plan&egrave;te rouge avant sa sortie en 14.','Tester l&rsquo;entr&eacute;e 9');
+  else if(tutorialStage===129)tutorialCoach('Un autre cas','Touche l&rsquo;entr&eacute;e <b>9</b>.');
+  else if(tutorialStage===130)tutorialCoach('R&eacute;fraction annul&eacute;e','Ici, la r&eacute;fraction est annul&eacute;e en D9 par le rebond et l&rsquo;onde ressort simplement en 14.<br><br>Il reste une derni&egrave;re situation importante &agrave; d&eacute;couvrir.','D&eacute;couvrir une onde prisonni&egrave;re');
+  else if(tutorialStage===131)tutorialCoach('Une onde prisonni&egrave;re','Apr&egrave;s une r&eacute;fraction, une onde peut se retrouver dans une boucle infinie &agrave; l&rsquo;int&eacute;rieur de la grille.','Envoyer l&rsquo;onde depuis 16');
+  else if(tutorialStage===132)tutorialCoach('La boucle','Touche l&rsquo;entr&eacute;e <b>16</b>.');
+  else if(tutorialStage===133)tutorialCoach('Tutoriel termin&eacute; !','&Agrave; cause de la r&eacute;fraction du trou noir, l&rsquo;onde effectue un aller-retour sans fin entre les deux plan&egrave;tes blanches : elle est consid&eacute;r&eacute;e comme <b>prisonni&egrave;re</b>.<br><br>Puisqu&rsquo;elle ne ressort pas, les plan&egrave;tes rencontr&eacute;es et sa couleur restent inconnues.<br><br>Bon courage dans ton p&eacute;riple spatial, et fais attention au trou noir !','Terminer');
+}
+function initializeSpaceTutorialState(){
+  resetAll();tutorialKind='space';tutorialActive=true;tutorialStage=100;tutorialTargetLabel=null;tutorialStepNumber=0;tutorialStepKey='';tutorialLastResult=null;document.body.classList.add('tutorial-active');
+  state.mode='gm';state.gameVariant='space';state.started=false;state.includeBlackHole=false;state.gridUnrankedReason='tutorial';state.pieces=spaceTypes(false).map(type=>newPiece(type));state.secretPieces=[];resetSpaceTutorialBoardState();showGame();setTimeout(tutorialShowStage,80);
+}
+async function beginSpaceInteractiveTutorial(){
+  if(state.mode==='solo'&&!state.soloOver&&state.gridUnrankedReason!=='tutorial'&&!await gameConfirm(`${activeGridLabel()} est en cours. Voulez-vous la quitter pour lancer le tutoriel ?`,'Quitter la partie','Quitter','Continuer la partie'))return;
+  initializeSpaceTutorialState();
+}
+function startSpaceInteractiveTutorial(){
+  tutorialKind='space';tutorialResumeKind='space';
+  if(tutorialLoadProgress('space')){$('#tutorialResumeModal').classList.add('open');return;}
+  beginSpaceInteractiveTutorial();
+}
+function resumeSpaceInteractiveTutorial(){
+  tutorialKind='space';const saved=tutorialLoadProgress('space');if(!saved)return beginSpaceInteractiveTutorial();
+  state=saved.state;tutorialStage=saved.tutorialStage;tutorialTargetLabel=saved.tutorialTargetLabel;tutorialLastResult=saved.tutorialLastResult;tutorialStepNumber=saved.tutorialStepNumber||0;tutorialStepKey=saved.tutorialStepKey||'';tutorialActive=true;pieceIdSeq=1+state.pieces.reduce((max,piece)=>Math.max(max,parseInt((piece.id||'p0').slice(1))||0),0);document.body.classList.add('tutorial-active');$('#tutorialResumeModal').classList.remove('open');showGame();setTimeout(tutorialShowStage,100);
 }
 let spaceTutorialStep=0;
 const SPACE_TUTORIAL_STEPS=[
@@ -3846,7 +3961,7 @@ $('#homeLearn').addEventListener('click',()=>{
 });
 $('#tutorialChoiceClose').addEventListener('click',()=>$('#tutorialChoiceModal').classList.remove('open'));
 $('#tutorialMine').addEventListener('click',()=>{$('#tutorialChoiceModal').classList.remove('open');startInteractiveTutorial();});
-$('#tutorialSpace').addEventListener('click',()=>{if(!canPreviewSpaceTutorial())return;$('#tutorialChoiceModal').classList.remove('open');spaceTutorialStep=0;renderSpaceTutorial();$('#spaceTutorialModal').classList.add('open');});
+$('#tutorialSpace').addEventListener('click',()=>{if(!canPreviewSpaceTutorial())return;$('#tutorialChoiceModal').classList.remove('open');startSpaceInteractiveTutorial();});
 $('#spaceTutorialClose').addEventListener('click',()=>$('#spaceTutorialModal').classList.remove('open'));
 $('#spaceTutorialPrevious').addEventListener('click',()=>{spaceTutorialStep=Math.max(0,spaceTutorialStep-1);renderSpaceTutorial();});
 $('#spaceTutorialNext').addEventListener('click',async()=>{if(spaceTutorialStep<SPACE_TUTORIAL_STEPS.length-1){spaceTutorialStep++;renderSpaceTutorial();return;}$('#spaceTutorialModal').classList.remove('open');if(currentPlayerAccount?.session_token)await awardSpaceEvent('tutorial');showToast('Tutoriel Orapa Space terminé !');});
@@ -3861,8 +3976,31 @@ const cancelTutorialResume=()=>$('#tutorialResumeModal').classList.remove('open'
 $('#tutorialResumeCancel').addEventListener('click',cancelTutorialResume);$('#tutorialResumeCancelX').addEventListener('click',cancelTutorialResume);
 $('#tutorialResumeModal').addEventListener('click',event=>{if(event.target.id==='tutorialResumeModal')cancelTutorialResume();});
 $('#tutorialResumeContinue').addEventListener('click',resumeInteractiveTutorial);
-$('#tutorialResumeRestart').addEventListener('click',()=>{tutorialClearProgress();cancelTutorialResume();beginInteractiveTutorial();});
+$('#tutorialResumeRestart').addEventListener('click',()=>{tutorialClearProgress(tutorialResumeKind);cancelTutorialResume();tutorialResumeKind==='space'?beginSpaceInteractiveTutorial():beginInteractiveTutorial();});
+async function advanceSpaceTutorial(){
+  if(tutorialStage===100){tutorialStage=101;tutorialShowStage();}
+  else if(tutorialStage===101){tutorialStage=102;tutorialShowStage();}
+  else if(tutorialStage===102){applySpaceTutorialBoard(0);tutorialStage=103;tutorialShowStage();}
+  else if(tutorialStage===103)setSpaceTutorialTarget(104,'left',1);
+  else if(tutorialStage===105)setSpaceTutorialTarget(106,'top',5);
+  else if(tutorialStage===107)setSpaceTutorialTarget(108,'top',2);
+  else if(tutorialStage===109)setSpaceTutorialTarget(110,'top',3);
+  else if(tutorialStage===111){applySpaceTutorialBoard(1);tutorialStage=112;tutorialShowStage();}
+  else if(tutorialStage===112)setSpaceTutorialTarget(113,'bottom',7);
+  else if(tutorialStage===114)setSpaceTutorialTarget(115,'top',4);
+  else if(tutorialStage===116)setSpaceTutorialTarget(117,'right',5);
+  else if(tutorialStage===118)setSpaceTutorialTarget(119,'right',7);
+  else if(tutorialStage===120)setSpaceTutorialTarget(121,'right',5);
+  else if(tutorialStage===123)setSpaceTutorialTarget(124,'bottom',6);
+  else if(tutorialStage===125){applySpaceTutorialBoard(2);tutorialStage=126;tutorialShowStage();}
+  else if(tutorialStage===126)setSpaceTutorialTarget(127,'bottom',6);
+  else if(tutorialStage===128)setSpaceTutorialTarget(129,'top',8);
+  else if(tutorialStage===130){applySpaceTutorialBoard(3);tutorialStage=131;tutorialShowStage();}
+  else if(tutorialStage===131)setSpaceTutorialTarget(132,'right',5);
+  else if(tutorialStage===133){if(currentPlayerAccount?.session_token)await awardSpaceEvent('tutorial');showToast('Tutoriel Orapa Space terminé !');exitInteractiveTutorial(true);}
+}
 $('#tutorialCoachAction').addEventListener('click',()=>{
+  if(tutorialKind==='space'){void advanceSpaceTutorial();return;}
   if(tutorialStage===0){tutorialStage=24;tutorialShowStage();}
   else if(tutorialStage===24){tutorialStage=1;renderLabels();tutorialShowStage();}
   else if(tutorialStage===2){
