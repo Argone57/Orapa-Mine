@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0010';
+const APP_VERSION = '20260820-0011';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2560,11 +2560,16 @@ function simulateBeam(side,index,piecesList){
   const points = [pos], hitPieceIds=[];
   let guard=0, absorbed=false, exitSide=null, exitIndex=null,blackHoleBent=false;
   let skipPieceId=null, skipEdgeIdx=null, passThroughPieceId=null;
+  // Lorsqu'une planète réfléchit l'onde dans la même case qu'une attraction
+  // de trou noir, cette attraction précise est annulée. Une autre case
+  // adjacente au trou noir pourra toutefois encore provoquer une réfraction.
+  const cancelledGravityCells=new Set();
 
   while(true){
     guard++;
     if(guard>400){ absorbed='loop'; break; }
     let best = { ...intersectBoundary(pos,dir), kind:'boundary' };
+    const gravityCandidates=[];
     for(const piece of placed){
       if(piece.id===passThroughPieceId) continue;
       const edges = beamEdges(piece);
@@ -2589,8 +2594,22 @@ function simulateBeam(side,index,piecesList){
           const y=c.y+dir.dy,t=(y-pos.y)/dir.dy;
           if(t>EPS)gravityPoint={t,point:{x:pos.x,y}};
         }
-        if(gravityPoint&&gravityPoint.t<best.t-EPS)best={...gravityPoint,kind:'gravity',piece};
+        if(gravityPoint){
+          const before={x:gravityPoint.point.x-dir.dx*EPS*100,y:gravityPoint.point.y-dir.dy*EPS*100};
+          const cellKey=`${piece.id}:${Math.floor(before.x+EPS)}:${Math.floor(before.y+EPS)}`;
+          const candidate={...gravityPoint,kind:'gravity',piece,cellKey};
+          gravityCandidates.push(candidate);
+          if(!cancelledGravityCells.has(cellKey)&&gravityPoint.t<best.t-EPS)best=candidate;
+        }
       }
+    }
+    if(best.kind==='edge'){
+      // Le point d'attraction se situe à la sortie de la case adjacente au
+      // trou noir. Si une réflexion est rencontrée dans cette même case,
+      // elle est prioritaire et la réfraction de cette case est neutralisée.
+      gravityCandidates.forEach(candidate=>{
+        if(candidate.t+EPS>=best.t&&candidate.t-best.t<=1+EPS)cancelledGravityCells.add(candidate.cellKey);
+      });
     }
     if(best.kind==='boundary'){
       points.push(best.point);
@@ -2805,7 +2824,8 @@ function makeLabel(side,index){
         // les anciennes valeurs « Entré par X » sont affichées comme « Sort en X ».
         const rawPairText = state.labelPair[side][index] || '?';
         const pairText = rawPairText.replace(/^Entr(?:é|e) par\s+/i, 'Sort en ');
-        showLabelBubble(div, colorName ? `${pairText}\n${colorName}` : pairText);
+        const noExit=/aucune sortie/i.test(pairText);
+        showLabelBubble(div, colorName&&!noExit ? `${pairText}\n${colorName}` : pairText);
         pulseLabelPair(side, index);
       });
     } else {
@@ -3460,7 +3480,7 @@ function onLabelClick(side,index){
   if(result.absorbed){
     const outcome=result.absorbed==='loop'?'Prisonnière':(result.absorbed==='disappeared'?'Disparue':'Absorbé');
     text = `<b>${entryLabelTxt}</b> — ${outcome}`;
-    if(result.absorbed==='loop'&&state.gameVariant==='space'&&currentPlayerAccount?.session_token){awardSpaceEvent('trapped').catch(()=>{});}
+    if(result.absorbed==='loop'&&state.mode==='solo'&&state.gameVariant==='space'&&currentPlayerAccount?.session_token){awardSpaceEvent('trapped').catch(()=>{});}
   } else {
     const bounced = result.exitSide===side && result.exitIndex===index;
     const exitLabel = labelText(result.exitSide, result.exitIndex);
