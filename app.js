@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0005';
+const APP_VERSION = '20260821-0006';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3635,7 +3635,7 @@ async function activeSoloGridIsAllowed(){
 const TUTORIAL_PROGRESS_KEY='orapaTutorialProgressV1',SPACE_TUTORIAL_PROGRESS_KEY='orapaSpaceTutorialProgressV1';
 let tutorialActive=false,tutorialKind='mine',tutorialResumeKind='mine',tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null,tutorialPlacementEnds=[],tutorialStepNumber=0,tutorialStepKey='';
 function tutorialProgressKey(kind=tutorialKind){return kind==='space'?SPACE_TUTORIAL_PROGRESS_KEY:TUTORIAL_PROGRESS_KEY;}
-function tutorialProgressVersion(kind=tutorialKind){return kind==='space'?7:1;}
+function tutorialProgressVersion(kind=tutorialKind){return kind==='space'?8:1;}
 function tutorialLoadProgress(kind=tutorialKind){try{const data=JSON.parse(localStorage.getItem(tutorialProgressKey(kind))||'null');return data?.version===tutorialProgressVersion(kind)&&data.state?data:null;}catch(e){return null;}}
 function tutorialSaveProgress(){
   if(!tutorialActive)return;
@@ -3907,7 +3907,7 @@ function spaceTutorialAfterRay(){
   else if(tutorialStage===115)setSpaceTutorialTarget(117,'right',5);
   else if(tutorialStage===117){tutorialStage=118;tutorialShowStage();}
   else if(tutorialStage===119){tutorialStage=120;tutorialShowStage();}
-  else if(tutorialStage===124){applySpaceTutorialBoard(2);setSpaceTutorialTarget(127,'bottom',6);}
+  else if(tutorialStage===124){tutorialStage=125;tutorialShowStage();}
   else if(tutorialStage===127){tutorialStage=128;tutorialShowStage();}
   else if(tutorialStage===129){tutorialStage=130;tutorialShowStage();}
   else if(tutorialStage===132){tutorialStage=133;tutorialShowStage();}
@@ -3936,6 +3936,7 @@ function spaceTutorialShowStage(){
   else if(tutorialStage===121)tutorialCoach('Premier point important','Comme tu peux le constater, cette onde est &eacute;galement ressortie par <b>O</b>. Cela am&egrave;ne un premier point tr&egrave;s important : une onde ne subira qu&rsquo;<b>une seule et unique r&eacute;fraction</b> sur son trajet.<br><br>C&rsquo;est pour cette raison qu&rsquo;apr&egrave;s avoir rebondi sur l&rsquo;anneau de la plan&egrave;te blanche, l&rsquo;onde n&rsquo;a pas &eacute;t&eacute; d&eacute;vi&eacute;e pour ressortir en 18, mais a continu&eacute; tout droit vers O.<br><br>Reclique sur <b>16</b> pour revoir sa sortie.');
   else if(tutorialStage===122)tutorialCoach('Comparer les deux ondes','Reclique maintenant sur <b>18</b>.');
   else if(tutorialStage===124)tutorialCoach('V&eacute;rifier depuis la sortie','N&rsquo;oublie pas que tu peux aussi envoyer une onde depuis une sortie afin de v&eacute;rifier son propre parcours.<br><br>Touche la lettre <b>O</b>.');
+  else if(tutorialStage===125)tutorialCoach('Observe le trajet depuis O','L&rsquo;onde envoy&eacute;e depuis <b>O</b> ressort en <b>18</b>. Prends le temps d&rsquo;observer ce trajet sur la grille et son r&eacute;sultat dans l&rsquo;historique avant de passer au deuxi&egrave;me point important.','Continuer');
   else if(tutorialStage===127)tutorialCoach('Deuxi&egrave;me point important','Un trou noir peut se trouver &agrave; proximit&eacute; d&rsquo;une ou plusieurs plan&egrave;tes.<br><br>Lorsqu&rsquo;une r&eacute;fraction doit avoir lieu sur la m&ecirc;me case qu&rsquo;un rebond sur une plan&egrave;te, cette r&eacute;fraction est <b>annul&eacute;e</b>. Selon la suite du parcours, elle pourra donc encore se produire un peu plus loin.<br><br>Touche la lettre <b>O</b> pour observer ce comportement.');
   else if(tutorialStage===128)tutorialCoach('Observe la r&eacute;fraction report&eacute;e','La r&eacute;fraction qui aurait pu avoir lieu en B7 a &eacute;t&eacute; annul&eacute;e par le rebond sur la plan&egrave;te bleue. L&rsquo;onde a &eacute;t&eacute; dirig&eacute;e vers 12 mais, comme elle n&rsquo;avait pas encore subi de r&eacute;fraction, celle-ci s&rsquo;est d&eacute;clench&eacute;e en B9 avant de diriger l&rsquo;onde vers la plan&egrave;te rouge et sa sortie en <b>14</b>.<br><br>Prends le temps d&rsquo;observer le trajet complet.','Continuer');
   else if(tutorialStage===129)tutorialCoach('Un autre trajet','Touche maintenant l&rsquo;entr&eacute;e <b>9</b> pour observer ce qui se produit lorsque le rebond annule la r&eacute;fraction.');
@@ -4010,8 +4011,7 @@ async function advanceSpaceTutorial(){
   else if(tutorialStage===118)setSpaceTutorialTarget(119,'right',7);
   else if(tutorialStage===120)setSpaceTutorialTarget(121,'right',5);
   else if(tutorialStage===123)setSpaceTutorialTarget(124,'bottom',6);
-  else if(tutorialStage===125){applySpaceTutorialBoard(2);tutorialStage=126;tutorialShowStage();}
-  else if(tutorialStage===126)setSpaceTutorialTarget(127,'bottom',6);
+  else if(tutorialStage===125){applySpaceTutorialBoard(2);setSpaceTutorialTarget(127,'bottom',6);}
   else if(tutorialStage===128)setSpaceTutorialTarget(129,'top',8);
   else if(tutorialStage===130){applySpaceTutorialBoard(3);setSpaceTutorialTarget(132,'right',5);}
   else if(tutorialStage===133){if(currentPlayerAccount?.session_token)await awardSpaceEvent('tutorial');showToast('Tutoriel Orapa Space terminé !');exitInteractiveTutorial(true);}
