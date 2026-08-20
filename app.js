@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0019';
+const APP_VERSION = '20260820-0020';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3626,10 +3626,11 @@ async function activeSoloGridIsAllowed(){
 const TUTORIAL_PROGRESS_KEY='orapaTutorialProgressV1',SPACE_TUTORIAL_PROGRESS_KEY='orapaSpaceTutorialProgressV1';
 let tutorialActive=false,tutorialKind='mine',tutorialResumeKind='mine',tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null,tutorialPlacementEnds=[],tutorialStepNumber=0,tutorialStepKey='';
 function tutorialProgressKey(kind=tutorialKind){return kind==='space'?SPACE_TUTORIAL_PROGRESS_KEY:TUTORIAL_PROGRESS_KEY;}
-function tutorialLoadProgress(kind=tutorialKind){try{const data=JSON.parse(localStorage.getItem(tutorialProgressKey(kind))||'null');return data?.version===1&&data.state?data:null;}catch(e){return null;}}
+function tutorialProgressVersion(kind=tutorialKind){return kind==='space'?2:1;}
+function tutorialLoadProgress(kind=tutorialKind){try{const data=JSON.parse(localStorage.getItem(tutorialProgressKey(kind))||'null');return data?.version===tutorialProgressVersion(kind)&&data.state?data:null;}catch(e){return null;}}
 function tutorialSaveProgress(){
   if(!tutorialActive)return;
-  try{localStorage.setItem(tutorialProgressKey(),JSON.stringify({version:1,tutorialKind,state,tutorialStage,tutorialTargetLabel,tutorialTargetCell,tutorialWrongPieceId,tutorialLastResult,tutorialRayIndex,tutorialPlacementIndex,tutorialPlacementPieceId,tutorialStepNumber,tutorialStepKey}));}catch(e){}
+  try{localStorage.setItem(tutorialProgressKey(),JSON.stringify({version:tutorialProgressVersion(),tutorialKind,state,tutorialStage,tutorialTargetLabel,tutorialTargetCell,tutorialWrongPieceId,tutorialLastResult,tutorialRayIndex,tutorialPlacementIndex,tutorialPlacementPieceId,tutorialStepNumber,tutorialStepKey}));}catch(e){}
 }
 function tutorialClearProgress(kind=tutorialKind){try{localStorage.removeItem(tutorialProgressKey(kind));}catch(e){}}
 function tutorialClearTargets(){document.querySelectorAll('.tutorial-target').forEach(el=>el.classList.remove('tutorial-target'));document.querySelectorAll('.tutorial-placement-target').forEach(el=>el.remove());}
@@ -3855,12 +3856,12 @@ function spaceTutorialBoards(){
     ],
     [
       spaceTutorialPiece('st2-white','spaceWhiteLarge',2,1,90),spaceTutorialPiece('st2-red-small','spaceRedSmall',5.5,2.5),
-      spaceTutorialPiece('st2-blue','spaceBlue',1,3.5),spaceTutorialPiece('st2-red-large','spaceRedLarge',4,3.5),
-      spaceTutorialPiece('st2-yellow','spaceYellow',3.5,6.5),spaceTutorialPiece('st2-ring','spaceRing',8,3.5),
+      spaceTutorialPiece('st2-blue','spaceBlue',1,4),spaceTutorialPiece('st2-red-large','spaceRedLarge',4,4),
+      spaceTutorialPiece('st2-yellow','spaceYellow',3.5,6.5),spaceTutorialPiece('st2-ring','spaceRing',8,3),
       spaceTutorialPiece('st2-hole','spaceBlackHole',7.5,6.5)
     ],
     [
-      spaceTutorialPiece('st3-white','spaceWhiteLarge',1,3.5),spaceTutorialPiece('st3-ring','spaceRing',3,2,90),
+      spaceTutorialPiece('st3-white','spaceWhiteLarge',1,4),spaceTutorialPiece('st3-ring','spaceRing',3,2,90),
       spaceTutorialPiece('st3-blue','spaceBlue',6,1),spaceTutorialPiece('st3-hole','spaceBlackHole',7.5,2.5),
       spaceTutorialPiece('st3-red-large','spaceRedLarge',8,3.5),spaceTutorialPiece('st3-yellow','spaceYellow',3.5,6.5),
       spaceTutorialPiece('st3-red-small','spaceRedSmall',.5,7.5)
@@ -3908,7 +3909,7 @@ function spaceTutorialShowStage(){
   else if(tutorialStage===115)tutorialCoach('Un autre trajet','Touche maintenant l&rsquo;entr&eacute;e <b>5</b>.');
   else if(tutorialStage===116)tutorialCoach('La r&eacute;fraction','La grande nouveaut&eacute; du trou noir est sa capacit&eacute; &agrave; r&eacute;fracter les ondes qui passent juste &agrave; c&ocirc;t&eacute; de lui. Voyons ce que cela signifie.','Tester l&rsquo;entr&eacute;e 16');
   else if(tutorialStage===117)tutorialCoach('Une onde voisine','Touche l&rsquo;entr&eacute;e <b>16</b>.');
-  else if(tutorialStage===118)tutorialCoach('Une trajectoire redirig&eacute;e','L&rsquo;onde a long&eacute; le trou noir avant d&rsquo;&ecirc;tre redirig&eacute;e vers le bas : c&rsquo;est la <b>r&eacute;fraction</b>.<br><br>La couleur n&rsquo;est plus indiqu&eacute;e sur la sortie. Plusieurs ondes diff&eacute;rentes peuvent maintenant ressortir au m&ecirc;me endroit.','Tester l&rsquo;entr&eacute;e 18');
+  else if(tutorialStage===118)tutorialCoach('Une trajectoire redirig&eacute;e','L&rsquo;onde a long&eacute; le trou noir avant d&rsquo;&ecirc;tre redirig&eacute;e vers le bas : c&rsquo;est la <b>r&eacute;fraction</b>.<br><br>Comme tu peux le constater, la couleur de la sortie n&rsquo;est plus affich&eacute;e sur la case ! Avec la r&eacute;fraction, il est maintenant possible que plusieurs ondes diff&eacute;rentes ressortent par un m&ecirc;me endroit. Voyons cela.','Tester l&rsquo;entr&eacute;e 18');
   else if(tutorialStage===119)tutorialCoach('Une seconde onde','Touche l&rsquo;entr&eacute;e <b>18</b>.');
   else if(tutorialStage===120)tutorialCoach('Une seule r&eacute;fraction','Cette onde ressort &eacute;galement par <b>O</b>. Une onde ne subit qu&rsquo;<b>une seule et unique r&eacute;fraction</b> pendant son trajet.<br><br>Apr&egrave;s avoir rebondi sur l&rsquo;anneau, elle n&rsquo;est donc pas d&eacute;vi&eacute;e une seconde fois vers 18 et continue tout droit vers O.<br><br>Tu peux recliquer sur une entr&eacute;e d&eacute;j&agrave; utilis&eacute;e pour revoir sa sortie.','Revoir l&rsquo;onde 16');
   else if(tutorialStage===121)tutorialCoach('Revoir une sortie','Reclique sur <b>16</b>.');
