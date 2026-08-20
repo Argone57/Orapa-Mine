@@ -2324,6 +2324,23 @@ function pieceAtCell(row,col,piecesList){
     });
   });
 }
+function pieceAtCoordinateCell(row,col,piecesList){
+  piecesList = piecesList || state.pieces;
+  const cellPoly = [{x:col,y:row},{x:col+1,y:row},{x:col+1,y:row+1},{x:col,y:row+1}];
+  return piecesList.find(piece=>{
+    if(!piece.center) return false;
+    // L'anneau de la planète annulaire repose exactement sur une ligne de la
+    // grille : il n'occupe donc aucune des deux cases voisines pour un indice.
+    // Seule sa partie centrale en losange peut rendre une case blanche.
+    const polygons = piece.type==='spaceRing'
+      ? [[[-1,0],[0,-1],[1,0],[0,1]].map(vertex=>transformVertex(vertex,piece.flipped,piece.rotation,piece.center))]
+      : pieceCollisionPolygons(piece);
+    return polygons.some(poly=>{
+      const inter = clipPolygon(ensureCCW(poly), cellPoly);
+      return inter.length>0 && polyArea(inter) > 1e-6;
+    });
+  });
+}
 
 // ---------------------------------------------------------------------
 // GEOMETRY — collision : les pièces ne peuvent se toucher que par un coin
@@ -3542,7 +3559,7 @@ async function onCellClick(r,c,cellEl){
   }
   state.cellUsed[key] = true;
   const piecesForQuery = state.mode==='solo' ? state.secretPieces : state.pieces;
-  const piece = pieceAtCell(r,c,piecesForQuery);
+  const piece = pieceAtCoordinateCell(r,c,piecesForQuery);
   let text, hex;
   if(piece){
     const def = CONFIG.PIECES[piece.type];
