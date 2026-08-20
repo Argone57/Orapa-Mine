@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0016';
+const APP_VERSION = '20260820-0017';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3837,10 +3837,16 @@ const SPACE_TUTORIAL_STEPS=[
  ['Onde prisonnière','Certaines trajectoires ne ressortent jamais : elles sont indiquées comme Prisonnières, avec un symbole formé de barreaux clairs. Tu connais maintenant toutes les différences d’Orapa Space.']
 ];
 function renderSpaceTutorial(){const step=SPACE_TUTORIAL_STEPS[spaceTutorialStep];$('#spaceTutorialTitle').textContent=`🚀 ${step[0]}`;$('#spaceTutorialContent').innerHTML=`<p>${step[1]}</p><p class="muted">Étape ${spaceTutorialStep+1} sur ${SPACE_TUTORIAL_STEPS.length}</p>`;$('#spaceTutorialPrevious').style.display=spaceTutorialStep?'':'none';$('#spaceTutorialNext').textContent=spaceTutorialStep===SPACE_TUTORIAL_STEPS.length-1?'Terminer':'Suivant';}
-$('#homeLearn').addEventListener('click',()=>$('#tutorialChoiceModal').classList.add('open'));
+function canPreviewSpaceTutorial(){
+  return String(currentPlayerAccount?.display_name||'').trim().toLocaleLowerCase('fr-FR')==='argone';
+}
+$('#homeLearn').addEventListener('click',()=>{
+  $('#tutorialSpace').hidden=!canPreviewSpaceTutorial();
+  $('#tutorialChoiceModal').classList.add('open');
+});
 $('#tutorialChoiceClose').addEventListener('click',()=>$('#tutorialChoiceModal').classList.remove('open'));
 $('#tutorialMine').addEventListener('click',()=>{$('#tutorialChoiceModal').classList.remove('open');startInteractiveTutorial();});
-$('#tutorialSpace').addEventListener('click',()=>{$('#tutorialChoiceModal').classList.remove('open');spaceTutorialStep=0;renderSpaceTutorial();$('#spaceTutorialModal').classList.add('open');});
+$('#tutorialSpace').addEventListener('click',()=>{if(!canPreviewSpaceTutorial())return;$('#tutorialChoiceModal').classList.remove('open');spaceTutorialStep=0;renderSpaceTutorial();$('#spaceTutorialModal').classList.add('open');});
 $('#spaceTutorialClose').addEventListener('click',()=>$('#spaceTutorialModal').classList.remove('open'));
 $('#spaceTutorialPrevious').addEventListener('click',()=>{spaceTutorialStep=Math.max(0,spaceTutorialStep-1);renderSpaceTutorial();});
 $('#spaceTutorialNext').addEventListener('click',async()=>{if(spaceTutorialStep<SPACE_TUTORIAL_STEPS.length-1){spaceTutorialStep++;renderSpaceTutorial();return;}$('#spaceTutorialModal').classList.remove('open');if(currentPlayerAccount?.session_token)await awardSpaceEvent('tutorial');showToast('Tutoriel Orapa Space terminé !');});
