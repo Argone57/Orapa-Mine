@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0003';
+const APP_VERSION = '20260820-0004';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -77,13 +77,14 @@ const SHAPES = {
   // Quadrilatère de 2×4 : le grand côté (4 cases) est le premier côté.
   // Cette orientation source pose ce grand côté à gauche ; les rotations
   // permettent ensuite de le placer contre n’importe quel bord.
-  spaceWhiteLarge:{pts:[[-1,-2],[1,-1],[1,1],[-1,2]]},
+  // Demi-octogone 4 x 2 ; le premier côté est le grand côté de 4 cases.
+  spaceWhiteLarge:{pts:[[0,-2],[0,2],[1,2],[2,1],[2,-1],[1,-2]]},
   spaceRedSmall:{pts:[[-0.5,-0.5],[0.5,-0.5],[0.5,0.5],[-0.5,0.5]]},
   spaceRedLarge:{pts:[[0,-1],[1,0],[0,1],[-1,0]]},
   spaceBlue:{pts:[[0,-1],[1,0],[0,1],[-1,0]]},
   spaceYellow:{pts:[[-0.5,-1.5],[0.5,-1.5],[1.5,-0.5],[1.5,0.5],[0.5,1.5],[-0.5,1.5],[-1.5,0.5],[-1.5,-0.5]]},
   // Losange central de 2×2 prolongé par deux anneaux centrés sur son axe.
-  spaceRing:{pts:[[-2,-0.18],[-1,-0.18],[0,-1],[1,-0.18],[2,-0.18],[2,0.18],[1,0.18],[0,1],[-1,0.18],[-2,0.18]]},
+  spaceRing:{pts:[[-2,-0.16],[-1,-0.16],[-1,-1],[1,-1],[1,-0.16],[2,-0.16],[2,0.16],[1,0.16],[1,1],[-1,1],[-1,0.16],[-2,0.16]]},
   spaceBlackHole:{pts:[[-0.5,-0.5],[0.5,-0.5],[0.5,0.5],[-0.5,0.5]]}
 };
 
@@ -781,9 +782,7 @@ function readOnlyGridSvg(decoded){
     const def=CONFIG.PIECES[piece.type];
     if(def.isBlackHole)return `<circle cx="${piece.center.x}" cy="${piece.center.y}" r=".48" fill="#050407" stroke="#655b72" stroke-width=".06"/>`;
     if(def.isRing){
-      const outer=polyPointsAttr(pieceVertices(piece));
-      const core=polyPointsAttr([[-1,0],[0,-1],[1,0],[0,1]].map(vertex=>transformVertex(vertex,piece.flipped,piece.rotation,piece.center)));
-      return `<polygon points="${outer}" fill="none" stroke="#f5f1e8" stroke-width=".12"/><polygon points="${core}" fill="#f5f1e8" stroke="#f5f1e8" stroke-width=".06"/>`;
+      return pieceCollisionPolygons(piece).map(part=>`<polygon points="${polyPointsAttr(part)}" fill="#f5f1e8" stroke="#f5f1e8" stroke-width=".035"/>`).join('');
     }
     const fill=def.isDiamond?'rgba(207,216,220,.62)':def.hex;
     return `<polygon points="${polyPointsAttr(pieceVertices(piece))}" fill="${fill}" stroke="rgba(0,0,0,.42)" stroke-width=".045"/>`;
@@ -1646,9 +1645,6 @@ function rerollDailyLayoutV2Roles(plan,rngFn){
       }else{
         touchTypes=seededShuffle(types.filter(type=>type!==partialType),rngFn).slice(0,2);
       }
-    }else if(def.isRing){
-      const outer=document.createElementNS(SVGNS,'polygon');outer.setAttribute('points',polyPointsAttr(pts));outer.setAttribute('fill','none');outer.setAttribute('stroke',def.hex);outer.setAttribute('stroke-width','.14');outer.setAttribute('stroke-linejoin','round');svg.appendChild(outer);
-      const core=document.createElementNS(SVGNS,'polygon');const corePts=[[-1,0],[0,-1],[1,0],[0,1]].map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0}));core.setAttribute('points',polyPointsAttr(corePts));core.setAttribute('fill',def.hex);core.setAttribute('stroke',def.hex);core.setAttribute('stroke-width','.05');svg.appendChild(core);
     }else{
       touchTypes=seededShuffle(types,rngFn).slice(0,2);
     }
@@ -2368,12 +2364,15 @@ function pieceCollisionPolygons(piece){
   if(piece.type!=='spaceRing')return [pieceVertices(piece)];
   // L’anneau est concave : on le découpe en trois polygones convexes pour que
   // les collisions et les coordonnées révélées suivent sa silhouette réelle.
-  const parts=[
-    [[-1,0],[0,-1],[1,0],[0,1]],
-    [[-2,-0.18],[-1,-0.18],[-1,0.18],[-2,0.18]],
-    [[1,-0.18],[2,-0.18],[2,0.18],[1,0.18]]
-  ];
+  const parts=spaceRingLocalParts();
   return parts.map(part=>part.map(vertex=>transformVertex(vertex,piece.flipped,piece.rotation,piece.center)));
+}
+function spaceRingLocalParts(){
+  return [
+    [[-1,0],[0,-1],[1,0],[0,1]],
+    [[-2,-0.16],[-1,-0.16],[-1,0.16],[-2,0.16]],
+    [[1,-0.16],[2,-0.16],[2,0.16],[1,0.16]]
+  ];
 }
 function spacePiecesOverlap(pieceA,pieceB){
   return pieceCollisionPolygons(pieceA).some(polyA=>pieceCollisionPolygons(pieceB).some(polyB=>{
@@ -2384,9 +2383,9 @@ function spacePiecesOverlap(pieceA,pieceB){
 function spaceEdgeConstraintValid(piece){
   if(piece.type!=='spaceWhiteLarge')return true;
   const vertices=pieceVertices(piece);
-  // Dans la forme source, le grand côté de quatre cases relie le dernier
-  // sommet au premier. Lui seul doit être posé contre un bord.
-  const a=vertices[vertices.length-1],b=vertices[0];
+  // Dans la forme source, le grand côté de quatre cases relie les deux
+  // premiers sommets. Lui seul doit être posé contre un bord.
+  const a=vertices[0],b=vertices[1];
   return (Math.abs(a.x)<1e-6&&Math.abs(b.x)<1e-6)||(Math.abs(a.x-COLS)<1e-6&&Math.abs(b.x-COLS)<1e-6)||(Math.abs(a.y)<1e-6&&Math.abs(b.y)<1e-6)||(Math.abs(a.y-ROWS)<1e-6&&Math.abs(b.y-ROWS)<1e-6);
 }
 function placementValid(candidate, excludeId, piecesList){
@@ -2553,10 +2552,10 @@ function simulateBeam(side,index,piecesList){
         // orthogonalement à côté du trou noir. Elle dévie sur le bord de
         // sortie de cette case, donc après l’avoir entièrement parcourue.
         if(dir.dx!==0&&Math.abs(Math.abs(pos.y-c.y)-1)<EPS){
-          const x=c.x+dir.dx*.5,t=(x-pos.x)/dir.dx;
+          const x=c.x+dir.dx,t=(x-pos.x)/dir.dx;
           if(t>EPS)gravityPoint={t,point:{x,y:pos.y}};
         }else if(dir.dy!==0&&Math.abs(Math.abs(pos.x-c.x)-1)<EPS){
-          const y=c.y+dir.dy*.5,t=(y-pos.y)/dir.dy;
+          const y=c.y+dir.dy,t=(y-pos.y)/dir.dy;
           if(t>EPS)gravityPoint={t,point:{x:pos.x,y}};
         }
         if(gravityPoint&&gravityPoint.t<best.t-EPS)best={...gravityPoint,kind:'gravity',piece};
@@ -2795,8 +2794,9 @@ function svgPolyForPiece(piece, opts){
     const circle=document.createElementNS(SVGNS,'circle');circle.setAttribute('cx',piece.center.x);circle.setAttribute('cy',piece.center.y);circle.setAttribute('r','.48');circle.setAttribute('fill','#050407');circle.setAttribute('stroke',opts.invalid?'#ff8a5c':'#655b72');circle.setAttribute('stroke-width','.06');circle.setAttribute('class','piece-poly'+(piecesEditable()?' interactive':'')+(opts.invalid?' piece-invalid':''));circle.dataset.id=piece.id;return circle;
   }
   if(def.isRing&&!opts.outline){
-    const group=document.createElementNS(SVGNS,'g'),outer=document.createElementNS(SVGNS,'polygon');outer.setAttribute('points',polyPointsAttr(verts));outer.setAttribute('fill','none');outer.setAttribute('stroke',opts.invalid?'#ff8a5c':def.hex);outer.setAttribute('stroke-width','.14');outer.setAttribute('stroke-linejoin','round');outer.setAttribute('class','piece-poly'+(piecesEditable()?' interactive':'')+(opts.invalid?' piece-invalid':''));outer.dataset.id=piece.id;group.appendChild(outer);
-    const center=document.createElementNS(SVGNS,'polygon'),local=[[-1,0],[0,-1],[1,0],[0,1]].map(v=>transformVertex(v,piece.flipped,piece.rotation,piece.center));center.setAttribute('points',polyPointsAttr(local));center.setAttribute('fill',opts.invalid?'rgba(180,60,50,.75)':def.hex);center.setAttribute('stroke',opts.invalid?'#ff8a5c':def.hex);center.setAttribute('stroke-width','.06');center.setAttribute('pointer-events','none');group.appendChild(center);group.dataset.id=piece.id;return group;
+    const group=document.createElementNS(SVGNS,'g');
+    pieceCollisionPolygons(piece).forEach(points=>{const part=document.createElementNS(SVGNS,'polygon');part.setAttribute('points',polyPointsAttr(points));part.setAttribute('fill',opts.invalid?'rgba(180,60,50,.75)':def.hex);part.setAttribute('stroke',opts.invalid?'#ff8a5c':def.hex);part.setAttribute('stroke-width','.035');part.setAttribute('vector-effect','non-scaling-stroke');group.appendChild(part);});
+    group.setAttribute('class','piece-poly'+(piecesEditable()?' interactive':'')+(opts.invalid?' piece-invalid':''));group.dataset.id=piece.id;return group;
   }
   const poly = document.createElementNS(SVGNS,'polygon');
   poly.setAttribute('points', polyPointsAttr(verts));
@@ -2938,6 +2938,8 @@ function renderPalette(){
     const def = CONFIG.PIECES[piece.type];
     if(def.isBlackHole){
       const circle=document.createElementNS(SVGNS,'circle');circle.setAttribute('cx',cx);circle.setAttribute('cy',cy);circle.setAttribute('r',Math.max(baseW,baseH)*.45);circle.setAttribute('fill','#020204');circle.setAttribute('stroke','#7d67a8');circle.setAttribute('stroke-width','.07');svg.appendChild(circle);
+    }else if(def.isRing){
+      spaceRingLocalParts().forEach(part=>{const poly=document.createElementNS(SVGNS,'polygon');const partPts=part.map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0}));poly.setAttribute('points',polyPointsAttr(partPts));poly.setAttribute('fill',def.hex);poly.setAttribute('stroke',def.hex);poly.setAttribute('stroke-width','.035');svg.appendChild(poly);});
     }else{
       const poly = document.createElementNS(SVGNS,'polygon');
       poly.setAttribute('points', polyPointsAttr(pts));
@@ -3266,11 +3268,11 @@ function onPieceDown(ev, piece, el){
     ghostHalfW=((w+2*pad)*csVal)/2;
     ghostHalfH=((h+2*pad)*csVal)/2;
     const def = CONFIG.PIECES[piece.type];
-    const ringCorePts=def.isRing?[[-1,0],[0,-1],[1,0],[0,1]].map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0})):[];
+    const ringParts=def.isRing?spaceRingLocalParts().map(part=>part.map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0}))):[];
     const ghostShape=def.isBlackHole
       ? `<circle cx="0" cy="0" r=".48" fill="#050407"/>`
       : def.isRing
-        ? `<polygon points="${polyPointsAttr(pts)}" fill="none" stroke="${def.hex}" stroke-width=".14"/><polygon points="${polyPointsAttr(ringCorePts)}" fill="${def.hex}"/>`
+        ? ringParts.map(part=>`<polygon points="${polyPointsAttr(part)}" fill="${def.hex}" stroke="${def.hex}" stroke-width=".035"/>`).join('')
         : `<polygon points="${polyPointsAttr(pts)}" fill="${def.isDiamond?'rgba(207,216,220,0.55)':def.hex}" stroke="rgba(0,0,0,.4)" stroke-width="0.06"/>`;
     ghost.innerHTML = `<svg viewBox="${minX-pad} ${minY-pad} ${w+2*pad} ${h+2*pad}" width="100%" height="100%">${ghostShape}</svg>`;
     document.body.appendChild(ghost);
