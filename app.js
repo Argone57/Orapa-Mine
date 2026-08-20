@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0001';
+const APP_VERSION = '20260821-0002';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2612,7 +2612,9 @@ function simulateBeam(side,index,piecesList){
         const [A,B] = edges[ei];
         const hit = intersectRaySegment(pos,dir,A,B);
         if(hit&&CONFIG.PIECES[piece.type]?.isBlackHole&&(!directBlackHoleHit||hit.t<directBlackHoleHit.t))directBlackHoleHit=hit;
-        if(hit && hit.t < best.t - EPS) best = { t:hit.t, point:hit.point, kind:'edge', piece, edgeType:edgeKind(A,B), edgeIdx:ei };
+        // À distance égale, un rebond sur une planète est prioritaire sur la
+        // réfraction du trou noir calculée dans cette même case.
+        if(hit && (hit.t < best.t - EPS || (best.kind==='gravity'&&Math.abs(hit.t-best.t)<=EPS))) best = { t:hit.t, point:hit.point, kind:'edge', piece, edgeType:edgeKind(A,B), edgeIdx:ei };
       }
       if(CONFIG.PIECES[piece.type]?.isBlackHole&&!blackHoleBent&&!directBlackHoleHit){
         const c=piece.center;
@@ -2833,7 +2835,7 @@ function makeLabel(side,index){
       div.classList.add('beam-absorbed','space-disappeared');
     }else if(colorName==='Prisonnière'){
       div.classList.add('space-prison-label');
-      const bars=document.createElement('span');bars.className='space-prison-icon';bars.textContent='▮▮▮▮';div.appendChild(bars);
+      const bars=document.createElement('span');bars.className='space-prison-icon';bars.innerHTML='<i></i><i></i><i></i><i></i>';div.appendChild(bars);
     }else if(colorName==='Noir'){
       // Le noir est une couleur obtenue par combinaison : il conserve
       // l'ancien affichage plein, contrairement à une onde absorbée.
@@ -3626,7 +3628,7 @@ async function activeSoloGridIsAllowed(){
 const TUTORIAL_PROGRESS_KEY='orapaTutorialProgressV1',SPACE_TUTORIAL_PROGRESS_KEY='orapaSpaceTutorialProgressV1';
 let tutorialActive=false,tutorialKind='mine',tutorialResumeKind='mine',tutorialStage=0,tutorialTargetLabel=null,tutorialTargetCell=null,tutorialWrongPieceId=null,tutorialLastResult=null,tutorialRayExamples=[],tutorialRayIndex=0,tutorialPlacementIndex=0,tutorialPlacementPieceId=null,tutorialPlacementEnds=[],tutorialStepNumber=0,tutorialStepKey='';
 function tutorialProgressKey(kind=tutorialKind){return kind==='space'?SPACE_TUTORIAL_PROGRESS_KEY:TUTORIAL_PROGRESS_KEY;}
-function tutorialProgressVersion(kind=tutorialKind){return kind==='space'?3:1;}
+function tutorialProgressVersion(kind=tutorialKind){return kind==='space'?4:1;}
 function tutorialLoadProgress(kind=tutorialKind){try{const data=JSON.parse(localStorage.getItem(tutorialProgressKey(kind))||'null');return data?.version===tutorialProgressVersion(kind)&&data.state?data:null;}catch(e){return null;}}
 function tutorialSaveProgress(){
   if(!tutorialActive)return;
@@ -3891,9 +3893,9 @@ function spaceTutorialAfterRay(){
   else if(tutorialStage===115)setSpaceTutorialTarget(117,'right',5);
   else if(tutorialStage===117)setSpaceTutorialTarget(119,'right',7);
   else if(tutorialStage===119)setSpaceTutorialTarget(121,'right',5);
-  else if(tutorialStage===124){tutorialStage=125;tutorialShowStage();}
+  else if(tutorialStage===124){applySpaceTutorialBoard(2);setSpaceTutorialTarget(127,'bottom',6);}
   else if(tutorialStage===127)setSpaceTutorialTarget(129,'top',8);
-  else if(tutorialStage===129){tutorialStage=130;tutorialShowStage();}
+  else if(tutorialStage===129){applySpaceTutorialBoard(3);setSpaceTutorialTarget(132,'right',5);}
   else if(tutorialStage===132){tutorialStage=133;tutorialShowStage();}
 }
 function spaceTutorialAfterUsedLabel(){
@@ -3915,16 +3917,12 @@ function spaceTutorialShowStage(){
   else if(tutorialStage===115)tutorialCoach('Aucune sortie','L&rsquo;onde dirig&eacute;e sur le trou noir a disparu : aucune sortie ni couleur ne peut &ecirc;tre observ&eacute;e.<br><br>Touche maintenant l&rsquo;entr&eacute;e <b>5</b>.');
   else if(tutorialStage===117)tutorialCoach('La r&eacute;fraction','La grande nouveaut&eacute; du trou noir est sa capacit&eacute; &agrave; r&eacute;fracter les ondes qui passent juste &agrave; c&ocirc;t&eacute; de lui.<br><br>Touche l&rsquo;entr&eacute;e <b>16</b>.');
   else if(tutorialStage===119)tutorialCoach('Une trajectoire redirig&eacute;e','L&rsquo;onde a long&eacute; le trou noir avant d&rsquo;&ecirc;tre redirig&eacute;e vers le bas : c&rsquo;est la <b>r&eacute;fraction</b>.<br><br>Comme tu peux le constater, la couleur de la sortie n&rsquo;est plus affich&eacute;e sur la case ! Avec la r&eacute;fraction, il est maintenant possible que plusieurs ondes diff&eacute;rentes ressortent par un m&ecirc;me endroit.<br><br>Touche l&rsquo;entr&eacute;e <b>18</b>.');
-  else if(tutorialStage===121)tutorialCoach('Une seule r&eacute;fraction','Cette onde ressort &eacute;galement par <b>O</b>. Une onde ne subit qu&rsquo;<b>une seule et unique r&eacute;fraction</b> pendant son trajet.<br><br>Apr&egrave;s avoir rebondi sur l&rsquo;anneau, elle n&rsquo;est donc pas d&eacute;vi&eacute;e une seconde fois vers 18 et continue tout droit vers O.<br><br>Reclique sur <b>16</b> pour revoir sa sortie.');
+  else if(tutorialStage===121)tutorialCoach('Premier point important','Comme tu peux le constater, cette onde est &eacute;galement ressortie par <b>O</b>. Cela am&egrave;ne un premier point tr&egrave;s important : une onde ne subira qu&rsquo;<b>une seule et unique r&eacute;fraction</b> sur son trajet.<br><br>C&rsquo;est pour cette raison qu&rsquo;apr&egrave;s avoir rebondi sur l&rsquo;anneau de la plan&egrave;te blanche, l&rsquo;onde n&rsquo;a pas &eacute;t&eacute; d&eacute;vi&eacute;e pour ressortir en 18, mais a continu&eacute; tout droit vers O.<br><br>Reclique sur <b>16</b> pour revoir sa sortie.');
   else if(tutorialStage===122)tutorialCoach('Comparer les deux ondes','Reclique maintenant sur <b>18</b>.');
-  else if(tutorialStage===124)tutorialCoach('V&eacute;rifier depuis la sortie','N&rsquo;oublie pas que tu peux aussi envoyer une onde depuis une sortie afin de v&eacute;rifier son propre parcours.<br><br>Touche l&rsquo;entr&eacute;e <b>O</b>.');
-  else if(tutorialStage===125)tutorialCoach('R&eacute;flexion prioritaire','Un trou noir peut se trouver &agrave; proximit&eacute; d&rsquo;une ou plusieurs plan&egrave;tes.<br><br>Lorsqu&rsquo;une r&eacute;fraction devrait se produire sur la m&ecirc;me case qu&rsquo;un rebond, elle est annul&eacute;e. Elle pourra donc encore se d&eacute;clencher plus loin sur le trajet.','Voir un exemple');
-  else if(tutorialStage===126)tutorialCoach('R&eacute;fraction report&eacute;e','La r&eacute;fraction possible en B7 sera annul&eacute;e par le rebond sur la plan&egrave;te bleue. L&rsquo;onde sera dirig&eacute;e vers 12, puis la r&eacute;fraction pourra finalement avoir lieu en B9.','Envoyer l&rsquo;onde depuis O');
-  else if(tutorialStage===127)tutorialCoach('Premier parcours','Touche l&rsquo;entr&eacute;e <b>O</b>.');
-  else if(tutorialStage===129)tutorialCoach('Deux effets successifs','Le rebond sur la plan&egrave;te bleue a annul&eacute; la premi&egrave;re r&eacute;fraction. Celle-ci s&rsquo;est ensuite produite en B9, dirigeant l&rsquo;onde vers la plan&egrave;te rouge avant sa sortie en 14.<br><br>Touche maintenant l&rsquo;entr&eacute;e <b>9</b>.');
-  else if(tutorialStage===130)tutorialCoach('R&eacute;fraction annul&eacute;e','Ici, la r&eacute;fraction est annul&eacute;e en D9 par le rebond et l&rsquo;onde ressort simplement en 14.<br><br>Il reste une derni&egrave;re situation importante &agrave; d&eacute;couvrir.','D&eacute;couvrir une onde prisonni&egrave;re');
-  else if(tutorialStage===131)tutorialCoach('Une onde prisonni&egrave;re','Apr&egrave;s une r&eacute;fraction, une onde peut se retrouver dans une boucle infinie &agrave; l&rsquo;int&eacute;rieur de la grille.','Envoyer l&rsquo;onde depuis 16');
-  else if(tutorialStage===132)tutorialCoach('La boucle','Touche l&rsquo;entr&eacute;e <b>16</b>.');
+  else if(tutorialStage===124)tutorialCoach('V&eacute;rifier depuis la sortie','N&rsquo;oublie pas que tu peux aussi envoyer une onde depuis une sortie afin de v&eacute;rifier son propre parcours.<br><br>Touche la lettre <b>O</b>.');
+  else if(tutorialStage===127)tutorialCoach('Deuxi&egrave;me point important','Un trou noir peut se trouver &agrave; proximit&eacute; d&rsquo;une ou plusieurs plan&egrave;tes.<br><br>Lorsqu&rsquo;une r&eacute;fraction doit avoir lieu sur la m&ecirc;me case qu&rsquo;un rebond sur une plan&egrave;te, cette r&eacute;fraction est <b>annul&eacute;e</b>. Selon la suite du parcours, elle pourra donc encore se produire un peu plus loin.<br><br>Touche la lettre <b>O</b> pour observer ce comportement.');
+  else if(tutorialStage===129)tutorialCoach('Une r&eacute;fraction report&eacute;e','La r&eacute;fraction qui aurait pu avoir lieu en B7 a &eacute;t&eacute; annul&eacute;e par le rebond sur la plan&egrave;te bleue. L&rsquo;onde a &eacute;t&eacute; dirig&eacute;e vers 12 mais, comme elle n&rsquo;avait pas encore subi de r&eacute;fraction, celle-ci s&rsquo;est d&eacute;clench&eacute;e en B9 avant de diriger l&rsquo;onde vers la plan&egrave;te rouge et sa sortie en 14.<br><br>Touche maintenant l&rsquo;entr&eacute;e <b>9</b>.');
+  else if(tutorialStage===132)tutorialCoach('Une onde prisonni&egrave;re','Ici, la r&eacute;fraction est annul&eacute;e en D9 par le rebond et l&rsquo;onde ressort simplement en 14.<br><br>Une derni&egrave;re situation peut se produire : apr&egrave;s une r&eacute;fraction, une onde peut se retrouver dans une boucle infinie &agrave; l&rsquo;int&eacute;rieur de la grille.<br><br>Touche l&rsquo;entr&eacute;e <b>16</b>.');
   else if(tutorialStage===133)tutorialCoach('Tutoriel termin&eacute; !','&Agrave; cause de la r&eacute;fraction du trou noir, l&rsquo;onde effectue un aller-retour sans fin entre les deux plan&egrave;tes blanches : elle est consid&eacute;r&eacute;e comme <b>prisonni&egrave;re</b>.<br><br>Puisqu&rsquo;elle ne ressort pas, les plan&egrave;tes rencontr&eacute;es et sa couleur restent inconnues.<br><br>Bon courage dans ton p&eacute;riple spatial, et fais attention au trou noir !','Terminer');
 }
 function initializeSpaceTutorialState(){
