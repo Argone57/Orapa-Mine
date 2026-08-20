@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0005';
+const APP_VERSION = '20260820-0006';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -77,8 +77,9 @@ const SHAPES = {
   // Quadrilatère de 2×4 : le grand côté (4 cases) est le premier côté.
   // Cette orientation source pose ce grand côté à gauche ; les rotations
   // permettent ensuite de le placer contre n’importe quel bord.
-  // Demi-octogone 4 x 2 ; le premier côté est le grand côté de 4 cases.
-  spaceWhiteLarge:{pts:[[0,-2],[0,2],[1,2],[2,1],[2,-1],[1,-2]]},
+  // Demi-octogone 4 x 2, centré comme toutes les autres planètes. Le premier
+  // côté est le grand côté de quatre cases qui doit toucher le bord.
+  spaceWhiteLarge:{pts:[[-1,-2],[-1,2],[0,2],[1,1],[1,-1],[0,-2]]},
   spaceRedSmall:{pts:[[-0.5,-0.5],[0.5,-0.5],[0.5,0.5],[-0.5,0.5]]},
   spaceRedLarge:{pts:[[0,-1],[1,0],[0,1],[-1,0]]},
   spaceBlue:{pts:[[0,-1],[1,0],[0,1],[-1,0]]},
@@ -782,7 +783,7 @@ function readOnlyGridSvg(decoded){
     const def=CONFIG.PIECES[piece.type];
     if(def.isBlackHole)return `<circle cx="${piece.center.x}" cy="${piece.center.y}" r=".48" fill="#050407" stroke="#655b72" stroke-width=".06"/>`;
     if(def.isRing){
-      return pieceCollisionPolygons(piece).map(part=>`<polygon points="${polyPointsAttr(part)}" fill="#f5f1e8" stroke="#f5f1e8" stroke-width=".035"/>`).join('');
+      return spaceRingVisualParts().map(part=>part.map(vertex=>transformVertex(vertex,piece.flipped,piece.rotation,piece.center))).map(part=>`<polygon points="${polyPointsAttr(part)}" fill="#f5f1e8" stroke="#f5f1e8" stroke-width=".035"/>`).join('');
     }
     const fill=def.isDiamond?'rgba(207,216,220,.62)':def.hex;
     return `<polygon points="${polyPointsAttr(pieceVertices(piece))}" fill="${fill}" stroke="rgba(0,0,0,.42)" stroke-width=".045"/>`;
@@ -2381,6 +2382,14 @@ function spaceRingLocalParts(){
     [[1,-0.16],[2,-0.16],[2,0.16],[1,0.16]]
   ];
 }
+function spaceRingVisualParts(){
+  // Une barre continue derrière le losange donne l’illusion d’un anneau unique,
+  // sans ajouter de contour interne au moteur des ondes.
+  return [
+    [[-2,-0.16],[2,-0.16],[2,0.16],[-2,0.16]],
+    [[-1,0],[0,-1],[1,0],[0,1]]
+  ];
+}
 function spacePiecesOverlap(pieceA,pieceB){
   return pieceCollisionPolygons(pieceA).some(polyA=>pieceCollisionPolygons(pieceB).some(polyB=>{
     const intersection=clipPolygon(ensureCCW(polyA),ensureCCW(polyB));
@@ -2804,7 +2813,7 @@ function svgPolyForPiece(piece, opts){
   }
   if(def.isRing&&!opts.outline){
     const group=document.createElementNS(SVGNS,'g');
-    pieceCollisionPolygons(piece).forEach(points=>{const part=document.createElementNS(SVGNS,'polygon');part.setAttribute('points',polyPointsAttr(points));part.setAttribute('fill',opts.invalid?'rgba(180,60,50,.75)':def.hex);part.setAttribute('stroke',opts.invalid?'#ff8a5c':def.hex);part.setAttribute('stroke-width','.035');part.setAttribute('vector-effect','non-scaling-stroke');group.appendChild(part);});
+    spaceRingVisualParts().map(part=>part.map(vertex=>transformVertex(vertex,piece.flipped,piece.rotation,piece.center))).forEach(points=>{const part=document.createElementNS(SVGNS,'polygon');part.setAttribute('points',polyPointsAttr(points));part.setAttribute('fill',opts.invalid?'rgba(180,60,50,.75)':def.hex);part.setAttribute('stroke',opts.invalid?'#ff8a5c':def.hex);part.setAttribute('stroke-width','.035');part.setAttribute('vector-effect','non-scaling-stroke');group.appendChild(part);});
     group.setAttribute('class','piece-poly'+(piecesEditable()?' interactive':'')+(opts.invalid?' piece-invalid':''));group.dataset.id=piece.id;return group;
   }
   const poly = document.createElementNS(SVGNS,'polygon');
@@ -2948,7 +2957,7 @@ function renderPalette(){
     if(def.isBlackHole){
       const circle=document.createElementNS(SVGNS,'circle');circle.setAttribute('cx',cx);circle.setAttribute('cy',cy);circle.setAttribute('r',Math.max(baseW,baseH)*.45);circle.setAttribute('fill','#020204');circle.setAttribute('stroke','#7d67a8');circle.setAttribute('stroke-width','.07');svg.appendChild(circle);
     }else if(def.isRing){
-      spaceRingLocalParts().forEach(part=>{const poly=document.createElementNS(SVGNS,'polygon');const partPts=part.map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0}));poly.setAttribute('points',polyPointsAttr(partPts));poly.setAttribute('fill',def.hex);poly.setAttribute('stroke',def.hex);poly.setAttribute('stroke-width','.035');svg.appendChild(poly);});
+      spaceRingVisualParts().forEach(part=>{const poly=document.createElementNS(SVGNS,'polygon');const partPts=part.map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0}));poly.setAttribute('points',polyPointsAttr(partPts));poly.setAttribute('fill',def.hex);poly.setAttribute('stroke',def.hex);poly.setAttribute('stroke-width','.035');svg.appendChild(poly);});
     }else{
       const poly = document.createElementNS(SVGNS,'polygon');
       poly.setAttribute('points', polyPointsAttr(pts));
@@ -3277,7 +3286,7 @@ function onPieceDown(ev, piece, el){
     ghostHalfW=((w+2*pad)*csVal)/2;
     ghostHalfH=((h+2*pad)*csVal)/2;
     const def = CONFIG.PIECES[piece.type];
-    const ringParts=def.isRing?spaceRingLocalParts().map(part=>part.map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0}))):[];
+    const ringParts=def.isRing?spaceRingVisualParts().map(part=>part.map(v=>transformVertex(v,piece.flipped,piece.rotation,{x:0,y:0}))):[];
     const ghostShape=def.isBlackHole
       ? `<circle cx="0" cy="0" r=".48" fill="#050407"/>`
       : def.isRing
