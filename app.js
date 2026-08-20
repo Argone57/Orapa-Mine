@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0007';
+const APP_VERSION = '20260821-0008';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3972,7 +3972,7 @@ const SPACE_TUTORIAL_STEPS=[
 ];
 function renderSpaceTutorial(){const step=SPACE_TUTORIAL_STEPS[spaceTutorialStep];$('#spaceTutorialTitle').textContent=`🚀 ${step[0]}`;$('#spaceTutorialContent').innerHTML=`<p>${step[1]}</p><p class="muted">Étape ${spaceTutorialStep+1} sur ${SPACE_TUTORIAL_STEPS.length}</p>`;$('#spaceTutorialPrevious').style.display=spaceTutorialStep?'':'none';$('#spaceTutorialNext').textContent=spaceTutorialStep===SPACE_TUTORIAL_STEPS.length-1?'Terminer':'Suivant';}
 function canPreviewSpaceTutorial(){
-  return String(currentPlayerAccount?.display_name||'').trim().toLocaleLowerCase('fr-FR')==='argone';
+  return true;
 }
 $('#homeLearn').addEventListener('click',()=>{
   $('#tutorialSpace').hidden=!canPreviewSpaceTutorial();
