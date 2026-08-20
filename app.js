@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260820-0012';
+const APP_VERSION = '20260820-0013';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2392,6 +2392,20 @@ function spaceRingLocalParts(){
     [[1,-0.16],[2,-0.16],[2,0.16],[1,0.16]]
   ];
 }
+function spaceRingPlacementParts(){
+  // Pour les règles de placement, les deux extrémités de l'anneau sont des
+  // pointes. Elles peuvent donc toucher ponctuellement une autre planète,
+  // comme les sommets des autres formes, sans créer un côté partagé.
+  return [
+    [[-1,0],[0,-1],[1,0],[0,1]],
+    [[-2,0],[-1,-0.16],[-1,0.16]],
+    [[1,-0.16],[2,0],[1,0.16]]
+  ];
+}
+function piecePlacementPolygons(piece){
+  if(piece.type!=='spaceRing')return pieceCollisionPolygons(piece);
+  return spaceRingPlacementParts().map(part=>part.map(vertex=>transformVertex(vertex,piece.flipped,piece.rotation,piece.center)));
+}
 function spaceRingVisualParts(){
   // Une barre continue derrière le losange donne l’illusion d’un anneau unique,
   // sans ajouter de contour interne au moteur des ondes.
@@ -2401,7 +2415,7 @@ function spaceRingVisualParts(){
   ];
 }
 function spacePiecesOverlap(pieceA,pieceB){
-  return pieceCollisionPolygons(pieceA).some(polyA=>pieceCollisionPolygons(pieceB).some(polyB=>{
+  return piecePlacementPolygons(pieceA).some(polyA=>piecePlacementPolygons(pieceB).some(polyB=>{
     const intersection=clipPolygon(ensureCCW(polyA),ensureCCW(polyB));
     if(intersection.length===0)return false;
     // Comme dans Orapa Mine, un simple contact par une pointe reste permis,
