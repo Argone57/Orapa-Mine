@@ -248,6 +248,8 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .account-card{padding:12px;border:1px solid var(--vein);border-radius:10px;background:var(--panel);margin:12px 0;}
 .account-card strong{color:var(--gold-bright);}
 .account-profile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;margin:7px 0 9px}.account-profile-row .account-status{margin:0;padding:3px 7px;font-size:.65rem}.account-profile-row strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-stats-button{display:block;width:100%;margin:0 0 9px}
+#accountStatsModal{z-index:240}#accountStatsModal .account-stats-modal-card{position:relative;display:flex;flex-direction:column;width:calc(100% - 16px);height:86vh;height:86dvh;max-height:calc(100dvh - 16px);margin:8px;border-radius:16px;overflow:hidden}#accountStatsModal .close-x{position:absolute;top:16px;right:16px;z-index:2}#accountStatsModal h2{flex:0 0 auto;padding-right:30px}#accountStatsContent{min-height:0;flex:1;overflow-y:auto;padding-right:4px}
 .account-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
 .account-trust{display:flex!important;grid-template-columns:none!important;align-items:flex-start;gap:9px!important;padding:10px;border:1px solid var(--vein);border-radius:9px;background:var(--panel);}
 .account-trust input{appearance:auto!important;-webkit-appearance:checkbox!important;width:20px!important;height:20px!important;min-width:20px!important;flex:0 0 20px;margin:1px 0 0!important;accent-color:var(--gold);}
@@ -498,6 +500,14 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
     <button class="close-x" id="closeAccount">×</button>
     <h2>👤 Compte joueur</h2>
     <div id="accountContent"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="accountStatsModal">
+  <div class="modal account-stats-modal-card">
+    <button class="close-x" id="closeAccountStats">×</button>
+    <h2>📊 Statistiques</h2>
+    <div id="accountStatsContent"></div>
   </div>
 </div>
 
@@ -775,6 +785,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="app.js?v=20260821-0016"></script>
+<script src="app.js?v=20260821-0017"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0016';
+const APP_VERSION = '20260821-0017';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -475,6 +475,45 @@ async function loadMyAccountStats(){
   if(!currentPlayerAccount) return null;
   return supabaseRpc('orapa_my_stats',{p_session_token:currentPlayerAccount.session_token});
 }
+function accountStatisticsHtml(st,gridStats,lostStats,spaceStats,achievementRows){
+  const rate=st?.participations?Math.round((st.wins||0)/st.participations*100):0;
+  const visibleUnlocked=(achievementRows||[]).filter(row=>row.unlocked&&row.visibility!=='hidden');
+  return `<h3 class="account-section-title">📅 Défis du jour</h3><div class="account-stats-grid">
+    <div class="account-stat"><b>${st?.participations||0}</b>défis</div>
+    <div class="account-stat"><b>${st?.wins||0}</b>réussites</div>
+    <div class="account-stat"><b>${rate}%</b>réussite</div>
+    <div class="account-stat"><b>${st?.best_score==null?'—':st.best_score+' pts'}</b>meilleur score</div>
+    <div class="account-stat"><b>${st?.best_time_ms==null?'—':formatDuration(st.best_time_ms)}</b>meilleur temps</div>
+  </div>
+  ${gridStats?`<h3 class="account-section-title">🧩 Grilles classiques</h3><div class="account-stats-grid">
+    <div class="account-stat"><b>${gridStats.played||0}</b>jouées</div>
+    <div class="account-stat"><b>${gridStats.played?Math.round((gridStats.wins||0)/gridStats.played*100):0}%</b>réussite</div>
+    <div class="account-stat"><b>${gridStats.created||0}</b>partagées</div>
+    <div class="account-stat"><b>${gridStats.best_score==null?'—':gridStats.best_score+' pts'}</b>meilleur score</div>
+    <div class="account-stat"><b>${gridStats.average_score==null?'—':gridStats.average_score+' pts'}</b>score moyen</div>
+    <div class="account-stat"><b>${gridStats.average_rank==null?'—':'#'+gridStats.average_rank}</b>rang moyen</div>
+  </div>`:''}
+  ${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.shared||0}</b>partagées</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}
+  ${spaceStats?`<h3 class="account-section-title">🪐 Orapa Space</h3><div class="account-stats-grid"><div class="account-stat"><b>${spaceStats.played||0}</b>jouées</div><div class="account-stat"><b>${spaceStats.played?Math.round((spaceStats.wins||0)*100/spaceStats.played):0}%</b>réussite</div><div class="account-stat"><b>${spaceStats.shared||0}</b>partagées</div><div class="account-stat"><b>${spaceStats.best_score==null?'—':spaceStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${spaceStats.best_time_ms==null?'—':formatDuration(spaceStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${spaceStats.black_hole_wins||0}</b>avec trou noir</div></div>`:''}
+  <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid"><div class="account-stat"><b>${visibleUnlocked.length}</b>débloqués</div><div class="account-stat"><b>${visibleUnlocked.reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div></div>`;
+}
+async function openAccountStatistics(){
+  if(!currentPlayerAccount)return;
+  const modal=$('#accountStatsModal'),content=$('#accountStatsContent');
+  modal.classList.add('open');
+  content.innerHTML='<div class="history-empty">Chargement des statistiques…</div>';
+  try{
+    await refreshAchievements();
+    const [st,gridStats,lostStats,spaceStats,achievementRows]=await Promise.all([
+      loadMyAccountStats(),
+      supabaseRpc('orapa_my_grid_stats',{p_session_token:currentPlayerAccount.session_token}).catch(()=>null),
+      supabaseRpc('orapa_my_lost_stats',{p_session_token:currentPlayerAccount.session_token}).catch(()=>null),
+      supabaseRpc('orapa_my_space_stats',{p_session_token:currentPlayerAccount.session_token}).catch(()=>null),
+      getAchievementCatalog(true).catch(()=>[])
+    ]);
+    content.innerHTML=accountStatisticsHtml(st,gridStats,lostStats,spaceStats,achievementRows);
+  }catch(e){content.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;}
+}
 function showAccountLogin(){
   const content=$('#accountContent');
   content.innerHTML=`<div class="account-status disconnected">⚪ Non connecté</div>
@@ -528,8 +567,7 @@ async function renderAccountHome(){
   if(!currentPlayerAccount){ showAccountLogin(); return; }
   const content=$('#accountContent');
   content.innerHTML=`<div class="account-card account-profile-row"><strong>👤 ${escapeHtml(currentPlayerAccount.display_name)}</strong><span class="account-status connected">● Connecté</span></div>
-    <h3 class="account-section-title">📅 Défis du jour</h3>
-    <div id="accountStats"><div class="history-empty">Chargement des statistiques…</div></div>
+    <button class="ghost account-stats-button" id="accountStatsBtn">📊 Statistiques</button>
     <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Enregistrer mes scores sans redemander le code sur cet appareil</b></span></label>
     <div class="achievement-preferences"><label class="account-palette-size"><span><b>Taille des gemmes à placer</b></span><select id="accountPaletteScale" class="ranking-select"><option value="0.25">25 %</option><option value="0.5">50 %</option><option value="0.75">75 %</option><option value="1">100 %</option></select></label><label class="account-trust"><input type="checkbox" id="accountFirstWaveHelp"><span><b>Afficher la bulle d’aide et la pulsation dès la première utilisation d’une onde</b></span></label><label class="account-trust"><input type="checkbox" id="accountHideAchievementNotifications"><span><b>Ne pas afficher les notifications des succès</b></span></label><label class="account-trust"><input type="checkbox" id="accountHideAchievementRankings"><span><b>Ne pas afficher mon pseudo dans les classements des succès</b></span></label></div>
     ${isFirefox()?`<div class="achievement-preferences"><label class="account-trust"><input type="checkbox" id="accountFirefoxPerformance" ${firefoxPerformanceEnabled()?'checked':''}><span><b>Mode performances Firefox</b><small>Réduit certains effets visuels et opérations d’affichage afin d’améliorer la fluidité sur Firefox.</small></span></label></div>`:''}
@@ -545,6 +583,7 @@ async function renderAccountHome(){
   $('#accountTrustDevice').onchange=e=>setTrustedDevice(e.target.checked);
   const firefoxPerformance=$('#accountFirefoxPerformance');
   if(firefoxPerformance)firefoxPerformance.onchange=e=>{setFirefoxPerformanceMode(e.target.checked);showToast(e.target.checked?'Mode performances activé':'Mode performances désactivé');};
+  $('#accountStatsBtn').onclick=openAccountStatistics;
   $('#accountAchievementsBtn').onclick=openMyAchievements;
   $('#accountDailyHistoryBtn').onclick=()=>openMyDailyHistory();
   $('#accountGridHistoryBtn').onclick=()=>openMyGridHistory();
@@ -553,15 +592,7 @@ async function renderAccountHome(){
   $('#accountPinBtn').onclick=showChangePin;
   $('#accountLogoutBtn').onclick=()=>{savePlayerAccount(null);setTrustedDevice(false);showAccountLogin();showToast('Déconnecté');};
   try{
-    await refreshAchievements();
-    const [st,gridStats,lostStats,spaceStats,achievementRows,achievementPreferences]=await Promise.all([
-      loadMyAccountStats(),
-      supabaseRpc('orapa_my_grid_stats',{p_session_token:currentPlayerAccount.session_token}).catch(()=>null),
-      supabaseRpc('orapa_my_lost_stats',{p_session_token:currentPlayerAccount.session_token}).catch(()=>null),
-      supabaseRpc('orapa_my_space_stats',{p_session_token:currentPlayerAccount.session_token}).catch(()=>null),
-      getAchievementCatalog(true).catch(()=>[]),
-      supabaseRpc('orapa_get_achievement_preferences',{p_session_token:currentPlayerAccount.session_token}).catch(()=>({}))
-    ]);
+    const achievementPreferences=await supabaseRpc('orapa_get_achievement_preferences',{p_session_token:currentPlayerAccount.session_token}).catch(()=>({}));
     $('#accountHideAchievementNotifications').checked=!!achievementPreferences.hide_notifications;
     $('#accountHideAchievementRankings').checked=!!achievementPreferences.hide_from_rankings;
     showFirstWaveHelp=!!achievementPreferences.show_first_wave_help;
@@ -571,24 +602,7 @@ async function renderAccountHome(){
     renderPalette();
     const saveAchievementPreferences=async()=>{paletteScale=normalizePaletteScale($('#accountPaletteScale').value);showFirstWaveHelp=$('#accountFirstWaveHelp').checked;renderPalette();try{await Promise.all([supabaseRpc('orapa_set_achievement_preferences',{p_session_token:currentPlayerAccount.session_token,p_hide_notifications:$('#accountHideAchievementNotifications').checked,p_hide_from_rankings:$('#accountHideAchievementRankings').checked,p_palette_scale:Math.round(paletteScale*100)}),supabaseRpc('orapa_set_first_wave_help_preference',{p_session_token:currentPlayerAccount.session_token,p_show_first_wave_help:showFirstWaveHelp})]);showToast('Préférences enregistrées');}catch(e){showErrorToast('Enregistrement impossible : '+e.message);}};
     $('#accountPaletteScale').onchange=saveAchievementPreferences;$('#accountFirstWaveHelp').onchange=saveAchievementPreferences;$('#accountHideAchievementNotifications').onchange=saveAchievementPreferences;$('#accountHideAchievementRankings').onchange=saveAchievementPreferences;
-    const rate=st.participations?Math.round(st.wins/st.participations*100):0;
-    $('#accountStats').innerHTML=`<div class="account-stats-grid">
-      <div class="account-stat"><b>${st.participations||0}</b>défis</div>
-      <div class="account-stat"><b>${st.wins||0}</b>réussites</div>
-      <div class="account-stat"><b>${rate}%</b>réussite</div>
-      <div class="account-stat"><b>${st.best_score==null?'—':st.best_score+' pts'}</b>meilleur score</div>
-      <div class="account-stat"><b>${st.best_time_ms==null?'—':formatDuration(st.best_time_ms)}</b>meilleur temps</div>
-    </div>
-    ${gridStats?`<h3 class="account-section-title">🧩 Grilles classiques</h3><div class="account-stats-grid">
-      <div class="account-stat"><b>${gridStats.played||0}</b>jouées</div>
-      <div class="account-stat"><b>${gridStats.played?Math.round((gridStats.wins||0)/gridStats.played*100):0}%</b>réussite</div>
-      <div class="account-stat"><b>${gridStats.created||0}</b>partagées</div>
-      <div class="account-stat"><b>${gridStats.best_score==null?'—':gridStats.best_score+' pts'}</b>meilleur score</div>
-      <div class="account-stat"><b>${gridStats.average_score==null?'—':gridStats.average_score+' pts'}</b>score moyen</div>
-      <div class="account-stat"><b>${gridStats.average_rank==null?'—':'#'+gridStats.average_rank}</b>rang moyen</div>
-    </div>`:''}${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.shared||0}</b>partagées</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}${spaceStats?`<h3 class="account-section-title">🪐 Orapa Space</h3><div class="account-stats-grid"><div class="account-stat"><b>${spaceStats.played||0}</b>jouées</div><div class="account-stat"><b>${spaceStats.played?Math.round((spaceStats.wins||0)*100/spaceStats.played):0}%</b>réussite</div><div class="account-stat"><b>${spaceStats.shared||0}</b>partagées</div><div class="account-stat"><b>${spaceStats.best_score==null?'—':spaceStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${spaceStats.best_time_ms==null?'—':formatDuration(spaceStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${spaceStats.black_hole_wins||0}</b>avec trou noir</div></div>`:''}
-    <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid"><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked&&row.visibility!=='hidden').length}</b>débloqués</div><div class="account-stat"><b>${achievementRows.filter(row=>row.unlocked&&row.visibility!=='hidden').reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div></div>`;
-  }catch(e){ $('#accountStats').innerHTML=`<div class="account-error" style="display:block;">${escapeHtml(e.message)}</div>`; }
+  }catch(e){showErrorToast(`Chargement des préférences impossible : ${e.message}`);}
 }
 function showRenameAccount(){
   $('#accountContent').innerHTML=`<button class="ghost" id="accountBackHome">← Retour</button><h3 style="margin-top:14px;">Renommer le pseudo</h3>
@@ -5031,8 +5045,10 @@ $('#rankingDateNext').addEventListener('click',()=>{
   selectGlobalRankingDate(shiftDateKey(current,1));
 });
 $('#accountFab').addEventListener('click',openAccountModal);
-$('#closeAccount').addEventListener('click',()=>$('#accountModal').classList.remove('open'));
-$('#accountModal').addEventListener('click',e=>{if(e.target.id==='accountModal')$('#accountModal').classList.remove('open');});
+$('#closeAccount').addEventListener('click',()=>{$('#accountStatsModal').classList.remove('open');$('#accountModal').classList.remove('open');});
+$('#accountModal').addEventListener('click',e=>{if(e.target.id==='accountModal'){$('#accountStatsModal').classList.remove('open');$('#accountModal').classList.remove('open');}});
+$('#closeAccountStats').addEventListener('click',()=>$('#accountStatsModal').classList.remove('open'));
+$('#accountStatsModal').addEventListener('click',e=>{if(e.target.id==='accountStatsModal')$('#accountStatsModal').classList.remove('open');});
 $('#cancelScoreIdentity').addEventListener('click',()=>closeScoreIdentity(null));
 $('#scoreIdentityModal').addEventListener('click',e=>{if(e.target.id==='scoreIdentityModal')closeScoreIdentity(null);});
 
