@@ -1,5 +1,14 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0025';
+// La version du code chargé vient directement du paramètre du script dans
+// index.html. Cela évite qu'une version dupliquée ici soit oubliée lors d'une
+// publication et provoque une demande de mise à jour en boucle.
+const APP_VERSION = (()=>{
+  try{
+    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260821-0027';
+  }catch(_error){
+    return '20260821-0027';
+  }
+})();
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
