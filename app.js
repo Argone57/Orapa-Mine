@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0012';
+const APP_VERSION = '20260821-0013';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -4110,7 +4110,7 @@ $('#btnShareGrid').addEventListener('click',async()=>{
   const gridId=state.gameVariant==='lost'?encodeLostGridId(state.pieces,state.missingType):(state.gameVariant==='space'?encodeSpaceGridId(state.pieces,state.includeBlackHole):encodeGridId(state.pieces,state.includeGray,state.includeOnyx,state.includeSapphire));
   if(!gridId) return;
   const gems=gemFlagsEmojiLine(state.includeGray,state.includeOnyx,state.includeSapphire);
-  const text=state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`:(state.gameVariant==='space'?`Je te défie à Orapa Space !\n${state.includeBlackHole?'🕳️ Trou noir':'Sans trou noir'}\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`);
+  const text=state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`:(state.gameVariant==='space'?`Je te défie à Orapa Space ! 🕳️ ${state.includeBlackHole?'✅':'❌'}\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`);
   try{
     await (state.gameVariant==='lost'?shareLostGridGlobally(gridId):(state.gameVariant==='space'?shareSpaceGridGlobally(gridId):shareGridGlobally(gridId)));
     await navigator.clipboard?.writeText(text);
@@ -4126,7 +4126,7 @@ $('#btnCopyGridId').addEventListener('click', async()=>{
   if(!state.gridId || !navigator.clipboard) return;
   if(state.mode==='gm'){
     const gems = gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
-    const text = state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`:(state.gameVariant==='space'?`Je te défie à Orapa Space !\n${state.includeBlackHole?'🕳️ Trou noir':'Sans trou noir'}\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`);
+    const text = state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`:(state.gameVariant==='space'?`Je te défie à Orapa Space ! 🕳️ ${state.includeBlackHole?'✅':'❌'}\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`);
     try{
       await (state.gameVariant==='lost'?shareLostGridGlobally(state.gridId):(state.gameVariant==='space'?shareSpaceGridGlobally(state.gridId):shareGridGlobally(state.gridId)));
       await navigator.clipboard.writeText(text);
