@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0008';
+const APP_VERSION = '20260821-0009';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3287,18 +3287,19 @@ function openLostSolutionModal(){
 }
 function buildMixBoard(){
   const el = $('#mixBoard');
+  function colorDot(type){
+    const def=CONFIG.PIECES[type];
+    const color=def.isDiamond?'#cfd8dc':def.hex;
+    const outline=(type==='white'||type==='rhombus')?'box-shadow:inset 0 0 0 1px rgba(55,45,35,.5);':'';
+    return `<span class="mix-combo-dot" style="background:${color};${outline}" aria-label="${escapeHtml(def.label)}"></span>`;
+  }
   function row(types, resultKey){
-    const icons = types.map(t=> shapeIconSVG(t)).join('<span style="color:var(--text-faint);font-size:.8rem;">+</span>');
+    const icons = types.map(t=> colorDot(t)).join('<span style="color:var(--text-faint);font-size:.8rem;">+</span>');
     const res = CONFIG.MIX[resultKey];
     return `<div class="mix-row">${icons}<span style="color:var(--text-faint);">=</span>
       <span class="mix-swatch" style="background:${res.hex}"></span><span class="mix-name">${res.name}</span></div>`;
   }
-  if(state.gameVariant==='space'){
-    const swatch=(color,label,extra='')=>`<div class="mix-row"><span class="mix-swatch" style="background:${color}"></span><span class="mix-name">${label}</span>${extra}</div>`;
-    el.innerHTML=`<p class="mix-reminder">Chaque planète doit pouvoir être atteinte directement par au moins une onde, sans rebond.</p><div class="mix-quad"><div class="mix-block">${swatch(CONFIG.MIX['red+yellow'].hex,'Orange')}${swatch(CONFIG.MIX['blue+yellow'].hex,'Vert')}${swatch(CONFIG.MIX['blue+red'].hex,'Violet')}</div><div class="mix-block">${swatch(CONFIG.MIX['white+yellow'].hex,'Jaune clair')}${swatch(CONFIG.MIX['blue+white'].hex,'Bleu ciel')}${swatch(CONFIG.MIX['red+white'].hex,'Rose')}</div></div>${state.includeBlackHole?`<hr class="mix-sep"><div class="mix-section-title"><span>🕳️</span><span>Trou noir</span></div><p class="mix-option-text"><b>Disparue :</b> l’onde entre directement dans le trou noir et ne ressort pas.</p><p class="mix-option-text"><b>Prisonnière :</b> l’onde reste prise dans une boucle. Ce résultat est représenté par des barreaux clairs.</p>`:''}`;
-    return;
-  }
-  el.innerHTML = `
+  const baseMixMarkup=`
     <div class="mix-quad">
       <div class="mix-block">
         ${row(['red','yellow'],'red+yellow')}
@@ -3322,7 +3323,13 @@ function buildMixBoard(){
         ${row(['red','yellow','blue'],'blue+red+yellow')}
         ${row(['red','yellow','blue','white'],'blue+red+white+yellow')}
       </div>
-    </div>
+    </div>`;
+  if(state.gameVariant==='space'){
+    el.innerHTML=`<p class="mix-reminder">Chaque astre doit pouvoir être atteint directement par au moins une onde, sans rebond.</p>${baseMixMarkup}${state.includeBlackHole?`<hr class="mix-sep"><div class="mix-section-title"><span>🕳️</span><span>Trou noir</span></div><p class="mix-option-text"><b>Disparue :</b> l’onde entre directement dans le trou noir et ne ressort pas.</p><p class="mix-option-text"><b>Prisonnière :</b> l’onde reste prise dans une boucle. Ce résultat est représenté par des barreaux clairs.</p><div class="mix-space-examples"><figure><figcaption>Disparue :</figcaption><img src="space-disappeared-example.png" alt="Exemple d’une onde disparue dans le trou noir"></figure><figure><figcaption>Emprisonnée :</figcaption><img src="space-trapped-example.png" alt="Exemple d’une onde emprisonnée après une réfraction"></figure></div>`:''}`;
+    return;
+  }
+  el.innerHTML = `
+    ${baseMixMarkup}
     ${state.includeSapphire ? `
     <hr class="mix-sep">
     <div class="mix-section-title">${shapeIconSVG('sapphire')}<span>Saphir bleu ciel — compte comme bleu + blanc à chaque contact</span></div>
