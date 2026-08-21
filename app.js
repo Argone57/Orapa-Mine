@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0013';
+const APP_VERSION = '20260821-0014';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2969,8 +2969,21 @@ function svgPolyForPiece(piece, opts){
 function svgOutlinePiece(piece){
   const def = CONFIG.PIECES[piece.type];
   if(def.isBlackHole){
+    const circle=document.createElementNS(SVGNS,'circle');
+    circle.setAttribute('cx',piece.center.x);circle.setAttribute('cy',piece.center.y);circle.setAttribute('r','.48');
+    circle.setAttribute('fill','#050407');circle.setAttribute('stroke','#655b72');circle.setAttribute('stroke-width','.06');
+    circle.dataset.id=piece.id;
+    return circle;
+  }
+  if(def.isRing){
     const group=document.createElementNS(SVGNS,'g');
-    [[.58,'rgba(8,6,4,.95)',.24],[.5,'#c6b9d5',.11]].forEach(([radius,stroke,width])=>{const circle=document.createElementNS(SVGNS,'circle');circle.setAttribute('cx',piece.center.x);circle.setAttribute('cy',piece.center.y);circle.setAttribute('r',radius);circle.setAttribute('fill','none');circle.setAttribute('stroke',stroke);circle.setAttribute('stroke-width',width);group.appendChild(circle);});
+    spaceRingVisualParts().map(part=>part.map(vertex=>transformVertex(vertex,piece.flipped,piece.rotation,piece.center))).forEach(points=>{
+      const poly=document.createElementNS(SVGNS,'polygon');
+      poly.setAttribute('points',polyPointsAttr(points));poly.setAttribute('fill',def.hex);poly.setAttribute('fill-opacity','.4');
+      poly.setAttribute('stroke',def.hex);poly.setAttribute('stroke-width','.08');poly.setAttribute('stroke-linejoin','round');poly.setAttribute('vector-effect','non-scaling-stroke');
+      group.appendChild(poly);
+    });
+    group.dataset.id=piece.id;
     return group;
   }
   const pts = polyPointsAttr(pieceVertices(piece));
