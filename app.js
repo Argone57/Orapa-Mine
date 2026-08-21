@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0023';
+const APP_VERSION = '20260821-0024';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2284,6 +2284,7 @@ async function proposeSolution(){
   if(state.mode!=='solo' || state.soloOver) return;
   if(tutorialActive){tutorialPropose();return;}
   if(state.gameVariant==='lost'){openLostSolutionModal();return;}
+  if(state.pieces.some(piece=>!piece.center)) return;
   const correct=evaluateGuess();
   if(correct){
     state.soloOver=true; state.soloResult='win';
@@ -3215,6 +3216,7 @@ function renderPalette(){
   const earthSkyBottomTitle=$('#earthSkyBottomPaletteTitle');
   if(earthSkyBottomPalette)earthSkyBottomPalette.innerHTML='';
   const inPalette = state.pieces.filter(p=>!p.center);
+  paletteEl.classList.toggle('earth-sky-solo-reserve',isEarthSky()&&state.mode==='solo');
   paletteEl.classList.toggle('empty', inPalette.length===0);
   paletteEl.dataset.emptyLabel=isEarthSky()?'Toutes les gemmes et tous les astres sont placés.':(state.gameVariant==='space'?'Toutes les planètes sont placées sur la carte.':'Toutes les gemmes sont placées sur la grille.');
   const showPalette = piecesEditable();
@@ -3310,6 +3312,12 @@ function renderPalette(){
     earthSkyBottomPalette.classList.toggle('visible',bottomPieces.length>0);
     earthSkyBottomTitle.classList.toggle('visible',bottomPieces.length>0);
     inPalette.forEach(piece=>appendPiece(piece,(earthSkyPieceIsSpace(piece)===topIsSpace)?paletteEl:earthSkyBottomPalette));
+  }else if(isEarthSky()&&state.mode==='solo'){
+    const spaceGroup=document.createElement('div');spaceGroup.className='earth-sky-reserve-group earth-sky-solo-row';
+    const mineGroup=document.createElement('div');mineGroup.className='earth-sky-reserve-group earth-sky-solo-row';
+    paletteEl.append(spaceGroup,mineGroup);
+    inPalette.filter(piece=>earthSkyPieceIsSpace(piece)).forEach(piece=>appendPiece(piece,spaceGroup));
+    inPalette.filter(piece=>!earthSkyPieceIsSpace(piece)).forEach(piece=>appendPiece(piece,mineGroup));
   }else inPalette.forEach(piece=>appendPiece(piece,paletteEl));
 }
 
@@ -3442,6 +3450,9 @@ function renderControls(){
   $('#startBlockMsg').textContent = startBlockReason;
   $('#startBlockMsg').style.display = startBlockReason ? 'block' : 'none';
   $('#btnPropose').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
+  const proposeBlocked=state.mode==='solo'&&!state.soloOver&&state.gameVariant!=='lost'&&state.pieces.some(piece=>!piece.center);
+  $('#btnPropose').disabled=proposeBlocked;
+  $('#btnPropose').title=proposeBlocked?'Place toutes les pièces avant de proposer une solution.':'';
   $('#btnHint').style.display = (state.mode==='solo' && !state.soloOver) ? '' : 'none';
   updateHintModeUI();
   $('#btnBackToGM').style.display = 'none';
