@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0014';
+const APP_VERSION = '20260821-0015';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -176,6 +176,7 @@ let state = {
   coordDots:[]
 };
 let paletteScale = 1;
+let showFirstWaveHelp = false;
 function normalizePaletteScale(value){
   const raw=Number(value);
   const scale=raw>1?raw/100:raw;
@@ -336,6 +337,7 @@ function loadPlayerAccount(){
 }
 function savePlayerAccount(account){
   currentPlayerAccount=account||null;
+  if(!currentPlayerAccount)showFirstWaveHelp=false;
   invalidateGlobalSoloScores();
   try{
     if(account) localStorage.setItem(PLAYER_ACCOUNT_KEY,JSON.stringify(account));
@@ -529,7 +531,7 @@ async function renderAccountHome(){
     <h3 class="account-section-title">📅 Défis du jour</h3>
     <div id="accountStats"><div class="history-empty">Chargement des statistiques…</div></div>
     <label class="account-trust"><input type="checkbox" id="accountTrustDevice" ${isTrustedDevice()?'checked':''}><span><b>Enregistrer mes scores sans redemander le code sur cet appareil</b></span></label>
-    <div class="achievement-preferences"><label class="account-palette-size"><span><b>Taille des gemmes à placer</b></span><select id="accountPaletteScale" class="ranking-select"><option value="0.25">25 %</option><option value="0.5">50 %</option><option value="0.75">75 %</option><option value="1">100 %</option></select></label><label class="account-trust"><input type="checkbox" id="accountHideAchievementNotifications"><span><b>Ne pas afficher les notifications des succès</b></span></label><label class="account-trust"><input type="checkbox" id="accountHideAchievementRankings"><span><b>Ne pas afficher mon pseudo dans les classements des succès</b></span></label></div>
+    <div class="achievement-preferences"><label class="account-palette-size"><span><b>Taille des gemmes à placer</b></span><select id="accountPaletteScale" class="ranking-select"><option value="0.25">25 %</option><option value="0.5">50 %</option><option value="0.75">75 %</option><option value="1">100 %</option></select></label><label class="account-trust"><input type="checkbox" id="accountFirstWaveHelp"><span><b>Afficher la bulle d’aide et la pulsation dès la première utilisation d’une onde</b></span></label><label class="account-trust"><input type="checkbox" id="accountHideAchievementNotifications"><span><b>Ne pas afficher les notifications des succès</b></span></label><label class="account-trust"><input type="checkbox" id="accountHideAchievementRankings"><span><b>Ne pas afficher mon pseudo dans les classements des succès</b></span></label></div>
     ${isFirefox()?`<div class="achievement-preferences"><label class="account-trust"><input type="checkbox" id="accountFirefoxPerformance" ${firefoxPerformanceEnabled()?'checked':''}><span><b>Mode performances Firefox</b><small>Réduit certains effets visuels et opérations d’affichage afin d’améliorer la fluidité sur Firefox.</small></span></label></div>`:''}
     <div class="account-actions">
       <button class="ghost" id="accountAchievementsBtn">🏆 Mes succès</button>
@@ -562,11 +564,13 @@ async function renderAccountHome(){
     ]);
     $('#accountHideAchievementNotifications').checked=!!achievementPreferences.hide_notifications;
     $('#accountHideAchievementRankings').checked=!!achievementPreferences.hide_from_rankings;
+    showFirstWaveHelp=!!achievementPreferences.show_first_wave_help;
+    $('#accountFirstWaveHelp').checked=showFirstWaveHelp;
     paletteScale=normalizePaletteScale(achievementPreferences.palette_scale);
     $('#accountPaletteScale').value=String(paletteScale);
     renderPalette();
-    const saveAchievementPreferences=async()=>{paletteScale=normalizePaletteScale($('#accountPaletteScale').value);renderPalette();try{await supabaseRpc('orapa_set_achievement_preferences',{p_session_token:currentPlayerAccount.session_token,p_hide_notifications:$('#accountHideAchievementNotifications').checked,p_hide_from_rankings:$('#accountHideAchievementRankings').checked,p_palette_scale:Math.round(paletteScale*100)});showToast('Préférences enregistrées');}catch(e){showErrorToast('Enregistrement impossible : '+e.message);}};
-    $('#accountPaletteScale').onchange=saveAchievementPreferences;$('#accountHideAchievementNotifications').onchange=saveAchievementPreferences;$('#accountHideAchievementRankings').onchange=saveAchievementPreferences;
+    const saveAchievementPreferences=async()=>{paletteScale=normalizePaletteScale($('#accountPaletteScale').value);showFirstWaveHelp=$('#accountFirstWaveHelp').checked;renderPalette();try{await Promise.all([supabaseRpc('orapa_set_achievement_preferences',{p_session_token:currentPlayerAccount.session_token,p_hide_notifications:$('#accountHideAchievementNotifications').checked,p_hide_from_rankings:$('#accountHideAchievementRankings').checked,p_palette_scale:Math.round(paletteScale*100)}),supabaseRpc('orapa_set_first_wave_help_preference',{p_session_token:currentPlayerAccount.session_token,p_show_first_wave_help:showFirstWaveHelp})]);showToast('Préférences enregistrées');}catch(e){showErrorToast('Enregistrement impossible : '+e.message);}};
+    $('#accountPaletteScale').onchange=saveAchievementPreferences;$('#accountFirstWaveHelp').onchange=saveAchievementPreferences;$('#accountHideAchievementNotifications').onchange=saveAchievementPreferences;$('#accountHideAchievementRankings').onchange=saveAchievementPreferences;
     const rate=st.participations?Math.round(st.wins/st.participations*100):0;
     $('#accountStats').innerHTML=`<div class="account-stats-grid">
       <div class="account-stat"><b>${st.participations||0}</b>défis</div>
@@ -2885,6 +2889,16 @@ function pulseLabelPair(side,index){
   const partner = state.labelPartner[side] && state.labelPartner[side][index];
   if(partner && !(partner.side===side && partner.index===index)) pulseOneLabel(partner.side, partner.index);
 }
+function showUsedLabelFeedback(side,index){
+  const el=document.querySelector(`.label[data-side="${side}"][data-index="${index}"]`);
+  if(!el||state.labelColor?.[side]?.[index]===undefined)return;
+  const colorName=beamColorName(state.labelColor[side][index]);
+  const rawPairText=state.labelPair?.[side]?.[index]||'?';
+  const pairText=rawPairText.replace(/^Entr(?:é|e) par\s+/i,'Sort en ');
+  const noExit=/aucune sortie/i.test(pairText);
+  showLabelBubble(el,colorName&&!noExit?`${pairText}\n${colorName}`:pairText);
+  pulseLabelPair(side,index);
+}
 function showLabelBubble(el, text){
   let bubble = document.getElementById('labelBubble');
   if(!bubble){
@@ -3565,6 +3579,7 @@ function onLabelClick(side,index){
   }
   saveState();
   renderLabels(); renderHistory(); renderTraces();
+  if(showFirstWaveHelp&&!tutorialActive)setTimeout(()=>showUsedLabelFeedback(side,index),0);
   if(tutorialActive) tutorialAfterRay(result);
 }
 
@@ -5068,6 +5083,7 @@ function init(){
       try{
         const preferences=await supabaseRpc('orapa_get_achievement_preferences',{p_session_token:currentPlayerAccount.session_token});
         paletteScale=normalizePaletteScale(preferences?.palette_scale);
+        showFirstWaveHelp=!!preferences?.show_first_wave_help;
         renderPalette();
       }catch(error){console.error('Chargement de la taille des gemmes impossible :',error);}
     }
