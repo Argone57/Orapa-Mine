@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0020';
+const APP_VERSION = '20260821-0021';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -2605,8 +2605,11 @@ function placementValid(candidate, excludeId, piecesList){
   if((state.gameVariant==='space'||isEarthSky())&&!spaceEdgeConstraintValid(candidate))return false;
   for(const other of piecesList){
     if(!other.center || other.id===excludeId) continue;
-    if(isEarthSky()&&earthSkyPieceIsSpace(candidate)!==earthSkyPieceIsSpace(other))continue;
-    const useSpaceRules=state.gameVariant==='space'||(isEarthSky()&&earthSkyPieceIsSpace(candidate));
+    const differentEarthSkyFamilies=isEarthSky()&&earthSkyPieceIsSpace(candidate)!==earthSkyPieceIsSpace(other);
+    // La jonction Terre/Ciel est un bord pour le placement, mais les règles
+    // d'adjacence restent valables de part et d'autre : un contact par une
+    // pointe est permis, jamais un côté partagé.
+    const useSpaceRules=state.gameVariant==='space'||differentEarthSkyFamilies||(isEarthSky()&&earthSkyPieceIsSpace(candidate));
     if(useSpaceRules?spacePiecesOverlap(candidate,other):touchesBySide(pieceVertices(candidate), pieceVertices(other))) return false;
   }
   return true;
@@ -2665,8 +2668,8 @@ function computeInvalidPieceIds(piecesList){
       invalid.add(placed[i].id);
     }
     for(let j=i+1;j<placed.length;j++){
-      if(isEarthSky()&&earthSkyPieceIsSpace(placed[i])!==earthSkyPieceIsSpace(placed[j]))continue;
-      const useSpaceRules=state.gameVariant==='space'||(isEarthSky()&&earthSkyPieceIsSpace(placed[i]));
+      const differentEarthSkyFamilies=isEarthSky()&&earthSkyPieceIsSpace(placed[i])!==earthSkyPieceIsSpace(placed[j]);
+      const useSpaceRules=state.gameVariant==='space'||differentEarthSkyFamilies||(isEarthSky()&&earthSkyPieceIsSpace(placed[i]));
       if((useSpaceRules?spacePiecesOverlap(placed[i],placed[j]):touchesBySide(pieceVertices(placed[i]), pieceVertices(placed[j])))){
         invalid.add(placed[i].id);
         invalid.add(placed[j].id);
