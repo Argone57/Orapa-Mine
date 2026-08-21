@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0009';
+const APP_VERSION = '20260821-0010';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -3325,7 +3325,7 @@ function buildMixBoard(){
       </div>
     </div>`;
   if(state.gameVariant==='space'){
-    el.innerHTML=`<p class="mix-reminder">Chaque astre doit pouvoir être atteint directement par au moins une onde, sans rebond.</p>${baseMixMarkup}${state.includeBlackHole?`<hr class="mix-sep"><div class="mix-section-title"><span>🕳️</span><span>Trou noir</span></div><p class="mix-option-text"><b>Disparue :</b> l’onde entre directement dans le trou noir et ne ressort pas.</p><p class="mix-option-text"><b>Prisonnière :</b> l’onde reste prise dans une boucle. Ce résultat est représenté par des barreaux clairs.</p><div class="mix-space-examples"><figure><figcaption>Disparue :</figcaption><img src="space-disappeared-example.png" alt="Exemple d’une onde disparue dans le trou noir"></figure><figure><figcaption>Emprisonnée :</figcaption><img src="space-trapped-example.png" alt="Exemple d’une onde emprisonnée après une réfraction"></figure></div>`:''}`;
+    el.innerHTML=`${baseMixMarkup}${state.includeBlackHole?`<hr class="mix-sep"><div class="mix-section-title"><span>🕳️</span><span>Trou noir</span></div><p class="mix-option-text"><b>Disparue :</b> l’onde entre directement dans le trou noir et ne ressort pas.</p><p class="mix-option-text"><b>Prisonnière :</b> l’onde reste prise dans une boucle. Ce résultat est représenté par des barreaux clairs.</p><div class="mix-space-examples"><figure><figcaption>Disparue :</figcaption><img src="space-disappeared-example.png" alt="Exemple d’une onde disparue dans le trou noir"></figure><figure><figcaption>Emprisonnée :</figcaption><img src="space-trapped-example.png" alt="Exemple d’une onde emprisonnée après une réfraction"></figure></div>`:''}`;
     return;
   }
   el.innerHTML = `
@@ -4402,8 +4402,11 @@ function syncOptionalPiece(type, include, flagName){
   saveState(); renderPalette(); renderPieces(); renderControls(); buildMixBoard();
 }
 $('#helpFab').addEventListener('click', ()=>{
-  $('#helpModal h2').textContent=state.gameVariant==='space'?'Rappels Orapa Space':'Rappels';
-  $('#helpModal > .modal > p').style.display=state.gameVariant==='space'?'none':'';
+  const isSpace=state.gameVariant==='space';
+  $('#helpModal h2').textContent=isSpace?'Rappels Orapa Space':'Rappels';
+  $('#helpDirectReachReminder').textContent=isSpace
+    ? 'Chaque astre doit pouvoir être atteint directement par au moins une onde, sans rebond.'
+    : 'Chaque gemme doit pouvoir être atteinte directement par au moins une onde, sans rebond.';
   buildMixBoard();
   $('#helpModal').classList.add('open');
 });
