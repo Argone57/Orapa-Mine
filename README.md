@@ -4,7 +4,9 @@
 
 Les évolutions de la base sont rangées dans le dossier `Supabase` et numérotées dans
 l’ordre d’exécution. Sur une base déjà utilisée, exécute uniquement les scripts qui
-n’ont pas encore été appliqués, dans l’ordre `01` à `09`.
+n’ont pas encore été appliqués, dans l’ordre de leur numéro. Le mode Orapa Space est
+ajouté par `18_orapa_space.sql`. Terre et Ciel utilise `20_terre_et_ciel.sql`, à
+exécuter après le script `19`.
 
 Ces fichiers complètent une installation Supabase existante. Les fonctions historiques
 de création de compte, de connexion, de changement de pseudo et de statistiques du
@@ -80,9 +82,13 @@ Pour ajuster une teinte exacte, modifie l'objet `CONFIG.MIX` en haut de `app.js`
 
 Tout est centralisé dans l'objet `SHAPES` en haut de `app.js` : chaque pièce est une liste de sommets `[x,y]` relatifs à son centre (unité = 1 case). Modifie ces coordonnées si une forme ou une taille ne correspond pas exactement à ton exemplaire physique — le reste du moteur (rotation, miroir et calcul de l'onde) s'adapte automatiquement.
 
-## Mode solo
+## Modes solo
 
-Le bouton **🧩 Jouer en solo** demande d’abord une connexion par pseudo et code à 4 chiffres, sans adresse mail. Il ouvre ensuite le choix entre Défi du jour, Grille aléatoire et Par identifiant.
+Le bouton **🧩 Jouer en solo** demande d’abord une connexion par pseudo et code à 4 chiffres, sans adresse mail. Son menu sépare désormais :
+
+- **Orapa Mine** : grille aléatoire, Gemme perdue et Défi du jour ;
+- **Orapa Space** : grille aléatoire, avec trou noir optionnel ;
+- **Par identifiant** : retrouve automatiquement le mode correspondant à l’identifiant saisi.
 
 - Les gemmes de la grille secrète ne sont **jamais affichées**.
 - Tu peux cliquer les bords comme d'habitude : le résultat (entrée, sortie et couleur) s'ajoute à l'historique, mais **le trajet de l'onde n'est pas dessiné** sur la grille — seule l'information textuelle est donnée.
@@ -99,6 +105,35 @@ Le bouton **🧩 Jouer en solo** demande d’abord une connexion par pseudo et c
 - En cas de défaite, deux boutons **👁 Mes gemmes** / **👁 Gemmes à trouver** permettent de masquer temporairement l'une ou l'autre couche pour mieux comparer.
 
 Le mode maître du jeu (placement manuel, bouton Aléatoire, Démarrer la partie) n'est pas affecté par cette fonctionnalité.
+
+## Orapa Space
+
+Orapa Space reprend le principe des ondes et des couleurs avec six nouvelles planètes :
+une grande planète blanche, une petite planète rouge, des planètes rouge et bleue en
+losange, une planète jaune et une planète blanche en anneau. Le grand côté de la grande
+planète blanche doit être placé contre l’un des quatre bords de la carte.
+
+- les planètes restent entièrement dans la carte et deux planètes ne peuvent pas partager
+  une même case ;
+- chaque planète doit être atteignable directement par au moins une onde, sans rebond ;
+- la partie aléatoire conserve les deux propositions de solution d’Orapa Mine ;
+- le **trou noir**, optionnel, fait disparaître une onde qui le frappe directement et
+  dévie à angle droit une onde passant juste à côté ; certaines trajectoires peuvent alors
+  devenir **Prisonnières**, représentées par des barreaux clairs ;
+- les couleurs et leurs noms restent ceux d’Orapa Mine.
+
+Chaque carte Orapa Space possède son propre identifiant, son classement et son historique.
+Elle peut aussi être créée puis partagée ; son créateur la conserve alors en consultation
+sans pouvoir y enregistrer de score. Les statistiques Orapa Space restent séparées des
+autres modes.
+
+Le menu **Apprendre à jouer** propose un tutoriel court consacré aux différences d’Orapa
+Space. Il est conseillé d’avoir d’abord suivi le tutoriel Orapa Mine.
+
+Les succès ajoutés sont **Aspirant astronaute**, **Premier décollage**, **Premier vol**,
+**Premier alien**, **Ingénieur**, **Trou noir**, **One-shot**, **Habitué du cosmos** et le
+succès caché **Perdue dans l’espace**. Les succès Dissectologue et Céphaloclastophile
+comptabilisent également les parties Orapa Space.
 
 ## Classements et historiques
 

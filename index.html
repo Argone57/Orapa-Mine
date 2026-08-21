@@ -99,6 +99,8 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 @keyframes flashCell{0%{background:rgba(255,255,255,.55)}100%{background:transparent}}
 .overlaysvg{position:absolute;inset:0;pointer-events:none;}
 #pieceSvg{overflow:visible;touch-action:none;pointer-events:none;}
+.board.earth-sky-board::after{content:"";position:absolute;z-index:6;left:-1px;right:-1px;top:50%;border-top:3px dashed rgba(220,174,86,.9);pointer-events:none;filter:drop-shadow(0 0 2px rgba(220,174,86,.35));}
+.earth-sky-preview .choice-zone-title{display:flex;align-items:center;gap:.35rem;}
 .piece-poly{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));touch-action:none;}
 .piece-poly.interactive{pointer-events:auto;}
 .piece-poly.dragging{opacity:.35;}
@@ -430,11 +432,11 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
     <div id="rankingSoloIntro">
       <p></p>
       <p>Clique sur un pseudo pour afficher le détail, puis sur <b>Grille</b> pour consulter le classement de celle-ci.</p>
-      <div class="achievement-subtabs"><button id="historyModeClassic" class="ghost active">Mine</button><button id="historyModeLost" class="ghost">Gemme perdue</button><button id="historyModeSpace" class="ghost">Space</button></div>
+      <div class="achievement-subtabs"><button id="historyModeClassic" class="ghost active">Mine</button><button id="historyModeLost" class="ghost">Gemme perdue</button><button id="historyModeSpace" class="ghost">Space</button><button id="historyModeEarthSky" class="ghost">Terre et Ciel</button></div>
     </div>
     <div id="rankingDailyIntro" style="display:none;">
       <p>Clique sur une grille pour accéder à son classement.</p>
-      <div class="achievement-subtabs"><button id="gridModeClassic" class="ghost active">Mine</button><button id="gridModeLost" class="ghost">Gemme perdue</button><button id="gridModeSpace" class="ghost">Space</button></div>
+      <div class="achievement-subtabs"><button id="gridModeClassic" class="ghost active">Mine</button><button id="gridModeLost" class="ghost">Gemme perdue</button><button id="gridModeSpace" class="ghost">Space</button><button id="gridModeEarthSky" class="ghost">Terre et Ciel</button></div>
       <form id="gridSearchForm" class="grid-search">
         <input id="gridSearchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Identifiant de la grille" aria-label="Identifiant de la grille">
         <button class="primary" type="submit">🔎 Rechercher</button>
@@ -640,6 +642,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
       <button id="soloChoiceDaily" class="ghost solo-choice-card solo-choice-daily"><span class="choice-icon">📅</span><span class="choice-copy"><strong>Défi du jour</strong><em>La grille quotidienne et ses règles spéciales.</em><small>Revoir la grille</small></span></button>
     </div></section>
     <section class="choice-zone"><h3 class="choice-zone-title">🪐 Orapa Space</h3><button id="soloChoiceSpace" class="ghost solo-choice-card solo-choice-space"><span class="choice-icon">🚀</span><span class="choice-copy"><strong>Aléatoire</strong><em>Explore l’espace avec les nouvelles planètes et le trou noir optionnel.</em></span></button></section>
+    <section class="choice-zone earth-sky-preview" hidden><h3 class="choice-zone-title">🌍☁️ Terre et Ciel</h3><button id="soloChoiceEarthSky" class="ghost solo-choice-card solo-choice-space"><span class="choice-icon">🌗</span><span class="choice-copy"><strong>Aléatoire</strong><em>Explore une mine et un ciel réunis sur une même double grille.</em></span></button></section>
     <section class="choice-zone"><h3 class="choice-zone-title">🔑 Grille partagée</h3><button id="soloChoiceById" class="ghost solo-choice-card solo-choice-by-id"><span class="choice-icon">🔑</span><span class="choice-copy"><strong>Par identifiant</strong><em>Rejoins automatiquement une grille Mine, Gemme perdue ou Space.</em></span></button></section>
     <div class="solo-choice-footer"><div id="dailyStatusLine" style="display:none;text-align:center;font-size:.75rem;color:var(--text-faint);margin-top:-4px;"></div><div class="controls" style="justify-content:flex-end;">
       <button id="soloChoiceCancel" class="ghost">Annuler</button></div>
@@ -684,8 +687,11 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
       <button class="primary" id="createClassicMode">Grille classique</button>
       <button class="ghost" id="createLostMode">💎 Gemme perdue</button>
     </div></section><section class="choice-zone"><h3 class="choice-zone-title">🪐 Orapa Space</h3><div class="controls" style="justify-content:center;margin-top:10px;"><button class="ghost" id="createSpaceMode">🚀 Grille classique</button></div></section>
+    <section class="choice-zone earth-sky-preview" hidden><h3 class="choice-zone-title">🌍☁️ Terre et Ciel</h3><div class="controls" style="justify-content:center;margin-top:10px;"><button class="ghost" id="createEarthSkyMode">🌗 Double grille</button></div></section>
   </div>
 </div>
+
+<div class="modal-backdrop" id="earthSkyIntroModal"><div class="modal"><button class="close-x" id="closeEarthSkyIntro">×</button><h2>🌍☁️ Terre et Ciel</h2><p>La mine et l’espace partagent une même carte de 10 × 16 cases. Les gemmes occupent une moitié et les astres l’autre ; leur position haute ou basse change à chaque grille.</p><p>La ligne pointillée sépare les deux univers pour le placement des pièces, mais les ondes la traversent librement.</p><p>Choisis les quatre éléments optionnels qui pourront accompagner les pièces de base.</p><div class="setup-options"><label><input type="checkbox" id="earthSkyOptGray"> Diamant</label><label><input type="checkbox" id="earthSkyOptOnyx"> Corps noir</label><label><input type="checkbox" id="earthSkyOptSapphire"> Saphir bleu ciel</label><label><input type="checkbox" id="earthSkyOptBlackHole"> 🕳️ Trou noir</label></div><div class="controls" style="justify-content:flex-end"><button class="ghost" id="cancelEarthSkyIntro">Annuler</button><button class="primary" id="startEarthSkyGame">Commencer</button></div></div></div>
 
 <div class="modal-backdrop" id="spaceIntroModal"><div class="modal"><button class="close-x" id="closeSpaceIntro">×</button><h2>🚀 Orapa Space</h2><p>Retrouve la position et l’orientation des six planètes en interprétant les ondes. Les couleurs et le calcul des points restent identiques à Orapa Mine.</p><p>La grande planète blanche doit poser son grand côté contre un bord. Deux planètes ne peuvent pas partager une même case.</p><p>Le <b>🕳️ Trou noir</b> est optionnel : une onde directe disparaît, une onde voisine est déviée une seule fois et certaines trajectoires peuvent rester <b>prisonnières</b>.</p><label class="checkline"><input type="checkbox" id="spaceOptBlackHole"> 🕳️ Ajouter le trou noir</label><div class="controls" style="justify-content:flex-end"><button class="ghost" id="cancelSpaceIntro">Annuler</button><button class="primary" id="startSpaceGame">Décoller</button></div></div></div>
 
@@ -785,6 +791,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="app.js?v=20260821-0017"></script>
+<script src="app.js?v=20260821-0019"></script>
 </body>
 </html>
