@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0021';
+const APP_VERSION = '20260821-0022';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -239,7 +239,7 @@ function formatShareText(e){
     return `Orapa Mine · Gemme perdue · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍${puzzle}) - ID: ${e.gridId||'?'}\nhttps://argone57.github.io/Orapa-Mine/`;
   }
   if(e.gameVariant==='space'||decoded?.variant==='space')return `Orapa Space · ${decoded?.includeBlackHole?'🕳️ Trou noir':'Sans trou noir'} · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ID: ${e.gridId||'?'}\nhttps://argone57.github.io/Orapa-Mine/`;
-  if(e.gameVariant==='earthSky'||decoded?.variant==='earthSky')return `Orapa Mine · Terre et Ciel · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ID: ${e.gridId||'?'}\nhttps://argone57.github.io/Orapa-Mine/`;
+  if(e.gameVariant==='earthSky'||decoded?.variant==='earthSky')return `Orapa Mine · Terre et Ciel · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${earthSkyFlagsEmojiLine(decoded)}\nID: ${e.gridId||'?'}\nhttps://argone57.github.io/Orapa-Mine/`;
   const gems = decoded
     ? gemFlagsEmojiLine(decoded.includeGray, decoded.includeOnyx, decoded.includeSapphire)
     : gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
@@ -786,7 +786,7 @@ async function openMyEarthSkyGridHistory(){
   const list={rows:[],hasMore:true};
   const bindTabs=()=>{$('#accountHistoryClassic').onclick=openMyGridHistory;$('#accountHistoryLost').onclick=openMyLostGridHistory;$('#accountHistorySpace').onclick=openMySpaceGridHistory;$('#accountHistoryEarthSky').onclick=openMyEarthSkyGridHistory;};
   const load=async()=>{const page=await supabaseRpc('orapa_my_earth_sky_grid_history',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:list.rows.length});list.rows.push(...(page||[]).slice(0,10));list.hasMore=(page||[]).length>10;};
-  const render=()=>{const rows=list.rows;$('#gridDataContent').innerHTML=(rows.length?rows.map((row,index)=>{const key=`earth-sky-account:${row.grid_id}`,expanded=expandedScores.has(key),date=new Date(row.played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),hasBlackHole=decodeGridId(row.grid_id)?.includeBlackHole===true;return `<div class="ranking-row account-history-row account-ranked-history${expanded?' expanded':''}" data-index="${index}"><div class="ranking-row-top"><span class="account-result-position"><span class="solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><b>#${row.rank}</b></span><span class="ranking-query-cell">${row.ray_count} 🔦 + ${row.coord_count} 📍${hasBlackHole?' · 🕳️':''}</span><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${date}</span></div>${expanded?`<div class="ranking-row-detail">ID <b>${escapeHtml(row.grid_id)}</b> · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions three"><button class="earth-sky-account-summary ghost" data-index="${index}">📋 Résumé</button><button class="earth-sky-account-id ghost" data-index="${index}">📋 ID</button><button class="earth-sky-account-ranking primary" data-index="${index}">🏆 Grille</button></div>`:''}</div>`;}).join(''):'<div class="history-empty">Aucune partie Terre et Ciel enregistrée.</div>')+(list.hasMore?'<button id="earthSkyAccountMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'');$('#gridDataContent').querySelectorAll('.account-history-row').forEach(node=>node.onclick=e=>{if(e.target.closest('button'))return;const row=rows[Number(node.dataset.index)],key=`earth-sky-account:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);render();});$('#gridDataContent').querySelectorAll('.earth-sky-account-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));$('#gridDataContent').querySelectorAll('.earth-sky-account-id').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(rows[Number(button.dataset.index)].grid_id).then(()=>showToast('Identifiant copié !')));$('#gridDataContent').querySelectorAll('.earth-sky-account-summary').forEach(button=>button.onclick=()=>{const row=rows[Number(button.dataset.index)];navigator.clipboard?.writeText(formatShareText({gameVariant:'earthSky',gridId:row.grid_id,name:currentPlayerAccount.display_name,success:row.success,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,date:new Date(row.played_at).getTime()})).then(()=>showToast('Résumé copié !'));});if($('#earthSkyAccountMore'))$('#earthSkyAccountMore').onclick=async()=>{await load();render();};};
+  const render=()=>{const rows=list.rows;$('#gridDataContent').innerHTML=(rows.length?rows.map((row,index)=>{const key=`earth-sky-account:${row.grid_id}`,expanded=expandedScores.has(key),date=new Date(row.played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),decoded=decodeGridId(row.grid_id),moves=`${row.ray_count} 🔦 + ${row.coord_count} 📍`;return `<div class="ranking-row account-history-row account-ranked-history${expanded?' expanded':''}" data-index="${index}"><div class="ranking-row-top"><span class="account-result-position"><span class="solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><b>#${row.rank}</b></span><span class="ranking-gems">${earthSkyFlagsEmojiLine(decoded)}</span><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${date}</span></div>${expanded?`<div class="ranking-row-detail">ID <b>${escapeHtml(row.grid_id)}</b> · ${moves} · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions three"><button class="earth-sky-account-summary ghost" data-index="${index}">📋 Résumé</button><button class="earth-sky-account-id ghost" data-index="${index}">📋 ID</button><button class="earth-sky-account-ranking primary" data-index="${index}">🏆 Grille</button></div>`:''}</div>`;}).join(''):'<div class="history-empty">Aucune partie Terre et Ciel enregistrée.</div>')+(list.hasMore?'<button id="earthSkyAccountMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'');$('#gridDataContent').querySelectorAll('.account-history-row').forEach(node=>node.onclick=e=>{if(e.target.closest('button'))return;const row=rows[Number(node.dataset.index)],key=`earth-sky-account:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);render();});$('#gridDataContent').querySelectorAll('.earth-sky-account-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));$('#gridDataContent').querySelectorAll('.earth-sky-account-id').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(rows[Number(button.dataset.index)].grid_id).then(()=>showToast('Identifiant copié !')));$('#gridDataContent').querySelectorAll('.earth-sky-account-summary').forEach(button=>button.onclick=()=>{const row=rows[Number(button.dataset.index)];navigator.clipboard?.writeText(formatShareText({gameVariant:'earthSky',gridId:row.grid_id,name:currentPlayerAccount.display_name,success:row.success,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,date:new Date(row.played_at).getTime()})).then(()=>showToast('Résumé copié !'));});if($('#earthSkyAccountMore'))$('#earthSkyAccountMore').onclick=async()=>{await load();render();};};
   try{await load();bindTabs();render();}catch(error){$('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 async function openMyDailyHistory(){
@@ -1520,6 +1520,10 @@ function decodedGridLayoutIsValid(decoded){
 }
 function gemFlagsEmojiLine(g,o,s){
   return `💎 ${g?'✅':'❌'} / ⬛️ ${o?'✅':'❌'} / 🟦 ${s?'✅':'❌'}`;
+}
+function earthSkyFlagsEmojiLine(decoded){
+  const source=decoded||state;
+  return `${gemFlagsEmojiLine(!!source.includeGray,!!source.includeOnyx,!!source.includeSapphire)} / 🕳️ ${source.includeBlackHole?'✅':'❌'}`;
 }
 
 const ROTATIONS = [0,90,180,270];
@@ -3234,7 +3238,8 @@ function renderPalette(){
   $('#optOnyx').parentElement.style.display=state.gameVariant==='space'?'none':'';
   $('#optSapphire').parentElement.style.display=state.gameVariant==='space'?'none':'';
   $('#optBlackHoleLabel').style.display=(state.gameVariant==='space'||isEarthSky())?'':'none';
-  const earthSkyAssigned=isEarthSky()&&state.earthSkyMineOnTop!=null;
+  const splitEarthSkyReserve=isEarthSky()&&state.mode==='gm'&&!state.started;
+  const earthSkyAssigned=splitEarthSkyReserve&&state.earthSkyMineOnTop!=null;
   $('#paletteTitle').style.display = showPalette?'':'none';
   paletteEl.style.display = showPalette?'flex':'none';
   if(earthSkyBottomPalette){
@@ -3290,8 +3295,8 @@ function renderPalette(){
     target.appendChild(svg);
     attachPieceInteraction(svg, piece);
   };
-  paletteEl.classList.toggle('earth-sky-neutral',isEarthSky()&&!earthSkyAssigned);
-  if(isEarthSky()&&!earthSkyAssigned){
+  paletteEl.classList.toggle('earth-sky-neutral',splitEarthSkyReserve&&!earthSkyAssigned);
+  if(splitEarthSkyReserve&&!earthSkyAssigned){
     const mineGroup=document.createElement('div');mineGroup.className='earth-sky-reserve-group';mineGroup.innerHTML='<div class="earth-sky-reserve-label">💎 Gemmes</div>';
     const spaceGroup=document.createElement('div');spaceGroup.className='earth-sky-reserve-group';spaceGroup.innerHTML='<div class="earth-sky-reserve-label">🪐 Astres</div>';
     paletteEl.append(mineGroup,spaceGroup);
@@ -3408,7 +3413,7 @@ function renderControls(){
   const isSpace=state.gameVariant==='space';
   const earthSky=isEarthSky();
   $('#appGameTitle').textContent=earthSky?'🌍☁️ Terre et Ciel':(isSpace?'🪐 Orapa Space':'💎 Orapa Mine');
-  $('#paletteTitle').textContent=earthSky?(state.earthSkyMineOnTop==null?'Gemmes et astres à placer':(state.earthSkyMineOnTop?'Gemmes à placer':'Astres à placer')):(isSpace?'Planètes à placer':'Gemmes à placer');
+  $('#paletteTitle').textContent=earthSky?(state.mode==='solo'?'Gemmes et astres à placer':(state.earthSkyMineOnTop==null?'Gemmes et astres à placer':(state.earthSkyMineOnTop?'Gemmes à placer':'Astres à placer'))):(isSpace?'Planètes à placer':'Gemmes à placer');
   $('#boardSectionTitle').textContent=earthSky?'Double grille Terre et Ciel':(isSpace?'Carte spatiale':'Plateau de la mine');
   $('#masterSubtitle').textContent=earthSky?'Entre mine et espace':(isSpace?'Console de l’explorateur':'Console du maître du jeu');
   $('#masterSubtitle').style.display=state.isDaily?'none':'';
@@ -3793,7 +3798,7 @@ async function onCellClick(r,c,cellEl){
   const key = r+','+c;
   if(state.cellUsed[key]) return;
   if(state.mode==='solo' && !hintModeActive) return;
-  const coord = LEFT_LABELS[r] + (c+1);
+  const coord = activeLeftLabels()[r] + (c+1);
   if(state.mode==='solo'){
     if(!tutorialActive&&!await gameConfirm(`Révéler le contenu de la case ${coord} ?`,'Demander un indice','Révéler','Annuler')) return;
     registerSoloAction('coord');
@@ -4199,8 +4204,7 @@ function canPreviewSpaceTutorial(){
   return true;
 }
 function canPreviewEarthSky(){
-  const localPreview=['localhost','127.0.0.1'].includes(location.hostname);
-  return localPreview||String(currentPlayerAccount?.display_name||currentPlayerAccount?.player_name||'').trim().toLowerCase()==='argone';
+  return true;
 }
 $('#homeLearn').addEventListener('click',()=>{
   $('#tutorialSpace').hidden=!canPreviewSpaceTutorial();
@@ -4437,6 +4441,16 @@ function openSpaceStudentPrerequisiteModal(checkError=false){
   $('#triforcePrerequisiteRetry').style.display=checkError?'':'none';
   $('#triforcePrerequisiteModal').classList.add('open');
 }
+function openEarthSkyPrerequisiteModal(checkError=false){
+  prerequisiteModalContext='earth_sky';
+  $('#triforcePrerequisiteTitle').textContent=checkError?'⚠️ Vérification impossible':'🔒 Terre et Ciel verrouillé';
+  $('#triforcePrerequisiteText').innerHTML=checkError
+    ? 'Impossible de vérifier les succès requis. Vérifie ta connexion puis réessaie.'
+    : 'Pour accéder aux grilles aléatoires <b>Terre et Ciel</b>, débloque d’abord les succès <b>Triforce</b> et <b>Aspirant astronaute</b>.';
+  $('#triforcePrerequisiteAchievement').style.display=checkError?'none':'';
+  $('#triforcePrerequisiteRetry').style.display=checkError?'':'none';
+  $('#triforcePrerequisiteModal').classList.add('open');
+}
 function closeTriforcePrerequisiteModal(){$('#triforcePrerequisiteModal').classList.remove('open');}
 async function verifyTriforcePrerequisite(showModal=false){
   if(!currentPlayerAccount?.session_token){
@@ -4467,6 +4481,16 @@ async function verifySpaceStudentPrerequisite(showModal=false){
     if(showModal)openSpaceStudentPrerequisiteModal(true);
     return false;
   }
+}
+async function verifyEarthSkyPrerequisites(showModal=false){
+  if(!currentPlayerAccount?.session_token){if(showModal)openEarthSkyPrerequisiteModal(false);return false;}
+  try{
+    const catalog=await getAchievementCatalog(true);
+    const keys=new Set(catalog.filter(row=>row.unlocked).map(row=>row.achievement_key));
+    const unlocked=keys.has('triforce')&&keys.has('space_student');
+    if(showModal&&!unlocked)openEarthSkyPrerequisiteModal(false);
+    return unlocked;
+  }catch(error){if(showModal)openEarthSkyPrerequisiteModal(true);return false;}
 }
 async function openSoloChoiceModal(){
   document.body.classList.add('solo-menu-open');
@@ -4508,7 +4532,9 @@ $('#triforcePrerequisiteClose').addEventListener('click',closeTriforcePrerequisi
 $('#triforcePrerequisiteModal').addEventListener('click',e=>{if(e.target.id==='triforcePrerequisiteModal')closeTriforcePrerequisiteModal();});
 $('#triforcePrerequisiteRetry').addEventListener('click',async()=>{
   closeTriforcePrerequisiteModal();
-  if(prerequisiteModalContext==='space_student'){
+  if(prerequisiteModalContext==='earth_sky'){
+    if(await verifyEarthSkyPrerequisites(true))showToast('Prérequis Terre et Ciel vérifiés.');
+  }else if(prerequisiteModalContext==='space_student'){
     if(await verifySpaceStudentPrerequisite(true))showToast('Succès Aspirant astronaute vérifié.');
   }else if(await verifyTriforcePrerequisite(true))showToast('Succès Triforce vérifié.');
 });
@@ -4543,7 +4569,7 @@ $('#appUpdateConfirm').addEventListener('click',async e=>{
 $('#appUpdateModal').addEventListener('click',e=>{if(e.target.id==='appUpdateModal')closeAppUpdateModal();});
 $('#soloChoiceRandom').addEventListener('click', ()=>{ closeSoloChoiceModal(); openSoloSetupModal(); });
 $('#soloChoiceSpace').addEventListener('click',async()=>{if(!await verifySpaceStudentPrerequisite(true))return;closeSoloChoiceModal();$('#spaceOptBlackHole').checked=!!state.includeBlackHole;$('#spaceIntroModal').classList.add('open');});
-$('#soloChoiceEarthSky').addEventListener('click',()=>{if(!canPreviewEarthSky())return;closeSoloChoiceModal();$('#earthSkyOptGray').checked=!!state.includeGray;$('#earthSkyOptOnyx').checked=!!state.includeOnyx;$('#earthSkyOptSapphire').checked=!!state.includeSapphire;$('#earthSkyOptBlackHole').checked=!!state.includeBlackHole;$('#earthSkyIntroModal').classList.add('open');});
+$('#soloChoiceEarthSky').addEventListener('click',async()=>{if(!canPreviewEarthSky()||!await verifyEarthSkyPrerequisites(true))return;closeSoloChoiceModal();$('#earthSkyOptGray').checked=!!state.includeGray;$('#earthSkyOptOnyx').checked=!!state.includeOnyx;$('#earthSkyOptSapphire').checked=!!state.includeSapphire;$('#earthSkyOptBlackHole').checked=!!state.includeBlackHole;$('#earthSkyIntroModal').classList.add('open');});
 function closeEarthSkyIntro(){$('#earthSkyIntroModal').classList.remove('open');}
 $('#closeEarthSkyIntro').addEventListener('click',closeEarthSkyIntro);$('#cancelEarthSkyIntro').addEventListener('click',()=>{closeEarthSkyIntro();openSoloChoiceModal();});
 $('#earthSkyIntroModal').addEventListener('click',event=>{if(event.target.id==='earthSkyIntroModal'){closeEarthSkyIntro();openSoloChoiceModal();}});
@@ -4786,7 +4812,7 @@ async function fetchGridCatalog(sort,limit,offset=0){
 }
 function gridCatalogCard(row,section,index){
   const id=String(row.grid_id||''),decoded=decodeGridId(id);
-  const gems=decoded?.variant==='lost'?'💎 Gemme perdue':decoded?.variant==='space'?(decoded.includeBlackHole?'🪐 Orapa Space · 🕳️':'🪐 Orapa Space'):decoded?.variant==='earthSky'?`🌍☁️ Terre et Ciel${decoded.includeBlackHole?' · 🕳️':''}`:(decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'');
+  const gems=decoded?.variant==='lost'?'💎 Gemme perdue':decoded?.variant==='space'?(decoded.includeBlackHole?'🪐 Orapa Space · 🕳️':'🪐 Orapa Space'):decoded?.variant==='earthSky'?earthSkyFlagsEmojiLine(decoded):(decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'');
   const count=Number(row.participation_count)||0,wins=Number(row.success_count)||0,rate=count?Math.round(wins/count*100):0;
   const key=`gridcatalog:${section}:${id}`,expanded=expandedScores.has(key);
   const lastDate=row.last_played_at?new Date(row.last_played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
@@ -5177,7 +5203,7 @@ async function renderEarthSkyHistoryRanking(){
   const el=$('#rankingList');el.innerHTML='<div class="history-empty">Chargement des parties Terre et Ciel…</div>';
   const state={rows:[],hasMore:true,loading:false};
   const loadPage=async()=>{if(state.loading||!state.hasMore)return;state.loading=true;try{const page=await supabaseRpc('orapa_earth_sky_global_history',{p_session_token:currentPlayerAccount?.session_token||'',p_limit:11,p_offset:state.rows.length});const pageRows=Array.isArray(page)?page:[];state.rows.push(...pageRows.slice(0,10));state.hasMore=pageRows.length>10;}finally{state.loading=false;}};
-  try{await loadPage();const render=()=>{const rows=state.rows;el.innerHTML=(rows.length?rows.map((row,index)=>{const key=`global-earth-sky:${row.id}`,expanded=expandedScores.has(key),date=new Date(row.played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),hasBlackHole=decodeGridId(row.grid_id)?.includeBlackHole===true,moves=`${row.ray_count} 🔦 + ${row.coord_count} 📍${hasBlackHole?' · 🕳️':''}`;return `<div class="ranking-row solo-global-row${expanded?' expanded':''}" data-index="${index}"><div class="ranking-row-top"><span class="solo-ranking-player"><span class="ranking-rank solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><span class="ranking-name${row.is_mine?' mine':''}">${escapeHtml(row.player_name||'Anonyme')}</span></span><span class="solo-ranking-config ranking-query-cell">${moves}</span><span class="solo-ranking-score"><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${date}</span></span></div>${expanded?`<div class="ranking-row-detail">ID <b>${escapeHtml(row.grid_id)}</b> · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions three"><button class="earth-sky-history-summary ghost" data-index="${index}">📋 Résumé</button><button class="earth-sky-history-id ghost" data-index="${index}">📋 ID</button><button class="earth-sky-history-ranking primary" data-index="${index}">🏆 Grille</button></div>`:''}</div>`;}).join(''):'<div class="history-empty">Aucune partie Terre et Ciel enregistrée.</div>')+(state.hasMore?'<button id="earthSkyHistoryMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'');el.querySelectorAll('.solo-global-row').forEach(node=>node.onclick=e=>{if(e.target.closest('button'))return;const row=rows[Number(node.dataset.index)],key=`global-earth-sky:${row.id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);render();});el.querySelectorAll('.earth-sky-history-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id));el.querySelectorAll('.earth-sky-history-id').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(rows[Number(button.dataset.index)].grid_id).then(()=>showToast('Identifiant copié !')));el.querySelectorAll('.earth-sky-history-summary').forEach(button=>button.onclick=()=>{const row=rows[Number(button.dataset.index)];navigator.clipboard?.writeText(formatShareText({gameVariant:'earthSky',gridId:row.grid_id,name:row.player_name||'Anonyme',success:row.success,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,date:new Date(row.played_at).getTime()})).then(()=>showToast('Résumé copié !'));});if($('#earthSkyHistoryMore'))$('#earthSkyHistoryMore').onclick=async()=>{await loadPage();render();};};render();}catch(error){el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
+  try{await loadPage();const render=()=>{const rows=state.rows;el.innerHTML=(rows.length?rows.map((row,index)=>{const key=`global-earth-sky:${row.id}`,expanded=expandedScores.has(key),date=new Date(row.played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),decoded=decodeGridId(row.grid_id),moves=`${row.ray_count} 🔦 + ${row.coord_count} 📍`;return `<div class="ranking-row solo-global-row${expanded?' expanded':''}" data-index="${index}"><div class="ranking-row-top"><span class="solo-ranking-player"><span class="ranking-rank solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><span class="ranking-name${row.is_mine?' mine':''}">${escapeHtml(row.player_name||'Anonyme')}</span></span><span class="solo-ranking-config ranking-gems">${earthSkyFlagsEmojiLine(decoded)}</span><span class="solo-ranking-score"><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${date}</span></span></div>${expanded?`<div class="ranking-row-detail">ID <b>${escapeHtml(row.grid_id)}</b> · ${moves} · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions three"><button class="earth-sky-history-summary ghost" data-index="${index}">📋 Résumé</button><button class="earth-sky-history-id ghost" data-index="${index}">📋 ID</button><button class="earth-sky-history-ranking primary" data-index="${index}">🏆 Grille</button></div>`:''}</div>`;}).join(''):'<div class="history-empty">Aucune partie Terre et Ciel enregistrée.</div>')+(state.hasMore?'<button id="earthSkyHistoryMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'');el.querySelectorAll('.solo-global-row').forEach(node=>node.onclick=e=>{if(e.target.closest('button'))return;const row=rows[Number(node.dataset.index)],key=`global-earth-sky:${row.id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);render();});el.querySelectorAll('.earth-sky-history-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id));el.querySelectorAll('.earth-sky-history-id').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(rows[Number(button.dataset.index)].grid_id).then(()=>showToast('Identifiant copié !')));el.querySelectorAll('.earth-sky-history-summary').forEach(button=>button.onclick=()=>{const row=rows[Number(button.dataset.index)];navigator.clipboard?.writeText(formatShareText({gameVariant:'earthSky',gridId:row.grid_id,name:row.player_name||'Anonyme',success:row.success,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,date:new Date(row.played_at).getTime()})).then(()=>showToast('Résumé copié !'));});if($('#earthSkyHistoryMore'))$('#earthSkyHistoryMore').onclick=async()=>{await loadPage();render();};};render();}catch(error){el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 async function renderLostHistoryRanking(){
   const el=$('#rankingList');el.innerHTML='<div class="history-empty">Chargement des parties Gemme perdue…</div>';
