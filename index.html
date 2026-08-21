@@ -99,7 +99,14 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 @keyframes flashCell{0%{background:rgba(255,255,255,.55)}100%{background:transparent}}
 .overlaysvg{position:absolute;inset:0;pointer-events:none;}
 #pieceSvg{overflow:visible;touch-action:none;pointer-events:none;}
-.board.earth-sky-board::after{content:"";position:absolute;z-index:6;left:-1px;right:-1px;top:50%;border-top:3px dashed rgba(220,174,86,.9);pointer-events:none;filter:drop-shadow(0 0 2px rgba(220,174,86,.35));}
+.board.earth-sky-board::after{content:"";position:absolute;z-index:6;left:0;right:0;top:50%;box-sizing:border-box;border-top:2px dashed rgba(91,70,48,.95);pointer-events:none;transform:translateY(-1px);}
+.earth-sky-reserve-title{display:none;margin-top:12px;}
+.earth-sky-reserve-title.visible{display:flex;}
+.palette.earth-sky-reserve{display:none;}
+.palette.earth-sky-reserve.visible{display:flex;}
+.palette.earth-sky-neutral{gap:18px;align-items:flex-start;}
+.earth-sky-reserve-group{display:flex;flex:1 1 280px;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;min-width:0;}
+.earth-sky-reserve-label{flex-basis:100%;text-align:center;color:var(--gold);font-family:Georgia,serif;font-size:.82rem;font-weight:700;letter-spacing:.04em;}
 .earth-sky-preview .choice-zone-title{display:flex;align-items:center;gap:.35rem;}
 .piece-poly{filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));touch-action:none;}
 .piece-poly.interactive{pointer-events:auto;}
@@ -287,7 +294,7 @@ body.home-view .home-screen{display:flex}
 body.home-view{position:fixed;inset:0;width:100%;height:100vh;height:100dvh;overflow:hidden;padding-bottom:0}
 body.home-view .app{position:fixed;inset:0;width:100%;height:100%;padding: max(14px,env(safe-area-inset-top)) 12px max(14px,env(safe-area-inset-bottom));overflow:hidden}
 body.home-view .home-screen{width:100%;height:100%;min-height:0}
-body.home-view .app>header,body.home-view .app>#setupOptions,body.home-view .app>#setupHint,body.home-view .app>#paletteTitle,body.home-view .app>#palette,body.home-view .app>.section-title,body.home-view .app>.board-scroll,body.home-view .app>.toolbar-row,body.home-view .app>#historyDisclosure{display:none!important}
+body.home-view .app>header,body.home-view .app>#setupOptions,body.home-view .app>#setupHint,body.home-view .app>#paletteTitle,body.home-view .app>#palette,body.home-view .app>#earthSkyBottomPalette,body.home-view .app>.section-title,body.home-view .app>.board-scroll,body.home-view .app>.toolbar-row,body.home-view .app>#historyDisclosure{display:none!important}
 body.home-view #helpFab{display:none}
 body.solo-menu-open .app,body.solo-menu-open .account-fab,body.solo-menu-open .help-fab{visibility:hidden}
 body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120e0a 58%,#090704 100%)}
@@ -374,6 +381,9 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
       </div>
     </div>
   </div>
+
+  <div class="section-title earth-sky-reserve-title" id="earthSkyBottomPaletteTitle">Éléments à placer</div>
+  <div id="earthSkyBottomPalette" class="palette earth-sky-reserve"></div>
 
   <div id="historyDisclosure" class="history-disclosure collapsed">
     <button id="historyToggle" class="history-toggle" type="button" aria-expanded="false" aria-controls="history">
@@ -791,6 +801,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="app.js?v=20260821-0019"></script>
+<script src="app.js?v=20260821-0020"></script>
 </body>
 </html>

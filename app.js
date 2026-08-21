@@ -1,5 +1,5 @@
 // Orapa Mine V2 - correctif fenêtre de score et classements globaux - 2026-07-25
-const APP_VERSION = '20260821-0019';
+const APP_VERSION = '20260821-0020';
 let publishedAppVersion = null;
 let lastVersionCheckAt = 0;
 let versionCheckPromise = null;
@@ -1292,7 +1292,7 @@ function earthSkyPieceIsSpace(pieceOrType){
   return String(type||'').startsWith('space');
 }
 function earthSkyHalfBounds(piece){
-  const mineTop=state.earthSkyMineOnTop!==false;
+  const mineTop=state.earthSkyMineOnTop==null?true:state.earthSkyMineOnTop!==false;
   const top=earthSkyPieceIsSpace(piece)?!mineTop:mineTop;
   return {minY:top?0:ROWS,maxY:top?ROWS:EARTH_SKY_ROWS};
 }
@@ -1319,7 +1319,9 @@ function loadState(){
     state.selectedMissingType = state.selectedMissingType || null;
     state.placementBonus = !!state.placementBonus;
     state.includeBlackHole=!!state.includeBlackHole;
-    state.earthSkyMineOnTop=state.earthSkyMineOnTop!==false;
+    state.earthSkyMineOnTop=state.gameVariant==='earthSky'&&state.mode==='gm'&&!state.pieces.some(piece=>piece.center)&&state.earthSkyMineOnTop==null
+      ? null
+      : state.earthSkyMineOnTop!==false;
     state.secretPieces = state.secretPieces || [];
     state.soloAttempts = state.soloAttempts || 0;
     state.soloOver = state.soloOver || false;
@@ -1832,6 +1834,7 @@ function generateDailyLayout(dateKey){
 }
 
 function randomizePlacement(){
+  if(isEarthSky())state.earthSkyMineOnTop=Math.random()<.5;
   const requestedTypes=state.gameVariant==='lost'?(state.pieces.length===8?TYPE_ORDER.filter(type=>type!==TYPE_ORDER[Math.floor(Math.random()*TYPE_ORDER.length)]):state.pieces.map(piece=>piece.type)):null;
   const layout = generateRandomLayout(isEarthSky()?500:60,requestedTypes);
   if(layout){
@@ -3201,6 +3204,9 @@ function renderPieces(){
 
 function renderPalette(){
   paletteEl.innerHTML='';
+  const earthSkyBottomPalette=$('#earthSkyBottomPalette');
+  const earthSkyBottomTitle=$('#earthSkyBottomPaletteTitle');
+  if(earthSkyBottomPalette)earthSkyBottomPalette.innerHTML='';
   const inPalette = state.pieces.filter(p=>!p.center);
   paletteEl.classList.toggle('empty', inPalette.length===0);
   paletteEl.dataset.emptyLabel=isEarthSky()?'Toutes les gemmes et tous les astres sont placés.':(state.gameVariant==='space'?'Toutes les planètes sont placées sur la carte.':'Toutes les gemmes sont placées sur la grille.');
@@ -3225,19 +3231,26 @@ function renderPalette(){
   $('#optOnyx').parentElement.style.display=state.gameVariant==='space'?'none':'';
   $('#optSapphire').parentElement.style.display=state.gameVariant==='space'?'none':'';
   $('#optBlackHoleLabel').style.display=(state.gameVariant==='space'||isEarthSky())?'':'none';
+  const earthSkyAssigned=isEarthSky()&&state.earthSkyMineOnTop!=null;
   $('#paletteTitle').style.display = showPalette?'':'none';
   paletteEl.style.display = showPalette?'flex':'none';
+  if(earthSkyBottomPalette){
+    earthSkyBottomPalette.classList.remove('visible');
+    earthSkyBottomTitle.classList.remove('visible');
+  }
   $('#setupOptions').style.display = showCheckboxes?'flex':'none';
   $('#setupHint').style.display = showPalette&&state.mode==='gm'?'block':'none';
   const subject=isEarthSky()?'élément':(state.gameVariant==='space'?'planète':'gemme');
   $('#setupHint').textContent = state.mode==='solo'
     ? `Place tes ${subject}s comme tu penses que la grille secrète est composée · tape pour pivoter · reste appuyé pour retourner en miroir · clique un bord ou une case pour indice`
-    : `Glisse une ${subject} sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir`;
+    : isEarthSky()
+      ? (earthSkyAssigned?'Chaque famille reste dans sa moitié · tape pour pivoter · reste appuyé pour retourner en miroir':'Pose la première gemme ou le premier astre dans la moitié de ton choix pour déterminer la disposition.')
+      : `Glisse une ${subject} sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir`;
   if(!showPalette) return;
   const cs = computeCellSize();
   const reserveScale=normalizePaletteScale(paletteScale);
   paletteEl.style.setProperty('--palette-scale',String(reserveScale));
-  inPalette.forEach(piece=>{
+  const appendPiece=(piece,target)=>{
     const shape = SHAPES[piece.type];
     // Encombrement maximal possible (à rotation 0, une rotation de 90° ne fait qu'échanger
     // largeur/hauteur donc le plus grand côté reste identique) -> taille de conteneur FIXE,
@@ -3271,9 +3284,25 @@ function renderPalette(){
       svg.appendChild(poly);
     }
     svg.dataset.id = piece.id;
-    paletteEl.appendChild(svg);
+    target.appendChild(svg);
     attachPieceInteraction(svg, piece);
-  });
+  };
+  paletteEl.classList.toggle('earth-sky-neutral',isEarthSky()&&!earthSkyAssigned);
+  if(isEarthSky()&&!earthSkyAssigned){
+    const mineGroup=document.createElement('div');mineGroup.className='earth-sky-reserve-group';mineGroup.innerHTML='<div class="earth-sky-reserve-label">💎 Gemmes</div>';
+    const spaceGroup=document.createElement('div');spaceGroup.className='earth-sky-reserve-group';spaceGroup.innerHTML='<div class="earth-sky-reserve-label">🪐 Astres</div>';
+    paletteEl.append(mineGroup,spaceGroup);
+    inPalette.forEach(piece=>appendPiece(piece,earthSkyPieceIsSpace(piece)?spaceGroup:mineGroup));
+  }else if(earthSkyAssigned){
+    const mineTop=state.earthSkyMineOnTop!==false;
+    const topIsSpace=!mineTop;
+    const bottomPieces=inPalette.filter(piece=>earthSkyPieceIsSpace(piece)!==topIsSpace);
+    $('#paletteTitle').textContent=topIsSpace?'Astres à placer':'Gemmes à placer';
+    earthSkyBottomTitle.textContent=topIsSpace?'Gemmes à placer':'Astres à placer';
+    earthSkyBottomPalette.classList.toggle('visible',bottomPieces.length>0);
+    earthSkyBottomTitle.classList.toggle('visible',bottomPieces.length>0);
+    inPalette.forEach(piece=>appendPiece(piece,(earthSkyPieceIsSpace(piece)===topIsSpace)?paletteEl:earthSkyBottomPalette));
+  }else inPalette.forEach(piece=>appendPiece(piece,paletteEl));
 }
 
 function renderTraces(){
@@ -3376,7 +3405,7 @@ function renderControls(){
   const isSpace=state.gameVariant==='space';
   const earthSky=isEarthSky();
   $('#appGameTitle').textContent=earthSky?'🌍☁️ Terre et Ciel':(isSpace?'🪐 Orapa Space':'💎 Orapa Mine');
-  $('#paletteTitle').textContent=earthSky?'Gemmes et astres à placer':(isSpace?'Planètes à placer':'Gemmes à placer');
+  $('#paletteTitle').textContent=earthSky?(state.earthSkyMineOnTop==null?'Gemmes et astres à placer':(state.earthSkyMineOnTop?'Gemmes à placer':'Astres à placer')):(isSpace?'Planètes à placer':'Gemmes à placer');
   $('#boardSectionTitle').textContent=earthSky?'Double grille Terre et Ciel':(isSpace?'Carte spatiale':'Plateau de la mine');
   $('#masterSubtitle').textContent=earthSky?'Entre mine et espace':(isSpace?'Console de l’explorateur':'Console du maître du jeu');
   $('#masterSubtitle').style.display=state.isDaily?'none':'';
@@ -3386,7 +3415,7 @@ function renderControls(){
   $('#setupOptions').style.display=showSetupOptions?'flex':'none';
   $('#setupHint').textContent=state.gameVariant==='lost'
     ?'Place sept gemmes sur la grille : celle qui restera dans la réserve deviendra la gemme perdue.'
-    :(earthSky?'Glisse un élément sur sa moitié de grille · tape dessus pour le faire pivoter de 90° · reste appuyé pour le retourner en miroir':`Glisse une ${isSpace?'planète':'gemme'} sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir`);
+    :(earthSky?(state.earthSkyMineOnTop==null?'Pose la première gemme ou le premier astre dans la moitié de ton choix pour déterminer la disposition.':'Chaque famille reste dans sa moitié · tape pour pivoter · reste appuyé pour retourner en miroir'):`Glisse une ${isSpace?'planète':'gemme'} sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir`);
   const gmPreStart = state.mode==='gm' && !state.started;
   $('#btnRandom').style.display = gmPreStart ? '' : 'none';
   $('#btnStart').style.display = state.mode==='gm' ? '' : 'none';
@@ -3653,12 +3682,18 @@ function onPieceDown(ev, piece, el){
       const cellsz = rect.width / COLS;
       const rawX = (e.clientX - rect.left) / cellsz;
       const rawY = (e.clientY - rect.top) / cellsz;
+      const insideEarthSkyBoard=isEarthSky()&&e.clientX>=rect.left&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
+      if(insideEarthSkyBoard&&state.earthSkyMineOnTop==null){
+        const placedOnTop=rawY<ROWS;
+        state.earthSkyMineOnTop=earthSkyPieceIsSpace(piece)?!placedOnTop:placedOnTop;
+      }
       const {hw,hh} = boundingHalfExtents(piece);
       const {x:cx,y:cy} = snapPieceCenterWithinBounds(rawX, rawY, piece);
       const marginX = state.isDaily ? hw*cellsz : 0;
       const marginY = state.isDaily ? hh*cellsz : 0;
       const withinBoard = e.clientX>=rect.left-marginX && e.clientX<=rect.right+marginX && e.clientY>=rect.top-marginY && e.clientY<=rect.bottom+marginY;
       piece.center = withinBoard ? {x:cx,y:cy} : null;
+      if(isEarthSky()&&!state.pieces.some(candidate=>candidate.center))state.earthSkyMineOnTop=null;
       ghost.remove();
       el.classList.remove('dragging');
       saveState();
@@ -4252,7 +4287,7 @@ $('#createLostMode').addEventListener('click',()=>{
   })();
 });
 $('#createSpaceMode').addEventListener('click',()=>{if(!canPreviewSpaceTutorial())return;closeCreateModeModal();resetAll();state.mode='gm';state.gameVariant='space';state.includeBlackHole=false;state.pieces=spaceTypes().map(type=>newPiece(type));showGame();renderAll();});
-$('#createEarthSkyMode').addEventListener('click',()=>{if(!canPreviewEarthSky())return;closeCreateModeModal();resetAll();Object.assign(state,{mode:'gm',gameVariant:'earthSky',includeGray:false,includeOnyx:false,includeSapphire:false,includeBlackHole:false,earthSkyMineOnTop:true});state.pieces=earthSkyTypes().map(type=>newPiece(type));showGame();renderAll();});
+$('#createEarthSkyMode').addEventListener('click',()=>{if(!canPreviewEarthSky())return;closeCreateModeModal();resetAll();Object.assign(state,{mode:'gm',gameVariant:'earthSky',includeGray:false,includeOnyx:false,includeSapphire:false,includeBlackHole:false,earthSkyMineOnTop:null});state.pieces=earthSkyTypes().map(type=>newPiece(type));showGame();renderAll();});
 $('#btnHome').addEventListener('click',async()=>{
   if(state.mode==='solo'&&!state.soloOver){
     if(!await gameConfirm(`Revenir à l’accueil ? ${activeGridLabel()} restera disponible tant que vous ne démarrez pas une autre partie.`,'Retour à l’accueil','Revenir à l’accueil','Continuer la partie')) return;
@@ -4343,7 +4378,7 @@ $('#btnReset').addEventListener('click', async()=>{
   if(!await gameConfirm(`Recommencer efface le placement des ${resetSubject} et tout l’historique. Continuer ?`,'Recommencer','Recommencer','Annuler')) return;
   const variant=state.gameVariant;
   const includeBlackHole=!!state.includeBlackHole;
-  const earthSkyOptions={includeGray:state.includeGray,includeOnyx:state.includeOnyx,includeSapphire:state.includeSapphire,includeBlackHole:state.includeBlackHole,earthSkyMineOnTop:state.earthSkyMineOnTop};
+  const earthSkyOptions={includeGray:state.includeGray,includeOnyx:state.includeOnyx,includeSapphire:state.includeSapphire,includeBlackHole:state.includeBlackHole,earthSkyMineOnTop:null};
   resetAll();
   if(variant==='space'){
     state.mode='gm';state.gameVariant='space';state.includeBlackHole=includeBlackHole;
