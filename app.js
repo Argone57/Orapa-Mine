@@ -163,7 +163,7 @@ let state = {
   firstActionTime:null,
   rayCount:0,
   coordCount:0,
-  gridId:null,
+  gridId:null,gridAlias:null,
   gridRanked:true,
   finalTimeMs:null,
   isDaily:false,
@@ -233,17 +233,18 @@ function formatShareText(e){
   if(e.isDaily){
     return `Orapa Mine · Défi du jour · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍)\nhttps://argone57.github.io/Orapa-Mine/`;
   }
+  const sharedGridId=publicGridId(e.gridId)||'?';
   const decoded = e.gridId ? decodeGridId(e.gridId) : null;
   if(e.gameVariant==='lost'||decoded?.variant==='lost'){
     const puzzle=e.success!==false&&e.placementBonus?'/🧩':'';
-    return `Orapa Mine · Gemme perdue · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍${puzzle}) - ID: ${e.gridId||'?'}\nhttps://argone57.github.io/Orapa-Mine/`;
+    return `Orapa Mine · Gemme perdue · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍${puzzle}) - ID: ${sharedGridId}\nhttps://argone57.github.io/Orapa-Mine/`;
   }
-  if(e.gameVariant==='space'||decoded?.variant==='space')return `Orapa Space · ${decoded?.includeBlackHole?'🕳️ Trou noir':'Sans trou noir'} · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ID: ${e.gridId||'?'}\nhttps://argone57.github.io/Orapa-Mine/`;
-  if(e.gameVariant==='earthSky'||decoded?.variant==='earthSky')return `Orapa Mine · Terre et Ciel · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${earthSkyFlagsEmojiLine(decoded)}\nID: ${e.gridId||'?'}\nhttps://argone57.github.io/Orapa-Mine/`;
+  if(e.gameVariant==='space'||decoded?.variant==='space')return `Orapa Space · ${decoded?.includeBlackHole?'🕳️ Trou noir':'Sans trou noir'} · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ID: ${sharedGridId}\nhttps://argone57.github.io/Orapa-Mine/`;
+  if(e.gameVariant==='earthSky'||decoded?.variant==='earthSky')return `Orapa Mine · Terre et Ciel · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${earthSkyFlagsEmojiLine(decoded)}\nID: ${sharedGridId}\nhttps://argone57.github.io/Orapa-Mine/`;
   const gems = decoded
     ? gemFlagsEmojiLine(decoded.includeGray, decoded.includeOnyx, decoded.includeSapphire)
     : gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
-  const idPart = `ID: ${e.gridId||'?'}`;
+  const idPart = `ID: ${sharedGridId}`;
   return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}\nhttps://argone57.github.io/Orapa-Mine/`;
 }
 // ---------------------------------------------------------------------
@@ -365,7 +366,7 @@ function updateAccountFab(){
   btn.textContent=currentPlayerAccount ? `👤 ${currentPlayerAccount.display_name}` : '👤 Compte';
   btn.classList.toggle('connected',!!currentPlayerAccount);
 }
-async function supabaseRpc(fn,params={}){
+async function rawSupabaseRpc(fn,params={}){
   const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{
     method:'POST',headers:supabaseHeaders({'Content-Type':'application/json'}),body:JSON.stringify(params)
   });
@@ -373,6 +374,13 @@ async function supabaseRpc(fn,params={}){
   if(!response.ok){
     const msg=data?.message||data?.error||`Erreur HTTP ${response.status}`;
     throw new Error(msg);
+  }
+  return data;
+}
+async function supabaseRpc(fn,params={}){
+  const data=await rawSupabaseRpc(fn,params);
+  if(fn!=='orapa_get_grid_aliases'&&fn!=='orapa_resolve_grid_alias'&&fn!=='orapa_ensure_grid_alias'){
+    try{await preloadGridAliases(data);}catch(e){/* Le site reste compatible avant l'installation du script 21. */}
   }
   return data;
 }
@@ -684,11 +692,12 @@ function gridRankingRows(rows){
 function gridRankingIntro(gridId,copyButtonId,returnToVictory=false){
   const decoded=decodeGridId(gridId);
   const gems=decoded?.variant==='lost'?'💎 Gemme perdue':(decoded?.variant==='space'?(decoded.includeBlackHole?'🪐 Orapa Space · 🕳️':'🪐 Orapa Space'):(decoded?.variant==='earthSky'?`🌍☁️ Terre et Ciel${decoded.includeBlackHole?' · 🕳️':''}`:(decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'')));
-  return `<div class="grid-ranking-idline"><p>Grille <b>${escapeHtml(gridId)}</b></p><span class="ranking-gems">${gems}</span></div><div class="controls ranked-grid-actions"><button id="${copyButtonId}" class="ghost">📋 Copier l’ID de la grille</button>${returnToVictory?'<button id="gridResultBack" class="ghost">← Retour au résultat</button>':''}</div>`;
+  return `<div class="grid-ranking-idline"><p>Grille <b>${escapeHtml(publicGridId(gridId))}</b></p><span class="ranking-gems">${gems}</span></div><div class="controls ranked-grid-actions"><button id="${copyButtonId}" class="ghost">📋 Copier l’ID de la grille</button>${returnToVictory?'<button id="gridResultBack" class="ghost">← Retour au résultat</button>':''}</div>`;
 }
 async function openGridRanking(gridId,returnToAccount=false,returnToVictory=false){
   if(!gridId) return;
   const variant=decodeGridId(gridId)?.variant;
+  await ensureGridAlias(gridId,variant||'classic');
   const lost=variant==='lost',space=variant==='space',earthSky=variant==='earthSky';
   const rankingRpc=earthSky?'orapa_earth_sky_grid_ranking':(space?'orapa_space_grid_ranking':(lost?'orapa_lost_grid_ranking':'orapa_get_grid_scores'));
   const rankingArgs=(lost||space||earthSky)?{p_grid_id:gridId,p_session_token:currentPlayerAccount?.session_token||''}:{p_grid_id:gridId};
@@ -696,7 +705,7 @@ async function openGridRanking(gridId,returnToAccount=false,returnToVictory=fals
     $('#nestedGridRankingIntro').innerHTML=gridRankingIntro(gridId,'copyNestedRankedGridId');
     $('#nestedGridRankingContent').innerHTML='<div class="history-empty">Chargement…</div>';
     $('#nestedGridRankingModal').classList.add('open');
-    $('#copyNestedRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
+    $('#copyNestedRankedGridId').onclick=()=>{const id=publicGridId(gridId);navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));};
     try{
       const rows=await supabaseRpc(rankingRpc,rankingArgs);
       if(!$('#nestedGridRankingModal').classList.contains('open'))return;
@@ -708,7 +717,7 @@ async function openGridRanking(gridId,returnToAccount=false,returnToVictory=fals
     return;
   }
   openGridDataShell('🏆 Classement de la grille',gridRankingIntro(gridId,'copyRankedGridId',returnToVictory),returnToAccount,returnToVictory);
-  $('#copyRankedGridId').onclick=()=>navigator.clipboard?.writeText(gridId).then(()=>showToast('Identifiant copié : '+gridId));
+  $('#copyRankedGridId').onclick=()=>{const id=publicGridId(gridId);navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));};
   if(returnToVictory) $('#gridResultBack').onclick=()=>closeGridDataModal(true);
   try{
     const rows=await supabaseRpc(rankingRpc,rankingArgs);
@@ -737,14 +746,14 @@ async function openMyGridHistory(){
         const key=`history:${row.grid_id}`,expanded=expandedScores.has(key),decoded=decodeGridId(row.grid_id);
         const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
         const date=new Date(row.played_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});
-        return `<div class="ranking-row account-history-row account-ranked-history${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="account-result-position"><span class="solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><b>#${row.rank}</b></span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${date}</span></div>${expanded?`<div class="ranking-row-detail">ID <b>${escapeHtml(row.grid_id)}</b> · ${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${row.cost} pts · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions"><button class="history-summary ghost" data-grid-index="${i}">📋 Résumé</button><button class="history-copy-id ghost" data-grid-index="${i}">📋 ID</button><button class="grid-history-ranking primary" data-grid-index="${i}">🏆 Grille</button></div>`:''}</div>`;
+        return `<div class="ranking-row account-history-row account-ranked-history${expanded?' expanded':''}" data-grid-index="${i}"><div class="ranking-row-top"><span class="account-result-position"><span class="solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><b>#${row.rank}</b></span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${date}</span></div>${expanded?`<div class="ranking-row-detail">ID <b>${escapeHtml(publicGridId(row.grid_id))}</b> · ${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${row.cost} pts · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions"><button class="history-summary ghost" data-grid-index="${i}">📋 Résumé</button><button class="history-copy-id ghost" data-grid-index="${i}">📋 ID</button><button class="grid-history-ranking primary" data-grid-index="${i}">🏆 Grille</button></div>`:''}</div>`;
       }).join('');
       const empty=!activeRows.length?'<div class="history-empty">Aucune grille de cette configuration dans les pages chargées.</div>':'';
       const more=historyState.hasMore?'<button id="historyLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'';
       $('#gridDataContent').innerHTML=rowsHtml+empty+more;
       $('#gridDataContent').querySelectorAll('.account-history-row').forEach(el=>el.onclick=ev=>{if(ev.target.closest('button'))return;const row=activeRows[Number(el.dataset.gridIndex)],key=`history:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderHistory();});
       $('#gridDataContent').querySelectorAll('.grid-history-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(activeRows[Number(btn.dataset.gridIndex)].grid_id,true));
-      $('#gridDataContent').querySelectorAll('.history-copy-id').forEach(btn=>btn.onclick=()=>{const id=activeRows[Number(btn.dataset.gridIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
+      $('#gridDataContent').querySelectorAll('.history-copy-id').forEach(btn=>btn.onclick=()=>{const id=publicGridId(activeRows[Number(btn.dataset.gridIndex)].grid_id);navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
       $('#gridDataContent').querySelectorAll('.history-summary').forEach(btn=>btn.onclick=()=>{const row=activeRows[Number(btn.dataset.gridIndex)];navigator.clipboard?.writeText(formatShareText({name:currentPlayerAccount.display_name,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,gridId:row.grid_id,date:new Date(row.played_at).getTime(),success:row.success})).then(()=>showToast('Résumé copié !'));});
       const loadMore=$('#historyLoadMore');
       if(loadMore) loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderHistory();}catch(e){showErrorToast(`Chargement impossible : ${e.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
@@ -1367,7 +1376,7 @@ function resetAll(){
   const g = state.includeGray, o = state.includeOnyx, s2 = state.includeSapphire;
   state = { mode:'gm', gameVariant:'classic',missingType:null,selectedMissingType:null,placementBonus:false,started:false, includeGray:g, includeOnyx:o, includeSapphire:s2, includeBlackHole:false,earthSkyMineOnTop:true, pieces:[], secretPieces:[],
             soloAttempts:0, soloOver:false, soloResult:null, soloShowGuess:true, soloShowSecret:true, history:[], historyHintShown:false,
-            gridId:null, gridRanked:true, moveCost:0, firstActionTime:null, finalTimeMs:null, rayCount:0, coordCount:0,
+            gridId:null, gridAlias:null, gridRanked:true, moveCost:0, firstActionTime:null, finalTimeMs:null, rayCount:0, coordCount:0,
             isDaily:false, dailyDate:null,
             labelColor:{top:{},bottom:{},left:{},right:{}}, labelBounce:{top:{},bottom:{},left:{},right:{}},
             labelPair:{top:{},bottom:{},left:{},right:{}},
@@ -1506,6 +1515,54 @@ function decodeGridId(input){
   }
   const formatted = clean.match(/.{1,4}/g).join('-');
   return { variant:'classic',includeGray, includeOnyx, includeSapphire, pieces, id: formatted };
+}
+const gridAliasByCanonical=new Map(),gridCanonicalByAlias=new Map();
+function normalizeGridAlias(value){return String(value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function looksLikeGridAlias(value){const clean=normalizeGridAlias(value);return clean.length===10&&/[MLST]$/.test(clean);}
+function rememberGridAlias(gridId,alias){
+  const canonical=String(gridId||'').trim().toUpperCase(),formatted=String(alias||'').trim().toUpperCase();
+  if(!canonical||!formatted)return;
+  gridAliasByCanonical.set(canonical,formatted);gridCanonicalByAlias.set(normalizeGridAlias(formatted),canonical);
+}
+function publicGridId(gridId){
+  const canonical=String(gridId||'').trim().toUpperCase();
+  return gridAliasByCanonical.get(canonical)||((state.gridId===canonical&&state.gridAlias)?state.gridAlias:canonical);
+}
+function collectGridIds(payload,result=new Set()){
+  if(!payload||result.size>=100)return result;
+  if(Array.isArray(payload)){for(const item of payload)collectGridIds(item,result);return result;}
+  if(typeof payload==='object'){
+    if(typeof payload.grid_id==='string'&&decodeGridId(payload.grid_id))result.add(payload.grid_id.toUpperCase());
+    for(const value of Object.values(payload))if(value&&typeof value==='object')collectGridIds(value,result);
+  }
+  return result;
+}
+async function preloadGridAliases(payload){
+  const ids=[...collectGridIds(payload)].filter(id=>!gridAliasByCanonical.has(id));
+  if(!ids.length)return;
+  const rows=await rawSupabaseRpc('orapa_get_grid_aliases',{p_grid_ids:ids});
+  for(const row of rows||[])rememberGridAlias(row.grid_id,row.alias);
+}
+async function ensureGridAlias(gridId,variant){
+  if(!gridId)return null;
+  const known=gridAliasByCanonical.get(String(gridId).toUpperCase());if(known)return known;
+  try{
+    const alias=await rawSupabaseRpc('orapa_ensure_grid_alias',{p_grid_id:gridId,p_game_variant:variant});
+    if(alias){rememberGridAlias(gridId,alias);return alias;}
+  }catch(e){console.warn('Alias court indisponible',e);}
+  return null;
+}
+async function resolveGridReference(input){
+  const direct=decodeGridId(input);if(direct)return direct;
+  if(!looksLikeGridAlias(input))return null;
+  const cached=gridCanonicalByAlias.get(normalizeGridAlias(input));
+  if(cached)return decodeGridId(cached);
+  try{
+    const resolved=await rawSupabaseRpc('orapa_resolve_grid_alias',{p_alias:input});
+    if(!resolved?.accepted||!resolved.grid_id)return null;
+    rememberGridAlias(resolved.grid_id,resolved.alias);
+    return decodeGridId(resolved.grid_id);
+  }catch(e){console.warn('Resolution de l’alias impossible',e);return null;}
 }
 function decodedGridLayoutIsValid(decoded){
   if(!decoded?.pieces?.length)return false;
@@ -1910,6 +1967,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
     openCreatorGridBlockedModal(gridId);
     return;
   }
+  const gridAlias=await ensureGridAlias(gridId,'classic');
   const unrankedReason=gridStatus?.creator_protected?'creator_protected':(gridStatus?.already_played?'already_played':null);
   setHintMode(false);
   state.mode = 'solo';
@@ -1918,6 +1976,7 @@ async function startSoloGame(explicitId,creatorRetry=0){
   state.secretPieces = secret;
   state.pieces = freshPieceSet();
   state.gridId = gridId;
+  state.gridAlias = gridAlias;
   state.gridRanked = ranked && !unrankedReason;
   state.gridUnrankedReason = unrankedReason;
   state.soloAttempts = 0;
@@ -1973,8 +2032,9 @@ async function startSpaceSoloGame(explicitId,creatorRetry=0){
     if(!explicitId&&creatorRetry<20)return startSpaceSoloGame(null,creatorRetry+1);
     state.gameVariant=previousVariant;state.includeBlackHole=previousBlackHole;openCreatorGridBlockedModal(gridId);return;
   }
+  const gridAlias=await ensureGridAlias(gridId,'space');
   setHintMode(false);
-  Object.assign(state,{mode:'solo',gameVariant:'space',started:false,secretPieces:secret,pieces:spaceTypes().map(type=>newPiece(type)),gridId,gridRanked:!status?.already_played,gridUnrankedReason:status?.already_played?'already_played':null,soloAttempts:0,soloOver:false,soloResult:null,soloShowGuess:true,soloShowSecret:true,moveCost:0,firstActionTime:null,finalTimeMs:null,rayCount:0,coordCount:0,isDaily:false,dailyDate:null,history:[],labelColor:{top:{},bottom:{},left:{},right:{}},labelBounce:{top:{},bottom:{},left:{},right:{}},labelPair:{top:{},bottom:{},left:{},right:{}},labelPartner:{top:{},bottom:{},left:{},right:{}},labelExitMarker:{top:{},bottom:{},left:{},right:{}},cellUsed:{},traces:[],emptyMarks:[],occupiedMarks:[],coordDots:[]});
+  Object.assign(state,{mode:'solo',gameVariant:'space',started:false,secretPieces:secret,pieces:spaceTypes().map(type=>newPiece(type)),gridId,gridAlias,gridRanked:!status?.already_played,gridUnrankedReason:status?.already_played?'already_played':null,soloAttempts:0,soloOver:false,soloResult:null,soloShowGuess:true,soloShowSecret:true,moveCost:0,firstActionTime:null,finalTimeMs:null,rayCount:0,coordCount:0,isDaily:false,dailyDate:null,history:[],labelColor:{top:{},bottom:{},left:{},right:{}},labelBounce:{top:{},bottom:{},left:{},right:{}},labelPair:{top:{},bottom:{},left:{},right:{}},labelPartner:{top:{},bottom:{},left:{},right:{}},labelExitMarker:{top:{},bottom:{},left:{},right:{}},cellUsed:{},traces:[],emptyMarks:[],occupiedMarks:[],coordDots:[]});
   resetHistoryDisclosure();lastScoreResult=null;saveState();document.body.classList.remove('solo-menu-open');showGame();renderAll();
   if(status?.already_played)setTimeout(openAlreadyPlayedGridModal,60);
 }
@@ -2002,8 +2062,9 @@ async function startEarthSkySoloGame(explicitId=null,creatorRetry=0){
     if(!explicitId&&creatorRetry<20)return startEarthSkySoloGame(null,creatorRetry+1);
     Object.assign(state,{gameVariant:previous.variant,earthSkyMineOnTop:previous.mineOnTop});openCreatorGridBlockedModal(gridId);return;
   }
+  const gridAlias=await ensureGridAlias(gridId,'earthSky');
   setHintMode(false);
-  Object.assign(state,{mode:'solo',gameVariant:'earthSky',started:false,secretPieces:secret,pieces:earthSkyTypes().map(type=>newPiece(type)),gridId,gridRanked:!status?.already_played,gridUnrankedReason:status?.already_played?'already_played':null,soloAttempts:0,soloOver:false,soloResult:null,soloShowGuess:true,soloShowSecret:true,moveCost:0,firstActionTime:null,finalTimeMs:null,rayCount:0,coordCount:0,isDaily:false,dailyDate:null,history:[],labelColor:{top:{},bottom:{},left:{},right:{}},labelBounce:{top:{},bottom:{},left:{},right:{}},labelPair:{top:{},bottom:{},left:{},right:{}},labelPartner:{top:{},bottom:{},left:{},right:{}},labelExitMarker:{top:{},bottom:{},left:{},right:{}},cellUsed:{},traces:[],emptyMarks:[],occupiedMarks:[],coordDots:[]});
+  Object.assign(state,{mode:'solo',gameVariant:'earthSky',started:false,secretPieces:secret,pieces:earthSkyTypes().map(type=>newPiece(type)),gridId,gridAlias,gridRanked:!status?.already_played,gridUnrankedReason:status?.already_played?'already_played':null,soloAttempts:0,soloOver:false,soloResult:null,soloShowGuess:true,soloShowSecret:true,moveCost:0,firstActionTime:null,finalTimeMs:null,rayCount:0,coordCount:0,isDaily:false,dailyDate:null,history:[],labelColor:{top:{},bottom:{},left:{},right:{}},labelBounce:{top:{},bottom:{},left:{},right:{}},labelPair:{top:{},bottom:{},left:{},right:{}},labelPartner:{top:{},bottom:{},left:{},right:{}},labelExitMarker:{top:{},bottom:{},left:{},right:{}},cellUsed:{},traces:[],emptyMarks:[],occupiedMarks:[],coordDots:[]});
   resetHistoryDisclosure();lastScoreResult=null;saveState();closeSoloChoiceModal();showGame();renderAll();
   if(status?.already_played)setTimeout(openAlreadyPlayedGridModal,60);
 }
@@ -2029,10 +2090,11 @@ async function startLostGame(explicitId=null,creatorRetry=0){
     if(!explicitId&&creatorRetry<24)return startLostGame(null,creatorRetry+1);
     openCreatorGridBlockedModal(gridId);return;
   }
+  const gridAlias=await ensureGridAlias(gridId,'lost');
   setHintMode(false);
   state.mode='solo';state.gameVariant='lost';state.started=false;state.includeGray=true;state.includeOnyx=true;state.includeSapphire=true;
   state.secretPieces=secret;state.pieces=TYPE_ORDER.map(type=>newPiece(type));state.missingType=missingType;state.selectedMissingType=null;state.placementBonus=false;
-  state.gridId=gridId;state.gridRanked=!gridStatus?.already_played;state.gridUnrankedReason=gridStatus?.already_played?'already_played':null;
+  state.gridId=gridId;state.gridAlias=gridAlias;state.gridRanked=!gridStatus?.already_played;state.gridUnrankedReason=gridStatus?.already_played?'already_played':null;
   state.soloAttempts=0;state.soloOver=false;state.soloResult=null;state.soloShowGuess=true;state.soloShowSecret=true;state.moveCost=0;state.firstActionTime=null;state.finalTimeMs=null;state.rayCount=0;state.coordCount=0;lastScoreResult=null;state.isDaily=false;state.dailyDate=null;state.history=[];resetHistoryDisclosure();state.labelColor={top:{},bottom:{},left:{},right:{}};state.labelBounce={top:{},bottom:{},left:{},right:{}};state.labelPair={top:{},bottom:{},left:{},right:{}};state.labelPartner={top:{},bottom:{},left:{},right:{}};state.labelExitMarker={top:{},bottom:{},left:{},right:{}};state.cellUsed={};state.traces=[];state.emptyMarks=[];state.occupiedMarks=[];state.coordDots=[];
   saveState();closeSoloChoiceModal();showGame();renderAll();
   if(gridStatus?.already_played)setTimeout(openAlreadyPlayedGridModal,60);
@@ -2275,7 +2337,7 @@ function openVictoryModal(){
       : (state.isDaily ? '' : (state.gridUnrankedReason==='creator_protected'
       ? '⭐ Cette grille est la vôtre et ne peut pas être résolue avec ce compte.'
       : '')));
-  $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${formatDailyDate(state.dailyDate)})` : `${state.gameVariant==='lost'?'Gemme perdue · ':(state.gameVariant==='space'?'Orapa Space · ':(isEarthSky()?'Terre et Ciel · ':''))}${state.gridId||''}`;
+  $('#victoryGridId').textContent = state.isDaily ? `Défi du jour (${formatDailyDate(state.dailyDate)})` : `${state.gameVariant==='lost'?'Gemme perdue · ':(state.gameVariant==='space'?'Orapa Space · ':(isEarthSky()?'Terre et Ciel · ':''))}${publicGridId(state.gridId)||''}`;
   $('#btnVictoryGridRanking').style.display=(!state.isDaily&&state.gridId)?'':'none';
   $('#btnVictoryCopySummary').style.display=state.gridUnrankedReason==='already_played'?'none':'';
   $('#victoryModal').classList.add('open');
@@ -3464,7 +3526,7 @@ function renderControls(){
   const showGridId = soloReveal && state.gridId;
   $('#gridIdRow').style.display = showGridId ? 'flex' : 'none';
   if(showGridId){
-    $('#gridIdText').textContent = state.gridId;
+    $('#gridIdText').textContent = publicGridId(state.gridId);
     $('#btnCopyGridId').textContent = '📋 Copier';
   }
   $('#btnReplayVictory').style.display = (state.mode==='solo' && state.soloOver) ? '' : 'none';
@@ -4350,9 +4412,11 @@ $('#btnShareGrid').addEventListener('click',async()=>{
   const gridId=state.gameVariant==='lost'?encodeLostGridId(state.pieces,state.missingType):(state.gameVariant==='space'?encodeSpaceGridId(state.pieces,state.includeBlackHole):(isEarthSky()?encodeEarthSkyGridId(state.pieces):encodeGridId(state.pieces,state.includeGray,state.includeOnyx,state.includeSapphire)));
   if(!gridId) return;
   const gems=gemFlagsEmojiLine(state.includeGray,state.includeOnyx,state.includeSapphire);
-  const text=isEarthSky()?`Je te défie à Terre et Ciel !\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`:state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`:(state.gameVariant==='space'?`Je te défie à Orapa Space ! 🕳️ ${state.includeBlackHole?'✅':'❌'}\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${gridId}\nhttps://argone57.github.io/Orapa-Mine/`);
   try{
     await (isEarthSky()?shareEarthSkyGridGlobally(gridId):(state.gameVariant==='lost'?shareLostGridGlobally(gridId):(state.gameVariant==='space'?shareSpaceGridGlobally(gridId):shareGridGlobally(gridId))));
+    const variant=isEarthSky()?'earthSky':state.gameVariant;
+    const alias=await ensureGridAlias(gridId,variant),sharedId=alias||gridId;
+    const text=isEarthSky()?`Je te défie à Terre et Ciel !\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:(state.gameVariant==='space'?`Je te défie à Orapa Space ! 🕳️ ${state.includeBlackHole?'✅':'❌'}\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`);
     await navigator.clipboard?.writeText(text);
     showToast('Grille partagée et défi copié !');
   }catch(err){ showErrorToast(`⚠️ Partage impossible : ${err.message}`); }
@@ -4366,9 +4430,10 @@ $('#btnCopyGridId').addEventListener('click', async()=>{
   if(!state.gridId || !navigator.clipboard) return;
   if(state.mode==='gm'){
     const gems = gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
-    const text = isEarthSky()?`Je te défie à Terre et Ciel !\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`:state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`:(state.gameVariant==='space'?`Je te défie à Orapa Space ! 🕳️ ${state.includeBlackHole?'✅':'❌'}\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${state.gridId}\nhttps://argone57.github.io/Orapa-Mine/`);
     try{
       await (isEarthSky()?shareEarthSkyGridGlobally(state.gridId):(state.gameVariant==='lost'?shareLostGridGlobally(state.gridId):(state.gameVariant==='space'?shareSpaceGridGlobally(state.gridId):shareGridGlobally(state.gridId))));
+      const alias=await ensureGridAlias(state.gridId,isEarthSky()?'earthSky':state.gameVariant),sharedId=alias||state.gridId;
+      const text = isEarthSky()?`Je te défie à Terre et Ciel !\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:(state.gameVariant==='space'?`Je te défie à Orapa Space ! 🕳️ ${state.includeBlackHole?'✅':'❌'}\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`);
       await navigator.clipboard.writeText(text);
       showToast('Grille partagée et défi copié !');
     }catch(err){
@@ -4377,7 +4442,7 @@ $('#btnCopyGridId').addEventListener('click', async()=>{
       showErrorToast('Défi copié · enregistrement en ligne impossible');
     }
   } else {
-    navigator.clipboard.writeText(state.gridId).then(()=> showToast('Identifiant copié : '+state.gridId));
+    {const id=publicGridId(state.gridId);navigator.clipboard.writeText(id).then(()=> showToast('Identifiant copié : '+id));}
   }
 });
 $('#btnBackToGM').addEventListener('click', ()=>{
@@ -4628,7 +4693,7 @@ function closeInvalidGridIdModal(){
 }
 async function confirmGridIdEntry(){
   const id=$('#gridIdEntryInput').value.trim().toUpperCase();
-  const decoded=decodeGridId(id);
+  const decoded=await resolveGridReference(id);
   if(!decoded){accountError('#gridIdEntryError','Identifiant invalide. Vérifie qu’il a été copié en entier.');return;}
   if(!decodedGridLayoutIsValid(decoded)){openInvalidGridIdModal();return;}
   const button=$('#confirmGridIdEntry');
@@ -4693,7 +4758,7 @@ $('#btnVictoryCopyId').addEventListener('click', ()=>{
     return;
   }
   if(!state.gridId) return;
-  if(navigator.clipboard) navigator.clipboard.writeText(state.gridId).then(()=> showToast('Identifiant copié : '+state.gridId));
+  if(navigator.clipboard){const id=publicGridId(state.gridId);navigator.clipboard.writeText(id).then(()=> showToast('Identifiant copié : '+id));}
 });
 $('#btnVictoryCopySummary').addEventListener('click', ()=>{
   const text = formatShareText(currentEntryForDisplay());
@@ -4866,7 +4931,7 @@ async function renderGridCatalog(force=false){
   }catch(error){el.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 async function searchGridCatalog(input){
-  const decoded=decodeGridId(input);
+  const decoded=await resolveGridReference(input);
   if(!decoded){gridCatalogState.searched=null;gridCatalogState.searchError='Identifiant de grille incorrect.';renderGridCatalog();return;}
   gridCatalogState.searchError='';
   $('#rankingList').innerHTML='<div class="history-empty">Recherche de la grille…</div>';
@@ -5128,7 +5193,7 @@ async function renderGlobalSoloScores(filterKey='ALL'){
       const decoded=decodeGridId(row.grid_id);
       const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
       const expanded=expandedScores.has(`solo:${row.id}`);
-      return `<div class="ranking-row solo-global-row${expanded?' expanded':''}" data-solo-row="${i}"><div class="ranking-row-top"><span class="solo-ranking-player"><span class="ranking-rank solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><span class="ranking-name${row.is_mine?' mine':''}">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}</span></span><span class="solo-ranking-config ranking-gems">${gems}</span><span class="solo-ranking-score"><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${new Date(row.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span></span></div>${expanded?`<div class="ranking-row-detail">ID <b>${escapeHtml(row.grid_id)}</b> · ${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions"><button class="solo-copy-summary ghost" data-solo-index="${i}">📋 Résumé</button><button class="solo-copy-id ghost" data-solo-index="${i}">📋 ID</button><button class="solo-grid-ranking primary" data-solo-index="${i}">🏆 Grille</button></div>`:''}</div>`;
+      return `<div class="ranking-row solo-global-row${expanded?' expanded':''}" data-solo-row="${i}"><div class="ranking-row-top"><span class="solo-ranking-player"><span class="ranking-rank solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><span class="ranking-name${row.is_mine?' mine':''}">${escapeHtml(row.player_name||'Anonyme')}${row.played_by_creator?' *':''}</span></span><span class="solo-ranking-config ranking-gems">${gems}</span><span class="solo-ranking-score"><span class="ranking-points">${row.cost} pts</span><span class="ranking-date">${new Date(row.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span></span></div>${expanded?`<div class="ranking-row-detail">ID <b>${escapeHtml(publicGridId(row.grid_id))}</b> · ${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions"><button class="solo-copy-summary ghost" data-solo-index="${i}">📋 Résumé</button><button class="solo-copy-id ghost" data-solo-index="${i}">📋 ID</button><button class="solo-grid-ranking primary" data-solo-index="${i}">🏆 Grille</button></div>`:''}</div>`;
     }).join('');
     const emptyFiltered=!rows.length?'<div class="history-empty">Aucun résultat pour cette configuration.</div>':'';
     const creatorNote=rows.some(row=>row.played_by_creator)?'<p class="stats-note">* Créateur de la grille, résultat enregistré après la période de protection.</p>':'';
@@ -5143,7 +5208,7 @@ async function renderGlobalSoloScores(filterKey='ALL'){
     });
     el.querySelectorAll('.solo-grid-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.soloIndex)].grid_id));
     el.querySelectorAll('.solo-copy-summary').forEach(btn=>btn.onclick=()=>{const row=rows[Number(btn.dataset.soloIndex)];navigator.clipboard?.writeText(formatShareText({name:row.player_name,cost:row.cost,rayCount:row.ray_count,coordCount:row.coord_count,timeMs:row.time_ms,gridId:row.grid_id,date:new Date(row.created_at).getTime(),success:row.success})).then(()=>showToast('Résumé copié !'));});
-    el.querySelectorAll('.solo-copy-id').forEach(btn=>btn.onclick=()=>{const id=rows[Number(btn.dataset.soloIndex)].grid_id;navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
+    el.querySelectorAll('.solo-copy-id').forEach(btn=>btn.onclick=()=>{const id=publicGridId(rows[Number(btn.dataset.soloIndex)].grid_id);navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
     const loadMore=$('#soloLoadMore');
     if(loadMore) loadMore.onclick=async()=>{
       loadMore.disabled=true;
