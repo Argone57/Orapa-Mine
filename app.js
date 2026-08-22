@@ -4,9 +4,9 @@
 // publication et provoque une demande de mise à jour en boucle.
 const APP_VERSION = (()=>{
   try{
-    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260822-0001';
+    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260822-0002';
   }catch(_error){
-    return '20260822-0001';
+    return '20260822-0002';
   }
 })();
 let publishedAppVersion = null;
@@ -3717,12 +3717,46 @@ function showToast(msg,duration=1600,tone='neutral'){
   toastTimer = setTimeout(()=> toast.classList.remove('show'), duration);
 }
 function showErrorToast(msg,duration=1600){showToast(msg,duration,'error');}
+function currentViewportScroll(){
+  return {x:window.scrollX||0,y:window.scrollY||0};
+}
+function restoreViewportAfterPieceDrop(position){
+  if(!position)return;
+  const restore=()=>window.scrollTo(position.x,position.y);
+  // Firefox peut recalculer son ancrage après le rendu, parfois un peu après
+  // pointerup. Les trois passages gardent la lecture au même endroit sans
+  // modifier le comportement du glisser-déposer.
+  restore();
+  requestAnimationFrame(()=>{restore();requestAnimationFrame(restore);});
+  setTimeout(restore,80);
+}
+function revealEarthSkyReserveMove(previousAssignment){
+  if(!isEarthSky()||state.mode!=='gm'||state.started)return false;
+  const wasAssigned=previousAssignment!=null;
+  const isAssigned=state.earthSkyMineOnTop!=null;
+  if(wasAssigned===isAssigned)return false;
+  const target=isAssigned?$('#earthSkyBottomPaletteTitle'):$('#paletteTitle');
+  if(!target)return false;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const rect=target.getBoundingClientRect();
+    const viewportHeight=window.visualViewport?.height||window.innerHeight;
+    const desiredTop=isAssigned?Math.min(viewportHeight*.7,viewportHeight-110):90;
+    let delta=rect.top-desiredTop;
+    // Il s'agit d'un accompagnement visuel ponctuel, pas d'un recentrage.
+    delta=Math.max(-240,Math.min(240,delta));
+    if(isAssigned)delta=Math.max(80,delta);
+    else delta=Math.min(-80,delta);
+    window.scrollBy({top:delta,left:0,behavior:'auto'});
+  }));
+  return true;
+}
 function onPieceDown(ev, piece, el){
   if(!piecesEditable()) return;
   if(tutorialActive&&!((tutorialStage===7&&piece.id===tutorialWrongPieceId)||([11,12].includes(tutorialStage)&&piece.id===tutorialPlacementPieceId))){showErrorToast('Utilise uniquement l’élément mis en évidence.');return;}
   ev.preventDefault();
   try{ el.setPointerCapture(ev.pointerId); }catch(e){}
   const startX=ev.clientX, startY=ev.clientY;
+  const startViewportScroll=currentViewportScroll();
   let moved=false, longPressed=false, dragging=false;
   let ghost=null;
   let ghostFrame=0, ghostX=startX, ghostY=startY, ghostHalfW=0, ghostHalfH=0;
@@ -3805,6 +3839,7 @@ function onPieceDown(ev, piece, el){
     cleanupGesture();
     clearTimeout(longPressTimer);
     if(dragging){
+      const previousEarthSkyAssignment=isEarthSky()?state.earthSkyMineOnTop:undefined;
       const rect = boardRect();
       const cellsz = rect.width / COLS;
       const rawX = (e.clientX - rect.left) / cellsz;
@@ -3827,6 +3862,7 @@ function onPieceDown(ev, piece, el){
       renderPalette();
       renderPieces();
       renderControls();
+      if(!revealEarthSkyReserveMove(previousEarthSkyAssignment)&&!tutorialActive)restoreViewportAfterPieceDrop(startViewportScroll);
       tutorialAfterPiecePlacement(piece);
     } else if(!longPressed){
       piece.rotation = (piece.rotation + 90) % 360;

@@ -59,7 +59,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .setup-options input[type=checkbox]{width:16px;height:16px;accent-color:var(--gold);}
 .section-title{display:flex;align-items:center;gap:8px;margin:22px 0 10px;color:var(--gold);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;}
 .section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--vein),transparent);}
-.palette{display:flex;gap:calc(5px + 9px * var(--palette-scale,1));flex-wrap:wrap;align-items:center;padding:calc(5px + 7px * var(--palette-scale,1));border-radius:var(--radius);background:var(--panel);border:1px solid var(--vein);min-height:calc(34px + 42px * var(--palette-scale,1));position:relative;}
+.palette{display:flex;gap:calc(5px + 9px * var(--palette-scale,1));flex-wrap:wrap;align-items:center;padding:calc(5px + 7px * var(--palette-scale,1));border-radius:var(--radius);background:var(--panel);border:1px solid var(--vein);min-height:calc(34px + 42px * var(--palette-scale,1));position:relative;overflow-anchor:none;}
 .palette.empty::before{content:attr(data-empty-label);color:var(--text-faint);font-size:.8rem;font-style:italic;padding:8px;}
 .palette-tile{touch-action:none;cursor:grab;flex:0 0 auto;}
 .board-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;touch-action:pan-x pan-y;}
@@ -804,6 +804,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="app.js?v=20260822-0001"></script>
+<script src="app.js?v=20260822-0002"></script>
 </body>
 </html>
