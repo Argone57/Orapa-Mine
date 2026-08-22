@@ -4,9 +4,9 @@
 // publication et provoque une demande de mise à jour en boucle.
 const APP_VERSION = (()=>{
   try{
-    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260822-0006';
+    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260822-0007';
   }catch(_error){
-    return '20260822-0006';
+    return '20260822-0007';
   }
 })();
 let publishedAppVersion = null;
