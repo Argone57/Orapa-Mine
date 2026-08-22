@@ -4,9 +4,9 @@
 // publication et provoque une demande de mise à jour en boucle.
 const APP_VERSION = (()=>{
   try{
-    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260821-0028';
+    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260822-0001';
   }catch(_error){
-    return '20260821-0028';
+    return '20260822-0001';
   }
 })();
 let publishedAppVersion = null;
@@ -248,13 +248,21 @@ function formatShareText(e){
     const puzzle=e.success!==false&&e.placementBonus?'/🧩':'';
     return `Orapa Mine · Gemme perdue · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍${puzzle}) - ID: ${sharedGridId}\nhttps://argone57.github.io/Orapa-Mine/`;
   }
-  if(e.gameVariant==='space'||decoded?.variant==='space')return `Orapa Space · ${decoded?.includeBlackHole?'🕳️ Trou noir':'Sans trou noir'} · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ID: ${sharedGridId}\nhttps://argone57.github.io/Orapa-Mine/`;
+  if(e.gameVariant==='space'||decoded?.variant==='space')return `Orapa Space · 🕳️ ${decoded?.includeBlackHole?'✅':'❌'} · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ID: ${sharedGridId}\nhttps://argone57.github.io/Orapa-Mine/`;
   if(e.gameVariant==='earthSky'||decoded?.variant==='earthSky')return `Orapa Mine · Terre et Ciel · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${earthSkyFlagsEmojiLine(decoded)}\nID: ${sharedGridId}\nhttps://argone57.github.io/Orapa-Mine/`;
   const gems = decoded
     ? gemFlagsEmojiLine(decoded.includeGray, decoded.includeOnyx, decoded.includeSapphire)
     : gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
   const idPart = `ID: ${sharedGridId}`;
   return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}\nhttps://argone57.github.io/Orapa-Mine/`;
+}
+function gridChallengeText(gridId){
+  const decoded=decodeGridId(gridId),id=publicGridId(gridId);
+  if(decoded?.variant==='lost')return `Je te défie à Orapa Mine · Gemme perdue !\nID: ${id}\nhttps://argone57.github.io/Orapa-Mine/`;
+  if(decoded?.variant==='space')return `Je te défie à Orapa Space ! 🕳️ ${decoded.includeBlackHole?'✅':'❌'}\nID: ${id}\nhttps://argone57.github.io/Orapa-Mine/`;
+  if(decoded?.variant==='earthSky')return `Je te défie à Terre et Ciel !\nID: ${id}\nhttps://argone57.github.io/Orapa-Mine/`;
+  const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
+  return `Je te défie à Orapa Mine !\n${gems}\nID: ${id}\nhttps://argone57.github.io/Orapa-Mine/`;
 }
 // ---------------------------------------------------------------------
 // DÉFI DU JOUR — tentative unique (par navigateur) + classement journalier.
@@ -888,7 +896,7 @@ document.querySelector('#incorrectSolutionModal').addEventListener('click',event
 async function openMySharedGrids(){
   if(!currentPlayerAccount) return;
   const configOptions='<option value="ALL">Toutes les configurations</option>'+RANKING_COMBOS.map(([g,o,s])=>{const key=configKey(g,o,s);return `<option value="${key}">${key}</option>`;}).join('');
-  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est enregistré comme créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost active">Mine</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedConfigSelect" class="ranking-select">${configOptions}</select><select id="accountSharedSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
+  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost active">Mine</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedConfigSelect" class="ranking-select">${configOptions}</select><select id="accountSharedSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
   $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;$('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;
   const sharedState={rows:[],hasMore:true,reverse:false};
   const loadPage=async()=>{
@@ -926,7 +934,7 @@ async function openMySharedGrids(){
       const more=sharedState.hasMore?'<button id="sharedLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'';
       $('#gridDataContent').innerHTML=rowsHtml+empty+more;
       $('#gridDataContent').querySelectorAll('.account-shared-row').forEach(el=>el.onclick=ev=>{if(ev.target.closest('button'))return;const row=rows[Number(el.dataset.gridIndex)],key=`shared:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderShared();});
-      $('#gridDataContent').querySelectorAll('.shared-copy').forEach(btn=>btn.onclick=()=>{const id=publicGridId(rows[Number(btn.dataset.gridIndex)].grid_id);navigator.clipboard?.writeText(id).then(()=>showToast('Identifiant copié : '+id));});
+       $('#gridDataContent').querySelectorAll('.shared-copy').forEach(btn=>btn.onclick=()=>{const row=rows[Number(btn.dataset.gridIndex)];navigator.clipboard?.writeText(gridChallengeText(row.grid_id)).then(()=>showToast('Défi copié !'));});
       $('#gridDataContent').querySelectorAll('.shared-ranking').forEach(btn=>btn.onclick=()=>openGridRanking(rows[Number(btn.dataset.gridIndex)].grid_id,true));
       $('#gridDataContent').querySelectorAll('.shared-preview').forEach(btn=>btn.onclick=()=>openSharedGridPreview(rows[Number(btn.dataset.gridIndex)].grid_id));
       const loadMore=$('#sharedLoadMore');
@@ -935,14 +943,15 @@ async function openMySharedGrids(){
     $('#accountSharedConfigSelect').addEventListener('change',renderShared);
     $('#accountSharedSortSelect').addEventListener('change',renderShared);
     $('#accountSharedSortReverse').addEventListener('click',()=>{sharedState.reverse=!sharedState.reverse;$('#accountSharedSortReverse').textContent=sharedState.reverse?'↑':'↓';renderShared();});
-    $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;
+    $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;$('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;
     renderShared();
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
 }
 async function openMySharedLostGrids(){
   if(!currentPlayerAccount)return;
-  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est enregistré comme créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs three"><button id="accountSharedClassic" class="ghost">Orapa Mine</button><button id="accountSharedLost" class="ghost active">Gemme perdue</button><button id="accountSharedSpace" class="ghost">Orapa Space</button></div><div class="shared-grid-toolbar lost-shared-toolbar"><select id="accountSharedLostSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedLostSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>',true);
-  $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;
+  const missingOptions='<option value="ALL">Toutes les gemmes perdues</option>'+TYPE_ORDER.map(type=>`<option value="${type}">${escapeHtml(CONFIG.PIECES[type]?.label||type)}</option>`).join('');
+  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedLost" class="ghost active">Gemme perdue</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedLostGemSelect" class="ranking-select">${missingOptions}</select><select id="accountSharedLostSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedLostSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
+  $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;$('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;
   const sharedState={rows:[],hasMore:true,reverse:false};
   const loadPage=async()=>{
     const page=await supabaseRpc('orapa_my_shared_lost_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:sharedState.rows.length});
@@ -954,8 +963,9 @@ async function openMySharedLostGrids(){
     await loadPage();
     if(!sharedState.rows.length){$('#gridDataContent').innerHTML='<div class="history-empty">Aucune grille Gemme perdue partagée.</div>';return;}
     const renderShared=()=>{
+      const selectedGem=$('#accountSharedLostGemSelect')?.value||'ALL';
       const sortMode=$('#accountSharedLostSortSelect')?.value||'date';
-      const rows=[...sharedState.rows].sort((a,b)=>{
+      const rows=sharedState.rows.filter(row=>selectedGem==='ALL'||decodeGridId(row.grid_id)?.missingType===selectedGem).sort((a,b)=>{
         let value=0;
         if(sortMode==='players')value=Number(b.score_count||0)-Number(a.score_count||0);
         else if(sortMode==='points')value=(a.best_score==null?Number.MAX_SAFE_INTEGER:Number(a.best_score))-(b.best_score==null?Number.MAX_SAFE_INTEGER:Number(b.best_score));
@@ -971,14 +981,15 @@ async function openMySharedLostGrids(){
          return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-grid-index="${index}"><div class="ranking-row-top"><span class="account-shared-date">${date}</span><span class="ranking-gems lost-shared-gem-label"><span>Gemme perdue</span>${missingGem}</span><span class="ranking-points">${row.best_score==null?'—':row.best_score+' pts'}</span><span class="ranking-count">${total} 👥</span><span class="ranking-rate">${rate}</span></div>${expanded?`<div class="account-grid-meta-line"><span class="account-grid-id">ID : ${escapeHtml(publicGridId(row.grid_id))}</span><span>Consultation uniquement</span></div>${row.best_time_ms==null?'':`<div class="ranking-row-detail">Meilleur temps : ${formatDuration(row.best_time_ms)}</div>`}<div class="controls ranking-compact-actions three"><button class="shared-lost-copy ghost" data-index="${index}">📋 ID</button><button class="shared-lost-ranking ghost" data-index="${index}">🏆 Classement</button><button class="shared-lost-preview primary" data-index="${index}">👁️ Voir</button></div>`:''}</div>`;
       }).join('');
       const more=sharedState.hasMore?'<button id="sharedLostLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'';
-      $('#gridDataContent').innerHTML=rowsHtml+more;
+      $('#gridDataContent').innerHTML=rowsHtml+(!rows.length?'<div class="history-empty">Aucune grille avec cette gemme perdue dans les pages chargées.</div>':'')+more;
       $('#gridDataContent').querySelectorAll('.account-shared-row').forEach(element=>element.onclick=event=>{if(event.target.closest('button'))return;const row=rows[Number(element.dataset.gridIndex)],key=`shared-lost:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);renderShared();});
-       $('#gridDataContent').querySelectorAll('.shared-lost-copy').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(publicGridId(rows[Number(button.dataset.index)].grid_id)).then(()=>showToast('Identifiant copié !')));
+        $('#gridDataContent').querySelectorAll('.shared-lost-copy').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(gridChallengeText(rows[Number(button.dataset.index)].grid_id)).then(()=>showToast('Défi copié !')));
       $('#gridDataContent').querySelectorAll('.shared-lost-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));
       $('#gridDataContent').querySelectorAll('.shared-lost-preview').forEach(button=>button.onclick=()=>openSharedGridPreview(rows[Number(button.dataset.index)].grid_id));
       const loadMore=$('#sharedLostLoadMore');
       if(loadMore)loadMore.onclick=async()=>{loadMore.disabled=true;loadMore.textContent='Chargement…';try{await loadPage();renderShared();}catch(error){showErrorToast(`Chargement impossible : ${error.message}`);loadMore.disabled=false;loadMore.textContent='Afficher les résultats suivants';}};
     };
+    $('#accountSharedLostGemSelect').addEventListener('change',renderShared);
     $('#accountSharedLostSortSelect').addEventListener('change',renderShared);
     $('#accountSharedLostSortReverse').addEventListener('click',()=>{sharedState.reverse=!sharedState.reverse;$('#accountSharedLostSortReverse').textContent=sharedState.reverse?'↑':'↓';renderShared();});
     renderShared();
@@ -986,21 +997,43 @@ async function openMySharedLostGrids(){
 }
 async function openMySharedSpaceGrids(){
   if(!currentPlayerAccount)return;
-  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est enregistré comme créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedSpace" class="ghost active">Space</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div>',true);
+  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedSpace" class="ghost active">Space</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedSpaceConfigSelect" class="ranking-select"><option value="ALL">Toutes les configurations</option><option value="WITHOUT">Sans trou noir</option><option value="WITH">Avec trou noir</option></select><select id="accountSharedSpaceSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedSpaceSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>',true);
   $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;$('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;
-  const sharedState={rows:[],hasMore:true};
+  const sharedState={rows:[],hasMore:true,reverse:false};
   const loadPage=async()=>{const page=await supabaseRpc('orapa_my_shared_space_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:sharedState.rows.length});const pageRows=Array.isArray(page)?page:[];sharedState.rows.push(...pageRows.slice(0,10));sharedState.hasMore=pageRows.length>10;};
   try{
     await loadPage();
-    const render=()=>{const rows=sharedState.rows;const cards=rows.map((row,index)=>{const key=`shared-space:${row.grid_id}`,expanded=expandedScores.has(key),date=new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),total=Number(row.score_count||0),rate=total?Math.round(100*Number(row.success_count||0)/total)+' %':'—',decoded=decodeGridId(row.grid_id);return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-index="${index}"><div class="ranking-row-top"><span class="account-shared-date">${date}</span><span class="ranking-gems">${decoded?.includeBlackHole?'🪐 · 🕳️':'🪐'}</span><span class="ranking-points">${row.best_score==null?'—':row.best_score+' pts'}</span><span class="ranking-count">${total} 👥</span><span class="ranking-rate">${rate}</span></div>${expanded?`<div class="account-grid-meta-line"><span class="account-grid-id">ID : ${escapeHtml(publicGridId(row.grid_id))}</span><span>Consultation uniquement</span></div><div class="controls ranking-compact-actions three"><button class="space-shared-copy ghost" data-index="${index}">📋 ID</button><button class="space-shared-ranking ghost" data-index="${index}">🏆 Classement</button><button class="space-shared-preview primary" data-index="${index}">👁️ Voir</button></div>`:''}</div>`;}).join('');$('#gridDataContent').innerHTML=(cards||'<div class="history-empty">Aucune grille Orapa Space partagée.</div>')+(sharedState.hasMore?'<button id="sharedSpaceLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'');$('#gridDataContent').querySelectorAll('.account-shared-row').forEach(node=>node.onclick=e=>{if(e.target.closest('button'))return;const row=rows[Number(node.dataset.index)],key=`shared-space:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);render();});$('#gridDataContent').querySelectorAll('.space-shared-copy').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(publicGridId(rows[Number(button.dataset.index)].grid_id)).then(()=>showToast('Identifiant copié !')));$('#gridDataContent').querySelectorAll('.space-shared-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));$('#gridDataContent').querySelectorAll('.space-shared-preview').forEach(button=>button.onclick=()=>openSharedGridPreview(rows[Number(button.dataset.index)].grid_id));const more=$('#sharedSpaceLoadMore');if(more)more.onclick=async()=>{more.disabled=true;more.textContent='Chargement…';try{await loadPage();render();}catch(error){showErrorToast(`Chargement impossible : ${error.message}`);more.disabled=false;more.textContent='Afficher les résultats suivants';}};};render();
+    const render=()=>{
+      const config=$('#accountSharedSpaceConfigSelect')?.value||'ALL',sort=$('#accountSharedSpaceSortSelect')?.value||'date';
+      const rows=sharedState.rows.filter(row=>config==='ALL'||(decodeGridId(row.grid_id)?.includeBlackHole===(config==='WITH'))).sort((a,b)=>{
+        let value=sort==='players'?Number(b.score_count||0)-Number(a.score_count||0):sort==='points'?(a.best_score==null?Number.MAX_SAFE_INTEGER:Number(a.best_score))-(b.best_score==null?Number.MAX_SAFE_INTEGER:Number(b.best_score)):new Date(b.shared_at||0)-new Date(a.shared_at||0);
+        if(value===0)value=String(a.grid_id).localeCompare(String(b.grid_id));return sharedState.reverse?-value:value;
+      });
+      const cards=rows.map((row,index)=>{const key=`shared-space:${row.grid_id}`,expanded=expandedScores.has(key),date=new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),total=Number(row.score_count||0),rate=total?Math.round(100*Number(row.success_count||0)/total)+' %':'—',decoded=decodeGridId(row.grid_id);return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-index="${index}"><div class="ranking-row-top"><span class="account-shared-date">${date}</span><span class="ranking-gems">${decoded?.includeBlackHole?'🪐 · 🕳️':'🪐'}</span><span class="ranking-points">${row.best_score==null?'—':row.best_score+' pts'}</span><span class="ranking-count">${total} 👥</span><span class="ranking-rate">${rate}</span></div>${expanded?`<div class="account-grid-meta-line"><span class="account-grid-id">ID : ${escapeHtml(publicGridId(row.grid_id))}</span><span>Consultation uniquement</span></div><div class="controls ranking-compact-actions three"><button class="space-shared-copy ghost" data-index="${index}">📋 ID</button><button class="space-shared-ranking ghost" data-index="${index}">🏆 Classement</button><button class="space-shared-preview primary" data-index="${index}">👁️ Voir</button></div>`:''}</div>`;}).join('');
+      $('#gridDataContent').innerHTML=(cards||'<div class="history-empty">Aucune grille Orapa Space dans cette sélection.</div>')+(sharedState.hasMore?'<button id="sharedSpaceLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'');
+      $('#gridDataContent').querySelectorAll('.account-shared-row').forEach(node=>node.onclick=e=>{if(e.target.closest('button'))return;const row=rows[Number(node.dataset.index)],key=`shared-space:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);render();});
+      $('#gridDataContent').querySelectorAll('.space-shared-copy').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(gridChallengeText(rows[Number(button.dataset.index)].grid_id)).then(()=>showToast('Défi copié !')));
+      $('#gridDataContent').querySelectorAll('.space-shared-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));
+      $('#gridDataContent').querySelectorAll('.space-shared-preview').forEach(button=>button.onclick=()=>openSharedGridPreview(rows[Number(button.dataset.index)].grid_id));
+      const more=$('#sharedSpaceLoadMore');if(more)more.onclick=async()=>{more.disabled=true;more.textContent='Chargement…';try{await loadPage();render();}catch(error){showErrorToast(`Chargement impossible : ${error.message}`);more.disabled=false;more.textContent='Afficher les résultats suivants';}};
+    };
+    $('#accountSharedSpaceConfigSelect').addEventListener('change',render);$('#accountSharedSpaceSortSelect').addEventListener('change',render);$('#accountSharedSpaceSortReverse').addEventListener('click',()=>{sharedState.reverse=!sharedState.reverse;$('#accountSharedSpaceSortReverse').textContent=sharedState.reverse?'↑':'↓';render();});render();
   }catch(error){$('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 async function openMySharedEarthSkyGrids(){
   if(!currentPlayerAccount)return;
-  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedEarthSky" class="ghost active">Terre et Ciel</button></div>',true);
+  const configOptions='<option value="ALL">Toutes les configurations</option>'+[false,true].flatMap(g=>[false,true].flatMap(o=>[false,true].flatMap(s=>[false,true].map(h=>{const key=`${g?1:0}${o?1:0}${s?1:0}${h?1:0}`;return `<option value="${key}">${gemFlagsEmojiLine(g,o,s)} / 🕳️ ${h?'✅':'❌'}</option>`;})))).join('');
+  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedEarthSky" class="ghost active">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedEarthSkyConfigSelect" class="ranking-select">${configOptions}</select><select id="accountSharedEarthSkySortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedEarthSkySortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
   const bindTabs=()=>{$('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;$('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;};bindTabs();
-  const state={rows:[],hasMore:true};const load=async()=>{const page=await supabaseRpc('orapa_my_shared_earth_sky_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:state.rows.length});state.rows.push(...(page||[]).slice(0,10));state.hasMore=(page||[]).length>10;};
-  try{await load();const render=()=>{const rows=state.rows;$('#gridDataContent').innerHTML=(rows.length?rows.map((row,index)=>{const key=`shared-earth-sky:${row.grid_id}`,expanded=expandedScores.has(key),date=new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),total=Number(row.score_count||0),rate=total?Math.round(100*Number(row.success_count||0)/total)+' %':'—',decoded=decodeGridId(row.grid_id);return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-index="${index}"><div class="ranking-row-top"><span class="account-shared-date">${date}</span><span class="ranking-gems">🌍☁️${decoded?.includeBlackHole?' · 🕳️':''}</span><span class="ranking-points">${row.best_score==null?'—':row.best_score+' pts'}</span><span class="ranking-count">${total} 👥</span><span class="ranking-rate">${rate}</span></div>${expanded?`<div class="account-grid-meta-line"><span class="account-grid-id">ID : ${escapeHtml(publicGridId(row.grid_id))}</span><span>Consultation uniquement</span></div><div class="controls ranking-compact-actions three"><button class="earth-sky-shared-copy ghost" data-index="${index}">📋 ID</button><button class="earth-sky-shared-ranking ghost" data-index="${index}">🏆 Classement</button><button class="earth-sky-shared-preview primary" data-index="${index}">👁️ Voir</button></div>`:''}</div>`;}).join(''):'<div class="history-empty">Aucune grille Terre et Ciel partagée.</div>')+(state.hasMore?'<button id="sharedEarthSkyMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'');$('#gridDataContent').querySelectorAll('.account-shared-row').forEach(node=>node.onclick=e=>{if(e.target.closest('button'))return;const row=rows[Number(node.dataset.index)],key=`shared-earth-sky:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);render();});$('#gridDataContent').querySelectorAll('.earth-sky-shared-copy').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(publicGridId(rows[Number(button.dataset.index)].grid_id)).then(()=>showToast('Identifiant copié !')));$('#gridDataContent').querySelectorAll('.earth-sky-shared-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));$('#gridDataContent').querySelectorAll('.earth-sky-shared-preview').forEach(button=>button.onclick=()=>openSharedGridPreview(rows[Number(button.dataset.index)].grid_id));if($('#sharedEarthSkyMore'))$('#sharedEarthSkyMore').onclick=async()=>{await load();render();};};render();}catch(error){$('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
+  const state={rows:[],hasMore:true,reverse:false};const load=async()=>{const page=await supabaseRpc('orapa_my_shared_earth_sky_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:state.rows.length});state.rows.push(...(page||[]).slice(0,10));state.hasMore=(page||[]).length>10;};
+  try{await load();const render=()=>{
+    const config=$('#accountSharedEarthSkyConfigSelect')?.value||'ALL',sort=$('#accountSharedEarthSkySortSelect')?.value||'date';
+    const rows=state.rows.filter(row=>{if(config==='ALL')return true;const d=decodeGridId(row.grid_id);return d&&`${d.includeGray?1:0}${d.includeOnyx?1:0}${d.includeSapphire?1:0}${d.includeBlackHole?1:0}`===config;}).sort((a,b)=>{let value=sort==='players'?Number(b.score_count||0)-Number(a.score_count||0):sort==='points'?(a.best_score==null?Number.MAX_SAFE_INTEGER:Number(a.best_score))-(b.best_score==null?Number.MAX_SAFE_INTEGER:Number(b.best_score)):new Date(b.shared_at||0)-new Date(a.shared_at||0);if(value===0)value=String(a.grid_id).localeCompare(String(b.grid_id));return state.reverse?-value:value;});
+    $('#gridDataContent').innerHTML=(rows.length?rows.map((row,index)=>{const key=`shared-earth-sky:${row.grid_id}`,expanded=expandedScores.has(key),date=new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),total=Number(row.score_count||0),rate=total?Math.round(100*Number(row.success_count||0)/total)+' %':'—',decoded=decodeGridId(row.grid_id);return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-index="${index}"><div class="ranking-row-top"><span class="account-shared-date">${date}</span><span class="ranking-gems">🌍☁️${decoded?.includeBlackHole?' · 🕳️':''}</span><span class="ranking-points">${row.best_score==null?'—':row.best_score+' pts'}</span><span class="ranking-count">${total} 👥</span><span class="ranking-rate">${rate}</span></div>${expanded?`<div class="account-grid-meta-line"><span class="account-grid-id">ID : ${escapeHtml(publicGridId(row.grid_id))}</span><span>Consultation uniquement</span></div><div class="controls ranking-compact-actions three"><button class="earth-sky-shared-copy ghost" data-index="${index}">📋 ID</button><button class="earth-sky-shared-ranking ghost" data-index="${index}">🏆 Classement</button><button class="earth-sky-shared-preview primary" data-index="${index}">👁️ Voir</button></div>`:''}</div>`;}).join(''):'<div class="history-empty">Aucune grille Terre et Ciel dans cette sélection.</div>')+(state.hasMore?'<button id="sharedEarthSkyMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'');
+    $('#gridDataContent').querySelectorAll('.account-shared-row').forEach(node=>node.onclick=e=>{if(e.target.closest('button'))return;const row=rows[Number(node.dataset.index)],key=`shared-earth-sky:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);render();});
+    $('#gridDataContent').querySelectorAll('.earth-sky-shared-copy').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(gridChallengeText(rows[Number(button.dataset.index)].grid_id)).then(()=>showToast('Défi copié !')));
+    $('#gridDataContent').querySelectorAll('.earth-sky-shared-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));$('#gridDataContent').querySelectorAll('.earth-sky-shared-preview').forEach(button=>button.onclick=()=>openSharedGridPreview(rows[Number(button.dataset.index)].grid_id));if($('#sharedEarthSkyMore'))$('#sharedEarthSkyMore').onclick=async()=>{await load();render();};
+  };$('#accountSharedEarthSkyConfigSelect').addEventListener('change',render);$('#accountSharedEarthSkySortSelect').addEventListener('change',render);$('#accountSharedEarthSkySortReverse').addEventListener('click',()=>{state.reverse=!state.reverse;$('#accountSharedEarthSkySortReverse').textContent=state.reverse?'↑':'↓';render();});render();}catch(error){$('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 
 function closeScoreIdentity(result=null){
@@ -4423,13 +4456,11 @@ $('#btnShareGrid').addEventListener('click',async()=>{
   if(state.gameVariant==='lost')state.missingType=state.pieces.find(piece=>!piece.center)?.type||null;
   const gridId=state.gameVariant==='lost'?encodeLostGridId(state.pieces,state.missingType):(state.gameVariant==='space'?encodeSpaceGridId(state.pieces,state.includeBlackHole):(isEarthSky()?encodeEarthSkyGridId(state.pieces):encodeGridId(state.pieces,state.includeGray,state.includeOnyx,state.includeSapphire)));
   if(!gridId) return;
-  const gems=gemFlagsEmojiLine(state.includeGray,state.includeOnyx,state.includeSapphire);
   try{
     await (isEarthSky()?shareEarthSkyGridGlobally(gridId):(state.gameVariant==='lost'?shareLostGridGlobally(gridId):(state.gameVariant==='space'?shareSpaceGridGlobally(gridId):shareGridGlobally(gridId))));
     const variant=isEarthSky()?'earthSky':state.gameVariant;
-    const alias=await ensureGridAlias(gridId,variant),sharedId=alias||gridId;
-    const text=isEarthSky()?`Je te défie à Terre et Ciel !\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:(state.gameVariant==='space'?`Je te défie à Orapa Space ! 🕳️ ${state.includeBlackHole?'✅':'❌'}\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`);
-    await navigator.clipboard?.writeText(text);
+    await ensureGridAlias(gridId,variant);
+    await navigator.clipboard?.writeText(gridChallengeText(gridId));
     showToast('Grille partagée et défi copié !');
   }catch(err){ showErrorToast(`⚠️ Partage impossible : ${err.message}`); }
 });
@@ -4441,16 +4472,14 @@ $('#btnReplayVictory').addEventListener('click', ()=> openVictoryModal());
 $('#btnCopyGridId').addEventListener('click', async()=>{
   if(!state.gridId || !navigator.clipboard) return;
   if(state.mode==='gm'){
-    const gems = gemFlagsEmojiLine(state.includeGray, state.includeOnyx, state.includeSapphire);
     try{
       await (isEarthSky()?shareEarthSkyGridGlobally(state.gridId):(state.gameVariant==='lost'?shareLostGridGlobally(state.gridId):(state.gameVariant==='space'?shareSpaceGridGlobally(state.gridId):shareGridGlobally(state.gridId))));
-      const alias=await ensureGridAlias(state.gridId,isEarthSky()?'earthSky':state.gameVariant),sharedId=alias||state.gridId;
-      const text = isEarthSky()?`Je te défie à Terre et Ciel !\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:state.gameVariant==='lost'?`Je te défie à Orapa Mine · Gemme perdue !\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:(state.gameVariant==='space'?`Je te défie à Orapa Space ! 🕳️ ${state.includeBlackHole?'✅':'❌'}\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`:`Je te défie à Orapa Mine !\n${gems}\nID: ${sharedId}\nhttps://argone57.github.io/Orapa-Mine/`);
-      await navigator.clipboard.writeText(text);
+      await ensureGridAlias(state.gridId,isEarthSky()?'earthSky':state.gameVariant);
+      await navigator.clipboard.writeText(gridChallengeText(state.gridId));
       showToast('Grille partagée et défi copié !');
     }catch(err){
       console.error('Partage Supabase impossible :',err);
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(gridChallengeText(state.gridId));
       showErrorToast('Défi copié · enregistrement en ligne impossible');
     }
   } else {
