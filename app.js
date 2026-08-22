@@ -4,9 +4,9 @@
 // publication et provoque une demande de mise à jour en boucle.
 const APP_VERSION = (()=>{
   try{
-    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260822-0002';
+    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260822-0003';
   }catch(_error){
-    return '20260822-0002';
+    return '20260822-0003';
   }
 })();
 let publishedAppVersion = null;
@@ -257,10 +257,11 @@ function formatShareText(e){
   return `Orapa Mine · ${gems} · ${d}\n${e.name||'Anonyme'} - ${e.success===false?'😞':'🏅'} - ${e.cost} pts (${e.rayCount||0}🔦/${e.coordCount||0}📍) - ${idPart}\nhttps://argone57.github.io/Orapa-Mine/`;
 }
 function gridChallengeText(gridId){
-  const decoded=decodeGridId(gridId),id=publicGridId(gridId);
+  const canonical=gridCanonicalByAlias.get(normalizeGridAlias(gridId))||gridId;
+  const decoded=decodeGridId(canonical),id=publicGridId(canonical);
   if(decoded?.variant==='lost')return `Je te défie à Orapa Mine · Gemme perdue !\nID: ${id}\nhttps://argone57.github.io/Orapa-Mine/`;
   if(decoded?.variant==='space')return `Je te défie à Orapa Space ! 🕳️ ${decoded.includeBlackHole?'✅':'❌'}\nID: ${id}\nhttps://argone57.github.io/Orapa-Mine/`;
-  if(decoded?.variant==='earthSky')return `Je te défie à Terre et Ciel !\nID: ${id}\nhttps://argone57.github.io/Orapa-Mine/`;
+  if(decoded?.variant==='earthSky')return `Je te défie à Terre et Ciel !\n${earthSkyFlagsEmojiLine(decoded)}\nID: ${id}\nhttps://argone57.github.io/Orapa-Mine/`;
   const gems=decoded?gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire):'';
   return `Je te défie à Orapa Mine !\n${gems}\nID: ${id}\nhttps://argone57.github.io/Orapa-Mine/`;
 }
