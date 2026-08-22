@@ -4,9 +4,9 @@
 // publication et provoque une demande de mise à jour en boucle.
 const APP_VERSION = (()=>{
   try{
-    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260822-0007';
+    return new URL(document.currentScript?.src || '',window.location.href).searchParams.get('v') || '20260822-0008';
   }catch(_error){
-    return '20260822-0007';
+    return '20260822-0008';
   }
 })();
 let publishedAppVersion = null;
@@ -3794,6 +3794,7 @@ function onPieceDown(ev, piece, el){
       setTimeout(()=>el.classList.remove('flip-pulse'),350);
       if(navigator.vibrate) navigator.vibrate(15);
       renderPalette(); renderPieces(); renderControls();
+      restoreViewportAfterPieceDrop(startViewportScroll);
       tutorialAfterPieceAction(piece);
     }
   }, 480);
@@ -3893,6 +3894,7 @@ function onPieceDown(ev, piece, el){
       renderPalette();
       renderPieces();
       renderControls();
+      restoreViewportAfterPieceDrop(startViewportScroll);
       releaseViewportAnchoring();
       tutorialAfterPieceAction(piece);
     } else {
