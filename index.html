@@ -311,7 +311,12 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
 .lost-gem-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:14px 0}.lost-gem-choice{display:flex;min-width:0;min-height:104px;align-items:center;justify-content:center;padding:9px;border:1px solid var(--border);border-radius:11px;background:rgba(15,12,9,.42);transition:opacity .12s,border-color .12s,box-shadow .12s}.lost-gem-choice svg{display:block;width:100%;height:76px;pointer-events:none}.lost-gem-choices.has-selection .lost-gem-choice:not(.selected){opacity:.3}.lost-gem-choice.selected{border-color:var(--gold-bright);box-shadow:0 0 0 2px rgba(238,193,96,.2),0 0 18px rgba(238,193,96,.22)}@media(max-width:520px){.lost-gem-choices{grid-template-columns:repeat(2,minmax(0,1fr))}.lost-gem-choice{min-height:88px}.lost-gem-choice svg{height:62px}}
 #invalidGridIdModal{z-index:390}
 .choice-zone{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.choice-zone:first-of-type{margin-top:0;padding-top:0;border:0}.choice-zone-title{margin:0 0 8px;color:var(--gold-bright);font-family:Cinzel,serif;font-size:.82rem}.solo-choice-by-id{width:100%;margin-top:9px!important}.achievement-subtabs.three{grid-template-columns:repeat(3,minmax(0,1fr))}.space-prison-icon{position:absolute;inset:2px 3px;display:flex;align-items:stretch;justify-content:space-around;gap:3px;pointer-events:none}.space-prison-icon i{display:block;width:2px;height:100%;border-radius:1px;background:#e8e1ef}.space-prison-label{background:#211d29!important;color:#fff!important;box-shadow:inset 0 0 0 2px #8e849e!important}.space-prison-label .label-value{display:inline-flex;align-items:center;justify-content:center;z-index:3;min-width:1.25em;min-height:1.25em;padding:1px 3px;border-radius:4px;background:rgba(33,29,41,.9);text-shadow:0 1px 2px #000}.space-prison-swatch{background:#211d29!important;border:1px solid #8e849e!important;position:relative}.space-prison-swatch:after{content:'';position:absolute;left:50%;top:15%;width:2px;height:70%;color:#e8e4f2;transform:translateX(-50%);box-shadow:-6px 0 currentColor,-2px 0 currentColor,2px 0 currentColor,6px 0 currentColor}.space-disappeared{border-color:#0d0b08!important}
-.earth-sky-history-options{display:inline-flex;align-items:center;white-space:nowrap;font-size:50%;line-height:1}
+.ranking-row-top .earth-sky-history-options{display:inline-flex;align-items:center;white-space:nowrap;font-size:50%!important;line-height:1}
+.lost-history-moves{display:flex;align-items:center;justify-content:center;min-width:0}
+.lost-history-moves-inner{display:grid;grid-template-columns:auto auto;align-items:center;justify-content:center;gap:4px;width:max-content;max-width:100%;white-space:nowrap;font-size:clamp(.56rem,1.8vw,.72rem);font-variant-numeric:tabular-nums}
+.lost-history-moves-inner>span:first-child{text-align:right}
+.lost-history-moves-inner>span:last-child{text-align:left}
+@media(max-width:600px){.lost-history-moves-inner{gap:2px;font-size:.56rem}}
 </style>
 <style>body.tutorial-active #btnEndGame,body.tutorial-active #optBlackHoleLabel{display:none!important}</style>
 </head>
@@ -804,6 +809,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="app.js?v=20260822-0003"></script>
+<script src="app.js?v=20260822-0004"></script>
 </body>
 </html>
