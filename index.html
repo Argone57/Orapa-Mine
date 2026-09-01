@@ -10,10 +10,10 @@
 <meta name="theme-color" content="#120e0a">
 <meta name="description" content="Jouez à Orapa Mine en solo, relevez le défi du jour ou créez une grille pour vos parties autour de la table.">
 <title>Orapa Mine — Défis et création de grilles</title>
-<link rel="icon" href="favicon.ico" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="icon" href="Ressources/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="Ressources/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="Ressources/icon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="Ressources/icon-180.png">
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,6 +31,8 @@
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;overscroll-behavior:none;-webkit-user-select:none;user-select:none;min-height:100vh;touch-action:manipulation;}
 body{background:radial-gradient(ellipse at 20% -10%,#2a2015 0%,transparent 55%),radial-gradient(ellipse at 100% 110%,#1a140d 0%,transparent 60%),var(--bg);padding-bottom:env(safe-area-inset-bottom);}
+.lab-banner{display:none;position:fixed;top:max(6px,env(safe-area-inset-top));left:50%;z-index:500;transform:translateX(-50%);padding:5px 10px;border:1px solid #c99c3b;border-radius:999px;background:#2b2116;color:#f0cf85;font-size:.68rem;font-weight:800;white-space:nowrap;pointer-events:none;box-shadow:0 2px 10px #0008}
+body.preproduction .lab-banner{display:block}
 h1,h2,h3{font-family:'Cinzel',serif;font-weight:600;margin:0;letter-spacing:.02em;}
 .app{max-width:720px;margin:0 auto;padding:14px 12px 40px;}
 header{display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px 10px 18px;text-align:center;border-bottom:1px solid var(--vein);margin-bottom:14px;}
@@ -57,11 +59,12 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .setup-options{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:12px 0 4px;font-size:.8rem;color:var(--text-dim);}
 .setup-options label{display:flex;align-items:center;gap:6px;cursor:pointer;}
 .setup-options input[type=checkbox]{width:16px;height:16px;accent-color:var(--gold);}
+#startBlockMsg{display:none;min-height:1.35em;margin:0;color:#f5b8ae;font-size:.78rem;line-height:1.35;text-align:center;}
 .section-title{display:flex;align-items:center;gap:8px;margin:22px 0 10px;color:var(--gold);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;}
 .section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--vein),transparent);}
 .palette{display:flex;gap:calc(5px + 9px * var(--palette-scale,1));flex-wrap:wrap;align-items:center;padding:calc(5px + 7px * var(--palette-scale,1));border-radius:var(--radius);background:var(--panel);border:1px solid var(--vein);min-height:calc(34px + 42px * var(--palette-scale,1));position:relative;overflow-anchor:none;}
 .palette.empty::before{content:attr(data-empty-label);color:var(--text-faint);font-size:.8rem;font-style:italic;padding:8px;}
-.palette-tile{touch-action:none;cursor:grab;flex:0 0 auto;}
+.palette-tile{touch-action:none;cursor:grab;flex:0 0 auto;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));}
 .board-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;touch-action:pan-x pan-y;}
 @media(min-width:600px){.board-scroll{text-align:center;}}
 .board-frame{
@@ -156,6 +159,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 #soloChoiceModal .modal{max-width:720px}.solo-choice-heading{display:flex;align-items:center;gap:9px;margin-bottom:4px}.solo-choice-heading .pickaxe{font-family:'Arial Unicode MS','Segoe UI Symbol',sans-serif;font-size:1.45rem;line-height:1;color:var(--gold-bright)}.solo-choice-heading h2{margin:0}.solo-choice-intro{margin:4px 0 14px!important}.solo-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.solo-choice-grid.mine{grid-template-columns:repeat(3,minmax(0,1fr))}.solo-choice-card{display:grid!important;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:9px;min-height:76px;margin:0!important;padding:10px 12px!important;text-align:left!important;border-radius:11px!important}.solo-choice-card .choice-icon{font-size:1.35rem;text-align:center}.solo-choice-card .choice-copy{display:block;min-width:0}.solo-choice-card strong{display:block;color:var(--text);font-size:.8rem}.solo-choice-card em{display:block;margin-top:4px;color:var(--text-dim);font-size:.64rem;font-style:normal;font-weight:500;line-height:1.3}.solo-choice-card small{margin-top:4px!important;text-align:left}.solo-choice-daily{align-items:stretch;justify-content:center;line-height:normal}.solo-choice-space{width:100%}.solo-choice-by-id{width:100%;margin-top:0!important}.solo-choice-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}.solo-choice-footer #dailyStatusLine{flex:1;margin:0!important;text-align:left!important}.solo-choice-footer .controls{flex:0 0 auto;margin:0!important}@media(max-width:620px){.solo-choice-grid.mine{grid-template-columns:repeat(2,minmax(0,1fr))}.solo-choice-grid.mine .solo-choice-daily{grid-column:1/-1}.solo-choice-card{min-height:68px}}@media(max-width:460px){.solo-choice-grid,.solo-choice-grid.mine{grid-template-columns:1fr}.solo-choice-grid.mine .solo-choice-daily{grid-column:auto}.solo-choice-footer{align-items:flex-end}.solo-choice-footer #dailyStatusLine{font-size:.66rem!important}}
 .help-fab{position:fixed;bottom:18px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);font-family:'Cinzel',serif;font-weight:700;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:1.15rem;line-height:1;padding:0;}
 .rankings-fab{left:18px;right:auto;}
+.updates-fab{display:none;position:fixed;right:18px;bottom:18px;width:44px;height:44px;padding:0;border-radius:50%;z-index:80;align-items:center;justify-content:center;font-size:1.2rem;line-height:1}.updates-fab.has-unread{border-color:#e6c27a;background:linear-gradient(180deg,#5a3e1c,#302012);box-shadow:0 0 0 3px rgba(230,194,122,.14),0 5px 18px rgba(0,0,0,.55)}.updates-badge{display:none;position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:#e55b47;border:2px solid var(--bg);box-shadow:0 0 9px rgba(229,91,71,.75)}.updates-fab.has-unread .updates-badge{display:block}.updates-list{display:grid;gap:14px;margin:8px 0 12px}.updates-date-group{display:grid;gap:4px}.updates-date-group time{color:var(--gold);font:700 .72rem 'Cinzel',serif}.updates-date-group ul{margin:0;padding-left:19px;color:var(--text-dim)}.updates-date-group li{padding:3px 0;font-size:.8rem;line-height:1.35}.updates-empty{padding:18px 8px;color:var(--text-faint);font-size:.82rem;text-align:center;font-style:italic}.updates-actions{display:flex;justify-content:flex-end;margin-top:12px}
 .ranking-tabs{display:flex;gap:8px;margin:12px 0;}
 .ranking-tabs button{flex:1;}
 .ranking-tabs button.active{background:linear-gradient(180deg,#3a2c17,#2a1f10);border-color:var(--gold);color:var(--gold-bright);}
@@ -298,9 +302,10 @@ body.home-view .app{position:fixed;inset:0;width:100%;height:100%;padding: max(1
 body.home-view .home-screen{width:100%;height:100%;min-height:0}
 body.home-view .app>header,body.home-view .app>#setupOptions,body.home-view .app>#setupHint,body.home-view .app>#paletteTitle,body.home-view .app>#palette,body.home-view .app>#earthSkyBottomPalette,body.home-view .app>.section-title,body.home-view .app>.board-scroll,body.home-view .app>.toolbar-row,body.home-view .app>#historyDisclosure{display:none!important}
 body.home-view #helpFab{display:none}
-body.solo-menu-open .app,body.solo-menu-open .account-fab,body.solo-menu-open .help-fab{visibility:hidden}
+body.home-view #updatesFab{display:flex}
+body.solo-menu-open .app,body.solo-menu-open .account-fab,body.solo-menu-open .help-fab,body.solo-menu-open .updates-fab{visibility:hidden}
 body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120e0a 58%,#090704 100%)}
-body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-fab,body.app-loading .help-fab{visibility:hidden!important}
+body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-fab,body.app-loading .help-fab,body.app-loading .updates-fab{visibility:hidden!important}
 @media(max-width:520px){.account-fab{right:8px;top:max(8px,calc(env(safe-area-inset-top) + 8px));padding:7px 10px}.account-actions,.account-main-actions{grid-template-columns:1fr 1fr}.score-identity-actions{grid-template-columns:1fr}.account-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#accountModal .modal{padding:15px;max-height:92vh}#accountModal .modal h2{margin-bottom:6px}.account-actions button:last-child:nth-child(odd){grid-column:1/-1}}
 @media(max-height:620px){body.home-view .home-screen{overflow-y:auto;justify-content:flex-start;padding-top:48px;padding-bottom:20px}}
 .tutorial-coach.tutorial-coach-top{top:max(12px,env(safe-area-inset-top));bottom:auto}.tutorial-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;text-align:left}.tutorial-summary-grid div{display:flex;flex-direction:column;gap:2px;padding:9px;border:1px solid var(--border);border-radius:9px;background:rgba(12,10,8,.24)}.tutorial-summary-grid b{color:var(--gold-bright);font-size:.76rem}.tutorial-summary-grid span{font-size:.68rem;line-height:1.35}@media(max-width:440px){.tutorial-summary-grid{grid-template-columns:1fr}.tutorial-summary-grid div{padding:7px}}
@@ -318,9 +323,10 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
 .lost-history-moves-inner>span:last-child{text-align:right}
 @media(max-width:600px){.lost-history-moves-inner{gap:2px;font-size:.56rem}}
 </style>
-<style>body.tutorial-active #btnEndGame,body.tutorial-active #optBlackHoleLabel{display:none!important}</style>
+<style>body.tutorial-active #btnEndGame,body.tutorial-active #optBlackHoleLabel,body.tutorial-active #optWormholeLabel{display:none!important}</style>
 </head>
 <body class="home-view app-loading">
+<div class="lab-banner" role="status">🧪 PRÉPRODUCTION — services en ligne actifs</div>
 <button class="account-fab" id="accountFab">👤 Compte</button>
 <div class="app">
   <section class="home-screen" id="homeScreen" aria-labelledby="homeTitle">
@@ -349,15 +355,15 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
       <button id="btnEndGame" class="danger" style="display:none;">🏁 Fin de partie</button>
       <button id="btnShareGrid" class="ghost">📤 Partager la grille</button>
       <button id="btnHome" class="ghost">← Retour à l'accueil</button>
+      <button id="btnReset" class="danger">Recommencer</button>
     </div>
-    <div id="startBlockMsg" style="display:none;color:#f5b8ae;font-size:.78rem;margin-top:8px;text-align:center;"></div>
+    <div id="startBlockMsg" aria-live="polite"></div>
     <div class="controls">
       <button id="btnHint" class="ghost" style="display:none;">🔍 Demander un indice</button>
       <button id="btnPropose" class="primary" style="display:none;">✅ Proposer une solution</button>
       <button id="btnToggleGuess" class="ghost" style="display:none;">👁 Mes gemmes</button>
       <button id="btnToggleSecret" class="ghost" style="display:none;">👁 Gemmes à trouver</button>
       <button id="btnReplayVictory" class="ghost" style="display:none;">📋 Afficher le résultat</button>
-      <button id="btnReset" class="danger">Recommencer</button>
       <button id="btnBackToGM" class="ghost" style="display:none;">← Retour à l'accueil</button>
     </div>
   </header>
@@ -367,6 +373,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
     <label><input type="checkbox" id="optOnyx" checked> Corps noir</label>
     <label><input type="checkbox" id="optSapphire" checked> Saphir bleu ciel</label>
     <label id="optBlackHoleLabel" style="display:none"><input type="checkbox" id="optBlackHole"> 🕳️ Trou noir</label>
+    <label id="optWormholeLabel" style="display:none"><input type="checkbox" id="optWormhole"> 🌀 Trous de ver</label>
   </div>
   <div id="setupHint" style="text-align:center;color:var(--text-faint);font-size:.78rem;margin:6px 0 0;">
     Glisse une gemme sur la grille · tape dessus pour la faire pivoter de 90° · reste appuyé pour la retourner en miroir
@@ -436,6 +443,16 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
 
 <button class="help-fab" id="helpFab">?</button>
 <button class="help-fab rankings-fab" id="rankingsFab">🏆</button>
+<button class="updates-fab" id="updatesFab" type="button" aria-label="Nouveautés" title="Nouveautés">✨<span class="updates-badge" aria-hidden="true"></span></button>
+
+<div class="modal-backdrop" id="updatesModal">
+  <div class="modal">
+    <button class="close-x" id="closeUpdates">×</button>
+    <h2 id="updatesTitle">✨ Nouveautés</h2>
+    <div id="updatesContent"></div>
+    <div class="updates-actions"><button id="updatesHistoryButton" class="ghost">Historique</button></div>
+  </div>
+</div>
 
 <div class="modal-backdrop" id="rankingsModal">
   <div class="modal">
@@ -709,9 +726,9 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<div class="modal-backdrop" id="earthSkyIntroModal"><div class="modal"><button class="close-x" id="closeEarthSkyIntro">×</button><h2>🌍☁️ Terre et Ciel</h2><p>La mine et l’espace partagent une même carte de 10 × 16 cases. Les gemmes occupent une moitié et les astres l’autre ; leur position haute ou basse change à chaque grille.</p><p>La ligne pointillée sépare les deux univers pour le placement des pièces, mais les ondes la traversent librement. Elle peut servir de bord au grand côté de la grande planète blanche.</p><p>Deux pièces ne peuvent pas partager un côté, même si elles se trouvent de part et d’autre de cette ligne.</p><p>Choisis les quatre éléments optionnels qui pourront accompagner les pièces de base.</p><div class="setup-options"><label><input type="checkbox" id="earthSkyOptGray"> Diamant</label><label><input type="checkbox" id="earthSkyOptOnyx"> Corps noir</label><label><input type="checkbox" id="earthSkyOptSapphire"> Saphir bleu ciel</label><label><input type="checkbox" id="earthSkyOptBlackHole"> 🕳️ Trou noir</label></div><div class="controls" style="justify-content:flex-end"><button class="ghost" id="cancelEarthSkyIntro">Annuler</button><button class="primary" id="startEarthSkyGame">Commencer</button></div></div></div>
+<div class="modal-backdrop" id="earthSkyIntroModal"><div class="modal"><button class="close-x" id="closeEarthSkyIntro">×</button><h2>🌍☁️ Terre et Ciel</h2><p>La mine et l’espace partagent une même carte de 10 × 16 cases. Les gemmes occupent une moitié et les astres l’autre ; leur position haute ou basse change à chaque grille.</p><p>La ligne pointillée sépare les deux univers pour le placement des pièces, mais les ondes la traversent librement. Elle peut servir de bord au grand côté de la grande planète blanche.</p><p>Deux pièces ne peuvent pas partager un côté, même si elles se trouvent de part et d’autre de cette ligne.</p><p>Choisis les éléments optionnels qui pourront accompagner les pièces de base.</p><div class="setup-options"><label><input type="checkbox" id="earthSkyOptGray"> Diamant</label><label><input type="checkbox" id="earthSkyOptOnyx"> Corps noir</label><label><input type="checkbox" id="earthSkyOptSapphire"> Saphir bleu ciel</label><label><input type="checkbox" id="earthSkyOptBlackHole"> 🕳️ Trou noir</label><label><input type="checkbox" id="earthSkyOptWormhole"> 🌀 Trous de ver</label></div><div class="controls" style="justify-content:flex-end"><button class="ghost" id="cancelEarthSkyIntro">Annuler</button><button class="primary" id="startEarthSkyGame">Commencer</button></div></div></div>
 
-<div class="modal-backdrop" id="spaceIntroModal"><div class="modal"><button class="close-x" id="closeSpaceIntro">×</button><h2>🚀 Orapa Space</h2><p>Retrouve la position et l’orientation des six planètes en interprétant les ondes. Les couleurs et le calcul des points restent identiques à Orapa Mine.</p><p>La grande planète blanche doit poser son grand côté contre un bord. Deux planètes ne peuvent pas partager une même case.</p><p>Le <b>🕳️ Trou noir</b> est optionnel : une onde directe disparaît, une onde voisine est déviée une seule fois et certaines trajectoires peuvent rester <b>prisonnières</b>.</p><label class="checkline"><input type="checkbox" id="spaceOptBlackHole"> 🕳️ Ajouter le trou noir</label><div class="controls" style="justify-content:flex-end"><button class="ghost" id="cancelSpaceIntro">Annuler</button><button class="primary" id="startSpaceGame">Décoller</button></div></div></div>
+<div class="modal-backdrop" id="spaceIntroModal"><div class="modal"><button class="close-x" id="closeSpaceIntro">×</button><h2>🚀 Orapa Space</h2><p>Retrouve la position et l’orientation des six planètes en interprétant les ondes. Les couleurs et le calcul des points restent identiques à Orapa Mine.</p><p>La grande planète blanche doit poser son grand côté contre un bord. Deux planètes ne peuvent pas partager une même case.</p><p>Le <b>🕳️ Trou noir</b> est optionnel : une onde directe disparaît, une onde voisine est déviée une seule fois et certaines trajectoires peuvent rester <b>prisonnières</b>.</p><p>Les <b>🌀 trous de ver</b> sont optionnels : une onde qui entre dans l’un ressort de l’autre dans la même direction, sans changer de couleur.</p><div class="setup-options"><label><input type="checkbox" id="spaceOptBlackHole"> 🕳️ Trou noir</label><label><input type="checkbox" id="spaceOptWormhole"> 🌀 Trous de ver</label></div><div class="controls" style="justify-content:flex-end"><button class="ghost" id="cancelSpaceIntro">Annuler</button><button class="primary" id="startSpaceGame">Décoller</button></div></div></div>
 
 <div class="modal-backdrop" id="triforcePrerequisiteModal">
   <div class="modal">
@@ -769,8 +786,8 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
       </ul>
       <p>Au moins une de ces deux règles est sélectionnée aléatoirement. Elles peuvent également être appliquées toutes les deux au cours du même défi.</p>
       <div style="display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:10px 0 0;">
-        <img src="daily-example-outside.png" alt="Exemple de gemme partiellement hors de la grille" style="max-width:145px;width:42%;height:auto;border-radius:6px;border:1px solid var(--vein);">
-        <img src="daily-example-touching.png" alt="Exemple de deux gemmes partageant un côté" style="max-width:145px;width:42%;height:auto;border-radius:6px;border:1px solid var(--vein);">
+        <img src="Ressources/daily-example-outside.png" alt="Exemple de gemme partiellement hors de la grille" style="max-width:145px;width:42%;height:auto;border-radius:6px;border:1px solid var(--vein);">
+        <img src="Ressources/daily-example-touching.png" alt="Exemple de deux gemmes partageant un côté" style="max-width:145px;width:42%;height:auto;border-radius:6px;border:1px solid var(--vein);">
       </div>
     </div>
     <div class="controls" style="justify-content:flex-end;margin-top:16px;">
@@ -809,6 +826,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="app.js?v=20260822-0008"></script>
+<script src="boot.js?v=20260901-0001"></script>
 </body>
 </html>
