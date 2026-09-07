@@ -398,7 +398,7 @@ async function prepareNewActiveAttempt(target,ranked=true){
   if(!ranked)return {ok:true,attempt:null};
   try{
     const result=await beginActiveAttempt({...target,progress:{}});
-    if(!result?.accepted)return {ok:false};
+    if(!result?.accepted)return {ok:false,reason:result?.reason||'rejected'};
     return {ok:true,attempt:result.attempt||null,resumed:!!result.resumed};
   }catch(error){showErrorToast('Impossible de démarrer la tentative classée. Vérifie ta connexion puis réessaie.');return {ok:false};}
 }
@@ -1601,7 +1601,6 @@ async function submitGlobalDailyScore(entry, identity){
       p_option_mask:(dailyFlags.gray?1:0)+(dailyFlags.onyx?2:0)+(dailyFlags.sapphire?4:0)
     });
     if(row?.accepted||row?.reason==='already_played')await finishActiveAttempt();
-    await releaseDailyChallengeLock(identity,entry.dailyDate);
     if(row?.accepted===false&&row?.reason==='already_played'){
       showToast('Ce défi du jour est déjà enregistré avec ce compte.');
       return row;
@@ -2760,49 +2759,6 @@ function reviewDailyFinalGrid(dateKey){
   showGame();
   renderAll();
 }
-function fallbackBrowserEnvironment(){
-  const ua=navigator.userAgent||'';
-  let browserName='Navigateur',browserVersion='inconnue',osName='Système',osVersion='inconnue',match;
-  if((match=ua.match(/Edg(?:A|iOS)?\/([\d.]+)/))){browserName='Edge';browserVersion=match[1];}
-  else if((match=ua.match(/OPR\/([\d.]+)/))){browserName='Opera';browserVersion=match[1];}
-  else if((match=ua.match(/(?:Chrome|CriOS)\/([\d.]+)/))){browserName='Chrome';browserVersion=match[1];}
-  else if((match=ua.match(/(?:Firefox|FxiOS)\/([\d.]+)/))){browserName='Firefox';browserVersion=match[1];}
-  else if((match=ua.match(/Version\/([\d.]+).*Safari/))){browserName='Safari';browserVersion=match[1];}
-  if((match=ua.match(/Android\s+([\d.]+)/))){osName='Android';osVersion=match[1];}
-  else if((match=ua.match(/(?:iPhone|CPU) OS ([\d_]+)/))){osName='iOS';osVersion=match[1].replace(/_/g,'.');}
-  else if((match=ua.match(/Windows NT ([\d.]+)/))){osName='Windows';osVersion=match[1];}
-  else if((match=ua.match(/Mac OS X ([\d_]+)/))){osName='macOS';osVersion=match[1].replace(/_/g,'.');}
-  return {browserName,browserVersion,osName,osVersion};
-}
-async function browserEnvironmentFingerprint(){
-  const fallback=fallbackBrowserEnvironment();
-  if(!navigator.userAgentData?.getHighEntropyValues) return JSON.stringify(fallback);
-  try{
-    const data=await navigator.userAgentData.getHighEntropyValues(['fullVersionList','platformVersion']);
-    const brands=data.fullVersionList||data.brands||[];
-    const preferred=brands.find(item=>!/chromium|not.?a.?brand/i.test(item.brand))||brands.find(item=>!/not.?a.?brand/i.test(item.brand));
-    return JSON.stringify({
-      browserName:preferred?.brand||fallback.browserName,
-      browserVersion:preferred?.version||fallback.browserVersion,
-      osName:data.platform||fallback.osName,
-      osVersion:data.platformVersion||fallback.osVersion
-    });
-  }catch(e){ return JSON.stringify(fallback); }
-}
-async function acquireDailyChallengeLock(dateKey){
-  if(!currentPlayerAccount?.session_token) return {accepted:false,reason:'account_required'};
-  const fingerprint=await browserEnvironmentFingerprint();
-  return supabaseRpc('orapa_acquire_daily_lock',{
-    p_session_token:currentPlayerAccount?.session_token||'',
-    p_daily_date:dateKey,
-    p_browser_fingerprint:fingerprint
-  });
-}
-async function releaseDailyChallengeLock(identity,dateKey){
-  if(!identity?.sessionToken||!dateKey) return;
-  try{await supabaseRpc('orapa_release_daily_lock',{p_session_token:identity.sessionToken,p_daily_date:dateKey});}
-  catch(error){console.warn('Libération du verrou du défi impossible :',error);}
-}
 async function startDailyChallenge(resumeAttempt=null){
   const dailyStatus=resumeAttempt?{dateKey:resumeAttempt.reference,alreadyPlayed:false,attempt:null}:dailyStatusToday();
   const { dateKey, alreadyPlayed } = dailyStatus;
@@ -2812,18 +2768,6 @@ async function startDailyChallenge(resumeAttempt=null){
   }
   if(!resumeAttempt&&!await verifyTriforcePrerequisite(true)) return;
   if(!await ensureCurrentAppVersion(true,true)) return;
-  if(!resumeAttempt)try{
-    const lock=await acquireDailyChallengeLock(dateKey);
-    if(lock?.accepted===false){
-      if(lock.reason==='already_played') reviewDailyFinalGrid(dateKey);
-      else if(lock.reason==='triforce_required') openTriforcePrerequisiteModal(false);
-      else await gameAlert('Ce défi du jour a déjà été lancé depuis un autre navigateur. Veuillez reprendre la partie sur le navigateur depuis lequel elle a été commencée.','Défi déjà commencé ailleurs');
-      return;
-    }
-  }catch(error){
-    await gameAlert('Impossible de vérifier la disponibilité du défi du jour. Vérifie ta connexion puis réessaie.','Vérification impossible');
-    return;
-  }
   const daily = generateDailyLayout(dateKey);
   if(!daily){
     setTimeout(()=>void gameAlert("Je n'ai pas réussi à générer le défi du jour. Réessaie plus tard.",'Génération impossible'),60);
@@ -2833,7 +2777,10 @@ async function startDailyChallenge(resumeAttempt=null){
   if(resumeAttempt)activeAttempt=resumeAttempt;
   const attemptStart=resumeAttempt?{ok:true,attempt:resumeAttempt,resumed:true}:await prepareNewActiveAttempt({kind:'daily',reference:dateKey,context:{option_mask:optionMask}},true);
   if(!attemptStart.ok){
-    await releaseDailyChallengeLock({sessionToken:currentPlayerAccount?.session_token},dateKey);
+    if(attemptStart.reason==='already_played'){
+      await refreshDailyStatusFromSupabase(true);
+      reviewDailyFinalGrid(dateKey);
+    }else if(attemptStart.reason==='triforce_required')openTriforcePrerequisiteModal(false);
     return;
   }
   setHintMode(false);
