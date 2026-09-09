@@ -381,7 +381,7 @@ async function abandonServerAttempt(attempt=activeAttempt){
 function markLocalAttemptAbandoned(){
   if(state.mode!=='solo'||state.soloOver)return;
   state.soloOver=true;state.soloResult='lose';state.finalTimeMs=state.firstActionTime?Date.now()-state.firstActionTime:0;
-  if(state.isDaily&&state.dailyDate)saveDailyAttempt({date:state.dailyDate,result:'lose',accountId:dailyAttemptAccountKey()});
+  if(state.isDaily&&state.dailyDate)saveDailyAttempt({date:state.dailyDate,result:'abandoned',accountId:dailyAttemptAccountKey()});
   saveState();
 }
 async function prepareNewActiveAttempt(target,ranked=true){
@@ -389,8 +389,8 @@ async function prepareNewActiveAttempt(target,ranked=true){
   let current=activeAttempt;
   if(!current)try{current=await fetchActiveAttempt();}catch(error){showErrorToast('Impossible de vérifier la partie en cours. Vérifie ta connexion puis réessaie.');return {ok:false};}
   if(current&&!attemptMatches(target,current)){
-    const continueCurrent=await gameConfirm(`Une partie ${activeAttemptSentenceLabel(current)} est en cours. Celle-ci sera perdue si vous démarrez une nouvelle grille.`,'Partie en cours','Continuer la partie','Abandonner et choisir une autre grille');
-    if(continueCurrent)return {ok:false,resume:true};
+    const choice=await activeAttemptChoice(`Une partie ${activeAttemptSentenceLabel(current)} est en cours. Celle-ci sera perdue si vous démarrez une nouvelle grille.`);
+    if(choice!=='abandon')return {ok:false,resume:true};
     try{if(!await abandonServerAttempt(current))return {ok:false};}
     catch(error){showErrorToast('Impossible d’abandonner la partie en cours. Vérifie ta connexion puis réessaie.');return {ok:false};}
     markLocalAttemptAbandoned();
@@ -526,9 +526,7 @@ function gridChallengeText(gridId){
   return `Je te défie à Orapa Mine !\n${gems}\nID: ${id}\nhttps://argone57.github.io/Orapa-Mine/`;
 }
 // ---------------------------------------------------------------------
-// DÉFI DU JOUR — tentative unique (par navigateur) + classement journalier.
-// Le classement est stocké localement (voir le README pour la limite : sans
-// backend externe, il n'est pas synchronisé entre navigateurs différents).
+// DÉFI DU JOUR — tentative classée unique par compte + instantané final local.
 // ---------------------------------------------------------------------
 const DAILY_ATTEMPT_KEY = `${LOCAL_STORAGE_PREFIX}DailyAttemptV1`;
 const DAILY_RANKINGS_KEY = `${LOCAL_STORAGE_PREFIX}DailyRankingsV1`;
@@ -1280,7 +1278,9 @@ async function openMyDailyHistory(){
         const dateKey=String(row.daily_date).slice(0,10);
         const layout=generateDailyLayout(dateKey);
         const gems=layout?gemFlagsEmojiLine(layout.flags.gray,layout.flags.onyx,layout.flags.sapphire):'';
-        return `<div class="ranking-row account-daily-row${expanded?' expanded':''}" data-daily-index="${i}"><div class="ranking-row-top"><span class="account-result-position"><span class="solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><b>#${row.rank}</b></span><span class="ranking-date">${shortFrenchDate(dateKey)}</span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.cost} pts</span></div>${expanded?`<div class="ranking-row-detail">${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions daily-history-actions"${myludoHistoryEntryAttribute(row,'classic',{isDaily:true,dailyDate:dateKey,includeGray:!!layout?.flags?.gray,includeOnyx:!!layout?.flags?.onyx,includeSapphire:!!layout?.flags?.sapphire})}><button class="daily-history-summary ghost" data-daily-index="${i}">📋 Résumé</button></div>`:''}</div>`;
+        const outcome=row.abandoned?'Tentative abandonnée · ':'';
+        const myludoAttribute=row.abandoned?'':myludoHistoryEntryAttribute(row,'classic',{isDaily:true,dailyDate:dateKey,includeGray:!!layout?.flags?.gray,includeOnyx:!!layout?.flags?.onyx,includeSapphire:!!layout?.flags?.sapphire});
+        return `<div class="ranking-row account-daily-row${expanded?' expanded':''}" data-daily-index="${i}"><div class="ranking-row-top"><span class="account-result-position"><span class="solo-result-mark ${row.success?'win':'fail'}">${row.success?'✓':'✕'}</span><b>#${row.rank}</b></span><span class="ranking-date">${shortFrenchDate(dateKey)}</span><span class="ranking-gems">${gems}</span><span class="ranking-points">${row.cost} pts</span></div>${expanded?`<div class="ranking-row-detail">${outcome}${row.ray_count} 🔦 + ${row.coord_count} 📍 · ${formatDuration(row.time_ms)}</div><div class="controls ranking-compact-actions daily-history-actions"${myludoAttribute}><button class="daily-history-summary ghost" data-daily-index="${i}">📋 Résumé</button></div>`:''}</div>`;
       }).join('');
       const more=dailyState.hasMore?'<button id="dailyHistoryLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'';
       $('#gridDataContent').innerHTML=rowsHtml+more;
@@ -2724,7 +2724,7 @@ function dailyStatusToday(){
   const remoteAttempt=remoteDailyStatusCache?.dateKey===dateKey && remoteDailyStatusCache.accountKey===accountKey
     ? remoteDailyStatusCache.attempt : null;
   const currentAttempt=localAttempt||remoteAttempt;
-  return {dateKey,alreadyPlayed:!!currentAttempt,attempt:currentAttempt};
+  return {dateKey,alreadyPlayed:!!currentAttempt,attempt:currentAttempt,canReview:!!loadDailyFinalSnapshot(dateKey)};
 }
 async function refreshDailyStatusFromSupabase(force=false){
   if(!currentPlayerAccount?.session_token) return dailyStatusToday();
@@ -2738,7 +2738,7 @@ async function refreshDailyStatusFromSupabase(force=false){
     const row=(Array.isArray(response)?response:[]).find(item=>String(item.daily_date).slice(0,10)===dateKey);
     remoteDailyStatusCache={
       dateKey,accountKey,checkedAt:Date.now(),
-      attempt:row?{date:dateKey,result:row.success?'win':'lose',accountId:accountKey,source:'supabase'}:null
+      attempt:row?{date:dateKey,result:row.abandoned?'abandoned':(row.success?'win':'lose'),accountId:accountKey,source:'supabase'}:null
     };
     return dailyStatusToday();
   })();
@@ -2759,11 +2759,16 @@ function reviewDailyFinalGrid(dateKey){
   showGame();
   renderAll();
 }
+function openCompletedDailyStatus(status){
+  if(status?.attempt?.result==='abandoned'){showToast('Cette tentative a été abandonnée.');return;}
+  if(status?.canReview){reviewDailyFinalGrid(status.dateKey);return;}
+  showToast('Ce défi a été terminé sur un autre navigateur.');
+}
 async function startDailyChallenge(resumeAttempt=null){
   const dailyStatus=resumeAttempt?{dateKey:resumeAttempt.reference,alreadyPlayed:false,attempt:null}:dailyStatusToday();
   const { dateKey, alreadyPlayed } = dailyStatus;
   if(!resumeAttempt&&alreadyPlayed){
-    reviewDailyFinalGrid(dateKey);
+    openCompletedDailyStatus(dailyStatus);
     return;
   }
   if(!resumeAttempt&&!await verifyTriforcePrerequisite(true)) return;
@@ -2778,8 +2783,8 @@ async function startDailyChallenge(resumeAttempt=null){
   const attemptStart=resumeAttempt?{ok:true,attempt:resumeAttempt,resumed:true}:await prepareNewActiveAttempt({kind:'daily',reference:dateKey,context:{option_mask:optionMask}},true);
   if(!attemptStart.ok){
     if(attemptStart.reason==='already_played'){
-      await refreshDailyStatusFromSupabase(true);
-      reviewDailyFinalGrid(dateKey);
+      const status=await refreshDailyStatusFromSupabase(true);
+      openCompletedDailyStatus(status);
     }else if(attemptStart.reason==='triforce_required')openTriforcePrerequisiteModal(false);
     return;
   }
@@ -3459,7 +3464,7 @@ function closeGameDialog(result){
   if(resolve)resolve(result);
 }
 function openGameDialog({title='Information',message='',confirmLabel='OK',cancelLabel=''}){
-  if(gameDialogResolver)closeGameDialog(false);
+  if(gameDialogResolver)closeGameDialog(null);
   $('#gameDialogTitle').textContent=title;
   $('#gameDialogMessage').textContent=message;
   $('#gameDialogConfirm').textContent=confirmLabel;
@@ -3469,7 +3474,13 @@ function openGameDialog({title='Information',message='',confirmLabel='OK',cancel
   return new Promise(resolve=>{gameDialogResolver=resolve;});
 }
 function gameAlert(message,title='Information'){return openGameDialog({title,message,confirmLabel:'OK'});}
-function gameConfirm(message,title='Confirmation',confirmLabel='Confirmer',cancelLabel='Annuler'){return openGameDialog({title,message,confirmLabel,cancelLabel});}
+function gameConfirm(message,title='Confirmation',confirmLabel='Confirmer',cancelLabel='Annuler'){
+  return openGameDialog({title,message,confirmLabel,cancelLabel}).then(result=>result===true);
+}
+async function activeAttemptChoice(message){
+  const result=await openGameDialog({title:'Partie en cours',message,confirmLabel:'Continuer la partie',cancelLabel:'Abandonner et choisir une autre grille'});
+  return result===false?'abandon':'continue';
+}
 function activeGridLabel(){
   if(state.isDaily)return 'Le défi du jour';
   if(state.gameVariant==='lost')return 'Une grille Gemme perdue';
@@ -3479,7 +3490,7 @@ function activeGridLabel(){
 }
 $('#gameDialogConfirm').addEventListener('click',()=>closeGameDialog(true));
 $('#gameDialogCancel').addEventListener('click',()=>closeGameDialog(false));
-$('#gameDialogModal').addEventListener('click',event=>{if(event.target.id==='gameDialogModal')closeGameDialog(false);});
+$('#gameDialogModal').addEventListener('click',event=>{if(event.target.id==='gameDialogModal')closeGameDialog(null);});
 const boardEl = $('#board');
 const pieceSvg = $('#pieceSvg');
 const traceSvg = $('#traceSvg');
@@ -4550,28 +4561,38 @@ async function resumeServerAttempt(attempt){
   if(attempt.game_kind==='earthSky')return startEarthSkySoloGame(attempt.reference);
   return startSoloGame(attempt.reference);
 }
+let enterSoloPending=false;
 async function enterSolo(){
+  if(enterSoloPending)return;
+  enterSoloPending=true;
+  const homeSoloButton=$('#homeSolo');
+  if(homeSoloButton){homeSoloButton.disabled=true;homeSoloButton.setAttribute('aria-busy','true');}
+  try{
   if(!currentPlayerAccount){
     $('#soloAccountPromptModal').classList.add('open');
     return;
   }
   if(state.mode==='solo' && !state.soloOver){
     if(!await activeSoloGridIsAllowed())return;
-    const resume=await gameConfirm(`Une partie ${activeAttemptSentenceLabel({game_kind:attemptKindForState()})} est en cours. Celle-ci sera perdue si vous démarrez une nouvelle grille.`,'Partie en cours','Continuer la partie','Abandonner et choisir une autre grille');
-    if(resume)showGame();
+    const choice=await activeAttemptChoice(`Une partie ${activeAttemptSentenceLabel({game_kind:attemptKindForState()})} est en cours. Celle-ci sera perdue si vous démarrez une nouvelle grille.`);
+    if(choice!=='abandon')showGame();
     else if(await abandonCurrentLocalAttempt())openSoloChoiceModal();
     return;
   }
   try{
     const serverAttempt=await fetchActiveAttempt();
     if(serverAttempt){
-      const resume=await gameConfirm(`Une partie ${activeAttemptSentenceLabel(serverAttempt)} est en cours. Celle-ci sera perdue si vous démarrez une nouvelle grille.`,'Partie en cours','Continuer la partie','Abandonner et choisir une autre grille');
-      if(resume)await resumeServerAttempt(serverAttempt);
+      const choice=await activeAttemptChoice(`Une partie ${activeAttemptSentenceLabel(serverAttempt)} est en cours. Celle-ci sera perdue si vous démarrez une nouvelle grille.`);
+      if(choice!=='abandon')await resumeServerAttempt(serverAttempt);
       else try{if(await abandonServerAttempt(serverAttempt))openSoloChoiceModal();}catch(error){showErrorToast('Impossible d’abandonner la partie en cours. Vérifie ta connexion puis réessaie.');}
       return;
     }
   }catch(error){console.warn('Recherche de la partie en cours impossible :',error);}
   openSoloChoiceModal();
+  }finally{
+    enterSoloPending=false;
+    if(homeSoloButton){homeSoloButton.disabled=false;homeSoloButton.removeAttribute('aria-busy');}
+  }
 }
 $('#homeSolo').addEventListener('click', enterSolo);
 async function activeSoloGridIsAllowed(){
@@ -5141,9 +5162,12 @@ function renderDailyStatusLine(status){
   const detail=button.querySelector('small');
   button.classList.remove('review-available','prerequisite-locked','prerequisite-checking');
   if(status?.alreadyPlayed){
-    button.classList.add('review-available');
-    detail.textContent='Revoir la grille';
-    line.textContent=`Défi du jour déjà joué aujourd'hui (${status.attempt.result==='win'?'réussi 🏆':'raté 💥'}) — reviens demain.`;
+    const abandoned=status.attempt?.result==='abandoned';
+    if(status.canReview&&!abandoned)button.classList.add('review-available');
+    detail.textContent=abandoned?'Tentative abandonnée':(status.canReview?'Revoir la grille':'Défi déjà terminé');
+    line.textContent=abandoned
+      ? 'La tentative du jour a été abandonnée — reviens demain.'
+      : `Défi du jour déjà joué aujourd'hui (${status.attempt.result==='win'?'réussi 🏆':'raté 💥'}) — reviens demain.`;
     line.style.display='block';
   }else{
     line.style.display='none';
@@ -5153,7 +5177,7 @@ function renderDailyStatusLine(status){
     }else if(!dailyTriforceState.unlocked){
       button.classList.add('prerequisite-locked');
       detail.textContent=dailyTriforceState.error?'Vérification impossible':'🔒 Succès Triforce requis';
-    }
+    }else detail.textContent='Une seule tentative aujourd’hui';
   }
 }
 function openTriforcePrerequisiteModal(checkError=false){
@@ -5253,7 +5277,7 @@ $('#soloChoiceDaily').addEventListener('click', async()=>{
   try{await refreshDailyStatusFromSupabase();}catch(error){}
   const status=dailyStatusToday();
   if(status.alreadyPlayed){
-    reviewDailyFinalGrid(status.dateKey);
+    openCompletedDailyStatus(status);
     return;
   }
   if(!await verifyTriforcePrerequisite(true))return;
