@@ -3480,7 +3480,7 @@ function gameConfirm(message,title='Confirmation',confirmLabel='Confirmer',cance
 }
 async function activeAttemptChoice(message){
   const result=await openGameDialog({title:'Partie en cours',message,confirmLabel:'Continuer la partie',cancelLabel:'Abandonner et choisir une autre grille'});
-  return result===false?'abandon':'continue';
+  return result===true?'continue':(result===false?'abandon':'dismiss');
 }
 function activeGridLabel(){
   if(state.isDaily)return 'Le défi du jour';
@@ -4575,17 +4575,42 @@ async function enterSolo(){
   }
   if(state.mode==='solo' && !state.soloOver){
     if(!await activeSoloGridIsAllowed())return;
+    if(state.isDaily){
+      try{
+        await flushActiveAttemptActions();
+        const [status,serverAttempt]=await Promise.all([refreshDailyStatusFromSupabase(true),fetchActiveAttempt()]);
+        if(status.alreadyPlayed){
+          activeAttempt=null;
+          state.soloOver=true;
+          state.soloResult=status.attempt?.result==='win'?'win':'lose';
+          saveState();
+          openSoloChoiceModal();
+          return;
+        }
+        if(!serverAttempt){
+          activeAttempt=null;
+          state.soloOver=true;
+          saveState();
+          openSoloChoiceModal();
+          return;
+        }
+        const choice=await activeAttemptChoice(`Une partie ${activeAttemptSentenceLabel(serverAttempt)} est en cours. Celle-ci sera perdue si vous démarrez une nouvelle grille.`);
+        if(choice==='continue')await resumeServerAttempt(serverAttempt);
+        else if(choice==='abandon')try{if(await abandonServerAttempt(serverAttempt))openSoloChoiceModal();}catch(error){showErrorToast('Impossible d’abandonner la partie en cours. Vérifie ta connexion puis réessaie.');}
+      }catch(error){showErrorToast('Impossible de vérifier le défi du jour. Vérifie ta connexion puis réessaie.');}
+      return;
+    }
     const choice=await activeAttemptChoice(`Une partie ${activeAttemptSentenceLabel({game_kind:attemptKindForState()})} est en cours. Celle-ci sera perdue si vous démarrez une nouvelle grille.`);
-    if(choice!=='abandon')showGame();
-    else if(await abandonCurrentLocalAttempt())openSoloChoiceModal();
+    if(choice==='continue')showGame();
+    else if(choice==='abandon'&&await abandonCurrentLocalAttempt())openSoloChoiceModal();
     return;
   }
   try{
     const serverAttempt=await fetchActiveAttempt();
     if(serverAttempt){
       const choice=await activeAttemptChoice(`Une partie ${activeAttemptSentenceLabel(serverAttempt)} est en cours. Celle-ci sera perdue si vous démarrez une nouvelle grille.`);
-      if(choice!=='abandon')await resumeServerAttempt(serverAttempt);
-      else try{if(await abandonServerAttempt(serverAttempt))openSoloChoiceModal();}catch(error){showErrorToast('Impossible d’abandonner la partie en cours. Vérifie ta connexion puis réessaie.');}
+      if(choice==='continue')await resumeServerAttempt(serverAttempt);
+      else if(choice==='abandon')try{if(await abandonServerAttempt(serverAttempt))openSoloChoiceModal();}catch(error){showErrorToast('Impossible d’abandonner la partie en cours. Vérifie ta connexion puis réessaie.');}
       return;
     }
   }catch(error){console.warn('Recherche de la partie en cours impossible :',error);}
@@ -5051,6 +5076,8 @@ $('#createEarthSkyMode').addEventListener('click',()=>{if(!canPreviewEarthSky())
 $('#btnHome').addEventListener('click',async()=>{
   if(state.mode==='solo'&&!state.soloOver){
     if(!await gameConfirm('La grille en cours restera disponible dans ce navigateur tant que vous ne démarrez pas une autre grille.','Revenir à l’accueil ?','Revenir à l’accueil','Continuer la partie')) return;
+    try{await flushActiveAttemptActions();}
+    catch(error){showErrorToast('Impossible de synchroniser les derniers coups. Vérifie ta connexion puis réessaie.');return;}
   }
   if(state.mode==='solo'&&state.soloOver) resetAll();
   showHome();
@@ -5272,6 +5299,7 @@ async function openSoloChoiceModal(){
   if(!dailyStatusToday().alreadyPlayed&&$('#soloChoiceModal').classList.contains('open'))await verifyTriforcePrerequisite(false);
 }
 function closeSoloChoiceModal(){ $('#soloChoiceModal').classList.remove('open'); document.body.classList.remove('solo-menu-open'); }
+$('#closeSoloChoice').addEventListener('click',closeSoloChoiceModal);
 $('#soloChoiceCancel').addEventListener('click', closeSoloChoiceModal);
 $('#soloChoiceModal').addEventListener('click', e=>{ if(e.target.id==='soloChoiceModal') closeSoloChoiceModal(); });
 $('#soloChoiceDaily').addEventListener('click', async()=>{
