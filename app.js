@@ -333,7 +333,7 @@ function registerSoloAction(kind){
   if(kind==='ray'){ state.moveCost = (state.moveCost||0) + COST_RAY; state.rayCount = (state.rayCount||0) + 1; }
   else { state.moveCost = (state.moveCost||0) + COST_COORD; state.coordCount = (state.coordCount||0) + 1; }
 }
-let activeAttempt=null,attemptSyncPromise=null;
+let activeAttempt=null,attemptSyncPromise=null,activeAttemptRefreshIssue=null,activeAttemptRefreshStatus=null;
 const pendingAttemptActions=[];
 function attemptKindForState(){return state.isDaily?'daily':(isEarthSky()?'earthSky':state.gameVariant||'classic');}
 function attemptReferenceForState(){return state.isDaily?state.dailyDate:state.gridId;}
@@ -470,27 +470,56 @@ async function flushActiveAttemptActions(){
 }
 async function refreshCurrentActiveAttemptProgress(render=false){
   if(state.mode!=='solo'||state.soloOver||(!state.gridRanked&&!state.isDaily)||!currentPlayerAccount?.session_token)return true;
+  activeAttemptRefreshIssue=null;
+  activeAttemptRefreshStatus=null;
   const target={kind:attemptKindForState(),reference:attemptReferenceForState()};
   try{
     await flushActiveAttemptActions();
     let serverAttempt=await fetchActiveAttempt();
-    if(!attemptMatches(target,serverAttempt))return false;
+    if(!attemptMatches(target,serverAttempt)){
+      activeAttemptRefreshIssue='missing';
+      if(state.isDaily){
+        const status=await refreshDailyStatusFromSupabase(true);
+        if(status.alreadyPlayed){activeAttemptRefreshIssue='completed_elsewhere';activeAttemptRefreshStatus=status;}
+      }
+      return false;
+    }
     if((Number(state.rayCount)||0)>(Number(serverAttempt.ray_count)||0)||(Number(state.coordCount)||0)>(Number(serverAttempt.coord_count)||0)||(Number(state.soloAttempts)||0)>(Number(serverAttempt.progress?.soloAttempts)||0)){
       reconcileLocalAttemptActions(serverAttempt);
       await flushActiveAttemptActions();
       serverAttempt=await fetchActiveAttempt();
-      if(!attemptMatches(target,serverAttempt))return false;
+      if(!attemptMatches(target,serverAttempt)){
+        activeAttemptRefreshIssue='missing';
+        if(state.isDaily){
+          const status=await refreshDailyStatusFromSupabase(true);
+          if(status.alreadyPlayed){activeAttemptRefreshIssue='completed_elsewhere';activeAttemptRefreshStatus=status;}
+        }
+        return false;
+      }
     }
     applyActiveAttemptProgress(serverAttempt);
     saveState();
     if(render)renderAll();
     return true;
   }catch(error){
+    activeAttemptRefreshIssue='error';
     console.warn('Actualisation de la tentative impossible :',error);
     if(render)return false;
     showErrorToast('Impossible de synchroniser les coups. Vérifie ta connexion puis réessaie.');
     return false;
   }
+}
+async function leaveCompletedDailyAttempt(message){
+  const status=activeAttemptRefreshStatus||dailyStatusToday();
+  const result=status.attempt?.result||'lose';
+  activeAttempt=null;
+  state.soloOver=true;
+  state.soloResult=result==='win'?'win':'lose';
+  state.dailyAlreadyRecorded=true;
+  if(state.dailyDate)saveDailyAttempt({date:state.dailyDate,result,accountId:dailyAttemptAccountKey()});
+  saveState();
+  await gameAlert(message,'Défi déjà terminé');
+  showHome();
 }
 function formatScoreLine(e){
   return `${e.cost} pts (${e.rayCount||0}🔦 + ${e.coordCount||0}📍) · ${formatDuration(e.timeMs)}`;
@@ -3006,7 +3035,11 @@ async function proposeSolution(){
   if(state.mode!=='solo' || state.soloOver) return;
   if(tutorialActive){tutorialPropose();return;}
   if(state.gameVariant==='lost'){openLostSolutionModal();return;}
-  if(!await refreshCurrentActiveAttemptProgress())return;
+  if(!await refreshCurrentActiveAttemptProgress()){
+    if(activeAttemptRefreshIssue==='completed_elsewhere')await leaveCompletedDailyAttempt('Ce défi a déjà été terminé avec ce compte sur un autre appareil. La proposition affichée sur ce navigateur ne peut plus être envoyée.');
+    else if(activeAttemptRefreshIssue==='missing')showErrorToast('Cette tentative n’est plus active sur le serveur. Retourne à l’accueil pour choisir une grille.');
+    return;
+  }
   if(state.pieces.some(piece=>!piece.center)) return;
   const correct=evaluateGuess();
   if(correct){
@@ -5075,6 +5108,16 @@ $('#createSpaceMode').addEventListener('click',()=>{if(!canPreviewSpaceTutorial(
 $('#createEarthSkyMode').addEventListener('click',()=>{if(!canPreviewEarthSky())return;closeCreateModeModal();resetAll();Object.assign(state,{mode:'gm',gameVariant:'earthSky',includeGray:false,includeOnyx:false,includeSapphire:false,includeBlackHole:false,includeWormhole:false,earthSkyMineOnTop:null});state.pieces=earthSkyTypes().map(type=>newPiece(type));showGame();renderAll();});
 $('#btnHome').addEventListener('click',async()=>{
   if(state.mode==='solo'&&!state.soloOver){
+    if(state.isDaily&&!await refreshCurrentActiveAttemptProgress()){
+      if(activeAttemptRefreshIssue==='completed_elsewhere')await leaveCompletedDailyAttempt('Ce défi a déjà été terminé avec ce compte sur un autre appareil. La partie encore affichée sur ce navigateur n’est plus active.');
+      else if(activeAttemptRefreshIssue==='missing'){
+        state.soloOver=true;
+        saveState();
+        showErrorToast('Cette tentative n’est plus active sur le serveur.');
+        showHome();
+      }
+      return;
+    }
     if(!await gameConfirm('La grille en cours restera disponible dans ce navigateur tant que vous ne démarrez pas une autre grille.','Revenir à l’accueil ?','Revenir à l’accueil','Continuer la partie')) return;
     try{await flushActiveAttemptActions();}
     catch(error){showErrorToast('Impossible de synchroniser les derniers coups. Vérifie ta connexion puis réessaie.');return;}
