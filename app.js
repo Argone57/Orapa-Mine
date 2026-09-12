@@ -616,6 +616,23 @@ function openUpdatesModal(history=false){
   $('#updatesHistoryButton').onclick=()=>openUpdatesModal(true);
   $('#updatesModal').classList.add('open');
 }
+let globalGamesTotalCache=null;
+async function openAboutModal(){
+  const modal=$('#aboutModal'),total=$('#aboutGamesTotal');
+  modal.classList.add('open');
+  if(globalGamesTotalCache!==null){
+    total.textContent=`${globalGamesTotalCache.toLocaleString('fr-FR')} partie${globalGamesTotalCache===1?'':'s'} jouée${globalGamesTotalCache===1?'':'s'} au total`;
+    return;
+  }
+  total.textContent='Nombre de parties jouées : chargement…';
+  try{
+    globalGamesTotalCache=Math.max(0,Number(await supabaseRpc('orapa_total_games_played'))||0);
+    if(!modal.classList.contains('open'))return;
+    total.textContent=`${globalGamesTotalCache.toLocaleString('fr-FR')} partie${globalGamesTotalCache===1?'':'s'} jouée${globalGamesTotalCache===1?'':'s'} au total`;
+  }catch(error){
+    if(modal.classList.contains('open'))total.textContent='Nombre total de parties temporairement indisponible.';
+  }
+}
 let remoteDailyStatusCache = null;
 let remoteDailyStatusPromise = null;
 let remoteDailyRemixStatusCache = null;
@@ -889,9 +906,9 @@ async function loadMyAccountStats(){
   if(!currentPlayerAccount) return null;
   return supabaseRpc('orapa_my_stats',{p_session_token:currentPlayerAccount.session_token});
 }
-function dailyAccountStatisticsPanel(st,id,hidden=false){
+function dailyAccountStatisticsPanel(st,id){
   const rate=st?.participations?Math.round((st.wins||0)/st.participations*100):0;
-  return `<div id="${id}" class="account-daily-stats-panel"${hidden?' hidden':''}><div class="account-stats-grid">
+  return `<div id="${id}" class="account-daily-stats-panel"><div class="account-stats-grid">
     <div class="account-stat"><b>${st?.participations||0}</b>défis</div>
     <div class="account-stat"><b>${st?.wins||0}</b>réussites</div>
     <div class="account-stat"><b>${rate}%</b>réussite</div>
@@ -901,9 +918,11 @@ function dailyAccountStatisticsPanel(st,id,hidden=false){
 }
 function accountStatisticsHtml(st,remixStats,gridStats,lostStats,spaceStats,earthSkyStats,achievementRows){
   const visibleUnlocked=(achievementRows||[]).filter(row=>row.unlocked&&row.visibility!=='hidden');
-  return `<h3 class="account-section-title">📅 Défis du jour</h3><div class="daily-kind-tabs"><button id="accountStatsDailyClassic" class="ghost active">Classique</button><button id="accountStatsDailyRemix" class="ghost">Remix</button></div>
-  ${dailyAccountStatisticsPanel(st,'accountDailyClassicStats')}${dailyAccountStatisticsPanel(remixStats,'accountDailyRemixStats',true)}
-  ${gridStats?`<h3 class="account-section-title">🧩 Grilles classiques</h3><div class="account-stats-grid">
+  return `<h3 class="account-section-title">📅 Défis du jour classique</h3>
+  ${dailyAccountStatisticsPanel(st,'accountDailyClassicStats')}
+  <h3 class="account-section-title">🧬 Défis du jour remix</h3>
+  ${dailyAccountStatisticsPanel(remixStats,'accountDailyRemixStats')}
+  ${gridStats?`<h3 class="account-section-title">💎 Orapa Mine</h3><div class="account-stats-grid">
     <div class="account-stat"><b>${gridStats.played||0}</b>jouées</div>
     <div class="account-stat"><b>${gridStats.played?Math.round((gridStats.wins||0)/gridStats.played*100):0}%</b>réussite</div>
     <div class="account-stat"><b>${gridStats.created||0}</b>partagées</div>
@@ -911,15 +930,16 @@ function accountStatisticsHtml(st,remixStats,gridStats,lostStats,spaceStats,eart
     <div class="account-stat"><b>${gridStats.average_score==null?'—':gridStats.average_score+' pts'}</b>score moyen</div>
     <div class="account-stat"><b>${gridStats.average_rank==null?'—':'#'+gridStats.average_rank}</b>rang moyen</div>
   </div>`:''}
-  ${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.shared||0}</b>partagées</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}
   ${spaceStats?`<h3 class="account-section-title">🪐 Orapa Space</h3><div class="account-stats-grid"><div class="account-stat"><b>${spaceStats.played||0}</b>jouées</div><div class="account-stat"><b>${spaceStats.played?Math.round((spaceStats.wins||0)*100/spaceStats.played):0}%</b>réussite</div><div class="account-stat"><b>${spaceStats.shared||0}</b>partagées</div><div class="account-stat"><b>${spaceStats.best_score==null?'—':spaceStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${spaceStats.best_time_ms==null?'—':formatDuration(spaceStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${spaceStats.black_hole_wins||0}</b>avec trou noir</div></div>`:''}
+  ${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.shared||0}</b>partagées</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}
   ${earthSkyStats?`<h3 class="account-section-title">🌍☁️ Terre et Ciel</h3><div class="account-stats-grid"><div class="account-stat"><b>${earthSkyStats.played||0}</b>jouées</div><div class="account-stat"><b>${earthSkyStats.played?Math.round((earthSkyStats.wins||0)*100/earthSkyStats.played):0}%</b>réussite</div><div class="account-stat"><b>${earthSkyStats.shared||0}</b>partagées</div><div class="account-stat"><b>${earthSkyStats.best_score==null?'—':earthSkyStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${earthSkyStats.best_time_ms==null?'—':formatDuration(earthSkyStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${earthSkyStats.black_hole_wins||0}</b>avec trou noir</div></div>`:''}
   <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid"><div class="account-stat"><b>${visibleUnlocked.length}</b>débloqués</div><div class="account-stat"><b>${visibleUnlocked.reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div></div>`;
 }
 async function openAccountStatistics(){
   if(!currentPlayerAccount)return;
-  const modal=$('#accountStatsModal'),content=$('#accountStatsContent');
+  const modal=$('#accountStatsModal'),content=$('#accountStatsContent'),totalLabel=$('#accountStatsTotal');
   modal.classList.add('open');
+  totalLabel.textContent='';
   content.innerHTML='<div class="history-empty">Chargement des statistiques…</div>';
   try{
     await refreshAchievements();
@@ -932,16 +952,10 @@ async function openAccountStatistics(){
       supabaseRpc('orapa_my_earth_sky_stats',{p_session_token:currentPlayerAccount.session_token}).catch(()=>null),
       getAchievementCatalog(true).catch(()=>[])
     ]);
+    const totalGames=[st?.participations,remixStats?.participations,gridStats?.played,lostStats?.played,spaceStats?.played,earthSkyStats?.played]
+      .reduce((sum,value)=>sum+(Number(value)||0),0);
+    totalLabel.textContent=`${totalGames} partie${totalGames===1?'':'s'} jouée${totalGames===1?'':'s'}`;
     content.innerHTML=accountStatisticsHtml(st,remixStats,gridStats,lostStats,spaceStats,earthSkyStats,achievementRows);
-    const selectDailyStats=kind=>{
-      const remix=kind==='remix';
-      $('#accountStatsDailyClassic').classList.toggle('active',!remix);
-      $('#accountStatsDailyRemix').classList.toggle('active',remix);
-      $('#accountDailyClassicStats').hidden=remix;
-      $('#accountDailyRemixStats').hidden=!remix;
-    };
-    $('#accountStatsDailyClassic').onclick=()=>selectDailyStats('classic');
-    $('#accountStatsDailyRemix').onclick=()=>selectDailyStats('remix');
   }catch(e){content.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`;}
 }
 function showAccountLogin(){
@@ -6623,6 +6637,9 @@ $('#rankingDateNext').addEventListener('click',()=>{
   selectGlobalRankingDate(shiftDateKey(current,1));
 });
 $('#accountFab').addEventListener('click',openAccountModal);
+$('#aboutFab').addEventListener('click',openAboutModal);
+$('#closeAbout').addEventListener('click',()=>$('#aboutModal').classList.remove('open'));
+$('#aboutModal').addEventListener('click',event=>{if(event.target.id==='aboutModal')$('#aboutModal').classList.remove('open');});
 $('#closeAccount').addEventListener('click',()=>{$('#accountStatsModal').classList.remove('open');closeMyludoOptions();$('#accountModal').classList.remove('open');});
 $('#accountModal').addEventListener('click',e=>{if(e.target.id==='accountModal'){$('#accountStatsModal').classList.remove('open');closeMyludoOptions();$('#accountModal').classList.remove('open');}});
 $('#closeAccountStats').addEventListener('click',()=>$('#accountStatsModal').classList.remove('open'));

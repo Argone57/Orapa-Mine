@@ -266,6 +266,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 
 .account-fab{position:fixed;right:14px;top:max(14px,calc(env(safe-area-inset-top) + 8px));z-index:120;border:1px solid var(--vein);background:rgba(28,22,15,.94);color:var(--gold-bright);border-radius:999px;padding:8px 12px;font-size:.76rem;font-weight:700;box-shadow:0 5px 18px rgba(0,0,0,.35);max-width:42vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .account-fab.connected{border-color:var(--gold);}
+.about-fab{display:none;position:fixed;right:14px;top:max(56px,calc(env(safe-area-inset-top) + 50px));z-index:120;width:34px;height:34px;align-items:center;justify-content:center;padding:0;border:1px solid var(--vein);border-radius:50%;background:rgba(28,22,15,.94);color:var(--gold-bright);font-size:1rem;font-weight:800;line-height:1;box-shadow:0 5px 18px rgba(0,0,0,.35)}body.home-view .about-fab{display:flex}.about-copy{display:grid;gap:12px}.about-copy p{margin:0}.about-publishers{display:flex;flex-wrap:wrap;gap:6px 13px;margin:0;padding:0;list-style:none}.about-publishers li{font-size:.8rem;color:var(--text-dim)}.about-credit a{color:var(--gold-bright);font-weight:800}.about-total{margin-top:4px;padding:12px;border:1px solid var(--vein);border-radius:10px;background:var(--panel);color:var(--gold-bright);font-weight:800;text-align:center}
 .account-form{display:grid;gap:10px;margin:14px 0;}
 .account-form label{display:grid;gap:5px;color:var(--text-dim);font-size:.78rem;}
 .account-form input{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--vein);background:var(--panel);color:var(--text);font:inherit;user-select:text;-webkit-user-select:text;}
@@ -274,7 +275,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .account-card strong{color:var(--gold-bright);}
 .account-profile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;margin:7px 0 9px}.account-profile-row .account-status{margin:0;padding:3px 7px;font-size:.65rem}.account-profile-row strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .account-stats-button{display:block;width:100%;margin:0 0 9px}
-#accountStatsModal{z-index:240}#accountStatsModal .account-stats-modal-card{position:relative;display:flex;flex-direction:column;width:calc(100% - 8px);height:calc(100vh - 8px);height:calc(100dvh - 8px);max-height:calc(100dvh - 8px);margin:4px;border-radius:16px;overflow:hidden}#accountStatsModal .close-x{position:absolute;top:16px;right:16px;z-index:2}#accountStatsModal h2{flex:0 0 auto;padding-right:30px}#accountStatsContent{min-height:0;flex:1;overflow-y:auto;padding-right:4px}
+#accountStatsModal{z-index:240}#accountStatsModal .account-stats-modal-card{position:relative;display:flex;flex-direction:column;width:calc(100% - 8px);height:calc(100vh - 8px);height:calc(100dvh - 8px);max-height:calc(100dvh - 8px);margin:4px;border-radius:16px;overflow:hidden}.account-stats-header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;flex:0 0 auto;margin-bottom:10px}.account-stats-header h2{min-width:0;margin:0!important;padding:0!important}.account-stats-total{justify-self:center;color:var(--text-dim);font-size:.74rem;font-weight:700;white-space:nowrap}.account-stats-header .close-x{position:static!important;float:none!important;margin:0;z-index:2}#accountStatsContent{min-height:0;flex:1;overflow-y:auto;padding-right:4px}
 .account-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
 .account-trust{display:flex!important;grid-template-columns:none!important;align-items:flex-start;gap:9px!important;padding:10px;border:1px solid var(--vein);border-radius:9px;background:var(--panel);}
 .account-trust input{appearance:auto!important;-webkit-appearance:checkbox!important;width:20px!important;height:20px!important;min-width:20px!important;flex:0 0 20px;margin:1px 0 0!important;accent-color:var(--gold);}
@@ -313,9 +314,9 @@ body.home-view .home-screen{width:100%;height:100%;min-height:0}
 body.home-view .app>header,body.home-view .app>#setupOptions,body.home-view .app>#setupHint,body.home-view .app>#paletteTitle,body.home-view .app>#palette,body.home-view .app>#earthSkyBottomPalette,body.home-view .app>.section-title,body.home-view .app>.board-scroll,body.home-view .app>.toolbar-row,body.home-view .app>#historyDisclosure{display:none!important}
 body.home-view #helpFab{display:none}
 body.home-view #updatesFab{display:flex}
-body.solo-menu-open .app,body.solo-menu-open .account-fab,body.solo-menu-open .help-fab,body.solo-menu-open .updates-fab{visibility:hidden}
+body.solo-menu-open .app,body.solo-menu-open .account-fab,body.solo-menu-open .about-fab,body.solo-menu-open .help-fab,body.solo-menu-open .updates-fab{visibility:hidden}
 body.solo-menu-open{background:radial-gradient(circle at 50% 38%,#2b2116 0%,#120e0a 58%,#090704 100%)}
-body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-fab,body.app-loading .help-fab,body.app-loading .updates-fab{visibility:hidden!important}
+body.app-loading .app,body.app-loading .account-fab,body.app-loading .about-fab,body.app-loading .rankings-fab,body.app-loading .help-fab,body.app-loading .updates-fab{visibility:hidden!important}
 @media(max-width:520px){.account-fab{right:8px;top:max(8px,calc(env(safe-area-inset-top) + 8px));padding:7px 10px}.account-actions,.account-main-actions{grid-template-columns:1fr 1fr}.score-identity-actions{grid-template-columns:1fr}.account-stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#accountModal .modal{padding:15px;max-height:92vh}#accountModal .modal h2{margin-bottom:6px}.account-actions button:last-child:nth-child(odd){grid-column:1/-1}}
 @media(max-height:620px){body.home-view .home-screen{overflow-y:auto;justify-content:flex-start;padding-top:48px;padding-bottom:20px}}
 .tutorial-coach.tutorial-coach-top{top:max(12px,env(safe-area-inset-top));bottom:auto}.tutorial-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;text-align:left}.tutorial-summary-grid div{display:flex;flex-direction:column;gap:2px;padding:9px;border:1px solid var(--border);border-radius:9px;background:rgba(12,10,8,.24)}.tutorial-summary-grid b{color:var(--gold-bright);font-size:.76rem}.tutorial-summary-grid span{font-size:.68rem;line-height:1.35}@media(max-width:440px){.tutorial-summary-grid{grid-template-columns:1fr}.tutorial-summary-grid div{padding:7px}}
@@ -340,12 +341,13 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
 <body class="home-view app-loading">
 <div class="lab-banner" role="status">🧪 PRÉPRODUCTION — services en ligne actifs</div>
 <button class="account-fab" id="accountFab">👤 Compte</button>
+<button class="about-fab" id="aboutFab" type="button" aria-label="À propos" title="À propos">ⓘ</button>
 <div class="app">
   <section class="home-screen" id="homeScreen" aria-labelledby="homeTitle">
     <div class="home-card">
       <div class="home-mark" aria-hidden="true"><span>💎</span></div>
-      <h1 id="homeTitle">Orapa Mine</h1>
-      <p class="home-kicker">Explorez la mine · Déduisez la grille</p>
+      <h1 id="homeTitle">Orapa en ligne</h1>
+      <p class="home-kicker">Percez les secrets des grilles</p>
       <div class="home-actions">
         <button id="homeSolo" class="home-action primary"><span class="icon pickaxe">⛏︎</span><span><strong>Jouer en solo</strong><small>Défi du jour, grille aléatoire ou identifiant</small></span><span class="arrow">›</span></button>
         <button id="homeCreate" class="home-action"><span class="icon">✏️</span><span><strong>Créer une grille</strong></span><span class="arrow">›</span></button>
@@ -466,6 +468,20 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
+<div class="modal-backdrop" id="aboutModal">
+  <div class="modal">
+    <button class="close-x" id="closeAbout">×</button>
+    <h2>ⓘ À propos</h2>
+    <div class="about-copy">
+      <p><b>Orapa en ligne</b> est un site de fan basé sur les jeux <b>Orapa Mine</b> et <b>Orapa Space</b>.</p>
+      <p>Tous les droits reviennent aux auteurs et illustrateurs <b>Junghee Choi</b> et <b>Wanjin Gill</b>, ainsi qu’aux différents éditeurs :</p>
+      <ul class="about-publishers"><li>Playte</li><li>Nice Game Publishing</li><li>Reflexshop</li><li>Miraludo</li></ul>
+      <p class="about-credit">Créé entièrement avec ChatGPT par <a href="mailto:orapa2myludo@gmail.com">Christopher / Argone</a>.</p>
+      <div class="about-total" id="aboutGamesTotal">Nombre de parties jouées : chargement…</div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="rankingsModal">
   <div class="modal">
     <button class="close-x" id="closeRankings">×</button>
@@ -556,8 +572,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
 
 <div class="modal-backdrop" id="accountStatsModal">
   <div class="modal account-stats-modal-card">
-    <button class="close-x" id="closeAccountStats">×</button>
-    <h2>📊 Statistiques</h2>
+    <div class="account-stats-header"><h2>📊 Statistiques</h2><span id="accountStatsTotal" class="account-stats-total"></span><button class="close-x" id="closeAccountStats">×</button></div>
     <div id="accountStatsContent"></div>
   </div>
 </div>
@@ -874,6 +889,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="boot.js?v=20260913-0001"></script>
+<script src="boot.js?v=20260913-0003"></script>
 </body>
 </html>
