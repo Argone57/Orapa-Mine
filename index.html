@@ -162,7 +162,7 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .mix-name{color:var(--text);font-weight:600;}
 .mix-section-title{display:flex;align-items:center;gap:7px;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}.mix-section-title .mix-icon{flex:0 0 22px}.mix-option-text{margin:3px 0 10px;color:var(--text-dim);font-size:.76rem;line-height:1.5}.mix-reminder{margin:2px 0 10px;color:var(--text-dim);font-size:.76rem;line-height:1.5}.mix-warning{display:flex;align-items:flex-start;gap:7px;color:var(--gold-bright)}.mix-warning span:first-child{flex:0 0 auto}.mix-onyx-example{display:block;width:min(100%,180px);height:auto;margin:10px auto 2px;border:1px solid var(--vein);border-radius:8px}.mix-space-examples{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}.mix-space-examples figure{min-width:0;margin:0}.mix-space-examples figcaption{margin:0 0 5px;color:var(--gold-bright);font-size:.7rem;font-weight:800}.mix-space-examples img{display:block;width:100%;height:auto;border:1px solid var(--vein);border-radius:8px}@media(max-width:430px){.mix-space-examples{grid-template-columns:1fr}}
 .daily-special-rules{margin:12px 0 4px;padding:11px 12px;border:1px solid var(--vein);border-radius:10px;background:rgba(230,194,122,.045)}.daily-special-rules h3{margin:0 0 7px;color:var(--gold-bright);font-family:'Cinzel',serif;font-size:.84rem}.daily-special-rules ul{margin:5px 0 8px;padding-left:20px}.daily-special-rules p{margin:7px 0 0}
-.solo-choice-daily{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}.solo-choice-daily small{display:none;margin-top:3px;font-size:.64rem;font-weight:500;color:var(--text-dim)}.solo-choice-daily.review-available small,.solo-choice-daily.prerequisite-locked small,.solo-choice-daily.prerequisite-checking small{display:block}.solo-choice-daily.prerequisite-locked{opacity:.72}.solo-choice-daily.prerequisite-locked small{color:#d9b86e}
+.solo-choice-daily{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}.solo-choice-daily small{display:none;margin-top:3px;font-size:.64rem;font-weight:500;color:var(--text-dim)}.solo-choice-daily.review-available small,.solo-choice-daily.already-played small,.solo-choice-daily.in-progress small,.solo-choice-daily.prerequisite-locked small,.solo-choice-daily.prerequisite-checking small{display:block}.solo-choice-daily.in-progress small{color:var(--gold-bright)}.solo-choice-daily.prerequisite-locked{opacity:.72}.solo-choice-daily.prerequisite-locked small{color:#d9b86e}
 #soloChoiceModal .modal{max-width:720px}.solo-choice-heading{display:flex;align-items:center;gap:9px;margin-bottom:4px}.solo-choice-heading .pickaxe{font-family:'Arial Unicode MS','Segoe UI Symbol',sans-serif;font-size:1.45rem;line-height:1;color:var(--gold-bright)}.solo-choice-heading h2{margin:0}.solo-choice-heading .close-x{float:none;flex:0 0 auto;margin-left:auto}.solo-choice-intro{margin:4px 0 14px!important}.solo-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.solo-choice-grid.mine{grid-template-columns:repeat(3,minmax(0,1fr))}.solo-choice-card{display:grid!important;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:9px;min-height:76px;margin:0!important;padding:10px 12px!important;text-align:left!important;border-radius:11px!important}.solo-choice-card .choice-icon{font-size:1.35rem;text-align:center}.solo-choice-card .choice-copy{display:block;min-width:0}.solo-choice-card strong{display:block;color:var(--text);font-size:.8rem}.solo-choice-card em{display:block;margin-top:4px;color:var(--text-dim);font-size:.64rem;font-style:normal;font-weight:500;line-height:1.3}.solo-choice-card small{margin-top:4px!important;text-align:left}.solo-choice-daily{align-items:stretch;justify-content:center;line-height:normal}.solo-choice-space{width:100%}.solo-choice-by-id{width:100%;margin-top:0!important}.solo-choice-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}.solo-choice-footer #dailyStatusLine{flex:1;margin:0!important;text-align:left!important}.solo-choice-footer .controls{flex:0 0 auto;margin:0!important}@media(max-width:620px){.solo-choice-grid.mine{grid-template-columns:repeat(2,minmax(0,1fr))}.solo-choice-grid.mine .solo-choice-daily{grid-column:1/-1}.solo-choice-card{min-height:68px}}@media(max-width:460px){.solo-choice-grid,.solo-choice-grid.mine{grid-template-columns:1fr}.solo-choice-grid.mine .solo-choice-daily{grid-column:auto}.solo-choice-footer{align-items:flex-end}.solo-choice-footer #dailyStatusLine{font-size:.66rem!important}}
 .help-fab{position:fixed;bottom:18px;right:18px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);font-family:'Cinzel',serif;font-weight:700;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:1.15rem;line-height:1;padding:0;}
 .rankings-fab{left:18px;right:auto;}
@@ -202,7 +202,9 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 .ranking-mine{background:rgba(230,194,122,.11);box-shadow:inset 3px 0 0 var(--gold);}
 .global-ranking-summary{display:flex;align-items:center;gap:5px;padding:8px 10px;margin-bottom:4px;border-bottom:1px solid var(--vein);font-size:.73rem;color:var(--text-dim);}
 .global-ranking-summary span{margin-left:auto;font-size:.9rem;}
-.daily-ranking-summary{gap:10px}.daily-ranking-summary .summary-stat{display:inline-flex;align-items:center;gap:4px;margin-left:0;font-size:.73rem;white-space:nowrap}.daily-ranking-summary .summary-gems{margin-left:auto;font-size:.9rem;white-space:nowrap}
+.daily-ranking-summary{box-sizing:border-box;height:34px;gap:10px}.daily-ranking-summary>span:first-child,.daily-ranking-summary .summary-stat,.daily-ranking-summary .summary-separator{display:inline-flex;height:17px;align-items:center;line-height:17px}.daily-ranking-summary .summary-stat{gap:4px;margin-left:0;font-size:.73rem;white-space:nowrap}.daily-ranking-summary .summary-gems{margin-left:auto;font-size:.9rem;white-space:nowrap}
+.daily-ranking-summary.classic-summary .summary-gems{transform:translateY(-3px)}
+.daily-kind-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 10px}.daily-kind-tabs button.active{border-color:var(--gold);color:var(--gold-bright);background:rgba(230,194,122,.1)}.remix-piece-list{display:inline-flex;align-items:center;justify-content:center;gap:2px;max-width:100%;white-space:nowrap}.remix-piece-list .mix-icon{flex:0 0 auto}.remix-rules{font-size:.62rem;color:var(--text-faint);white-space:nowrap}
 .daily-ranking-summary .summary-separator{margin-left:0;font-size:.73rem;color:var(--text-faint)}
 @media(max-width:600px){.daily-ranking-summary{padding-left:6px;padding-right:6px;gap:7px}.daily-ranking-summary .summary-gems{font-size:.8rem}}
 #btnRefreshGlobal,#btnStatsGlobal{white-space:nowrap;}
@@ -489,6 +491,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
     </div>
     <div id="rankingGlobalIntro" style="display:none;">
       <p></p>
+      <div class="daily-kind-tabs"><button id="dailyRankingClassic" class="ghost active">Classique</button><button id="dailyRankingRemix" class="ghost">Remix</button></div>
       <p>Clique sur une ligne pour copier le résumé.</p>
     </div>
     <div id="rankingAchievementsIntro" style="display:none;"><p></p><div class="achievement-subtabs"><button id="achievementListTab" class="ghost active">Liste des succès</button><button id="achievementRankingTab" class="ghost">Classement</button></div><div id="rankingAchievementToolbar" class="achievement-external-toolbar" style="display:none;"></div></div>
@@ -693,16 +696,39 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   <div class="modal">
     <div class="solo-choice-heading"><span class="pickaxe">⛏︎</span><h2>Jouer en solo</h2><button class="close-x" id="closeSoloChoice" aria-label="Fermer">×</button></div>
     <p class="solo-choice-intro">Choisis le type de grille que tu souhaites résoudre.</p>
-    <section class="choice-zone"><h3 class="choice-zone-title">💎 Orapa Mine</h3><div class="solo-choice-grid mine">
-      <button id="soloChoiceRandom" class="primary solo-choice-card"><span class="choice-icon">🎲</span><span class="choice-copy"><strong>Aléatoire</strong><em>Une grille classique générée au hasard.</em></span></button>
-      <button id="soloChoiceLost" class="ghost solo-choice-card"><span class="choice-icon">💎</span><span class="choice-copy"><strong>Gemme perdue</strong><em>Retrouve laquelle des huit gemmes est absente.</em></span></button>
-      <button id="soloChoiceDaily" class="ghost solo-choice-card solo-choice-daily"><span class="choice-icon">📅</span><span class="choice-copy"><strong>Défi du jour</strong><em>La grille quotidienne et ses règles spéciales.</em><small>Une seule tentative aujourd’hui</small></span></button>
+    <section class="choice-zone"><h3 class="choice-zone-title">🎲 Classiques</h3><div class="solo-choice-grid">
+      <button id="soloChoiceRandom" class="primary solo-choice-card"><span class="choice-icon">💎</span><span class="choice-copy"><strong>Orapa Mine · Aléatoire</strong><em>Une grille classique générée au hasard.</em></span></button>
+      <button id="soloChoiceSpace" class="ghost solo-choice-card"><span class="choice-icon">🚀</span><span class="choice-copy"><strong>Orapa Space · Aléatoire</strong><em>Explore l’espace avec ses planètes et mécanismes.</em></span></button>
     </div></section>
-    <section class="choice-zone"><h3 class="choice-zone-title">🪐 Orapa Space</h3><button id="soloChoiceSpace" class="ghost solo-choice-card solo-choice-space"><span class="choice-icon">🚀</span><span class="choice-copy"><strong>Aléatoire</strong><em>Explore l’espace avec les nouvelles planètes et le trou noir optionnel.</em></span></button></section>
-    <section class="choice-zone earth-sky-preview" hidden><h3 class="choice-zone-title">🌍☁️ Terre et Ciel</h3><button id="soloChoiceEarthSky" class="ghost solo-choice-card solo-choice-space"><span class="choice-icon">🌗</span><span class="choice-copy"><strong>Aléatoire</strong><em>Explore la mine et l’espace sur une double grille.</em></span></button></section>
+    <section class="choice-zone"><h3 class="choice-zone-title">📅 Défis du jour</h3><div class="solo-choice-grid">
+      <button id="soloChoiceDaily" class="ghost solo-choice-card solo-choice-daily"><span class="choice-icon">💎</span><span class="choice-copy"><strong>Défi du jour classique</strong><em>Gemmes et règles spéciales sur une grille quotidienne.</em><small>Une seule tentative aujourd’hui</small></span></button>
+      <button id="soloChoiceDailyLab" class="ghost solo-choice-card solo-choice-daily"><span class="choice-icon">🧬</span><span class="choice-copy"><strong>Défi du jour remix</strong><em>Gemmes et astres réunis dans une grille quotidienne.</em><small>Une seule tentative aujourd’hui</small></span></button>
+    </div></section>
+    <section class="choice-zone"><h3 class="choice-zone-title">✨ Spéciaux</h3><div class="solo-choice-grid">
+      <div class="earth-sky-preview" hidden><button id="soloChoiceEarthSky" class="ghost solo-choice-card" style="width:100%"><span class="choice-icon">🌗</span><span class="choice-copy"><strong>Terre et Ciel · Aléatoire</strong><em>Explore la mine et l’espace sur une double grille.</em></span></button></div>
+      <button id="soloChoiceLost" class="ghost solo-choice-card"><span class="choice-icon">💎</span><span class="choice-copy"><strong>Gemme perdue</strong><em>Retrouve laquelle des huit gemmes est absente.</em></span></button>
+    </div></section>
     <section class="choice-zone"><h3 class="choice-zone-title">🔑 Grille partagée</h3><button id="soloChoiceById" class="ghost solo-choice-card solo-choice-by-id"><span class="choice-icon">🔑</span><span class="choice-copy"><strong>Par identifiant</strong><em>Rejoins automatiquement une grille Mine, Gemme perdue ou Space.</em></span></button></section>
     <div class="solo-choice-footer"><div id="dailyStatusLine" style="display:none;text-align:center;font-size:.75rem;color:var(--text-faint);margin-top:-4px;"></div><div class="controls" style="justify-content:flex-end;">
       <button id="soloChoiceCancel" class="ghost">Annuler</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="dailyLabRulesModal">
+  <div class="modal">
+    <button class="close-x" id="closeDailyLabRules" aria-label="Fermer">×</button>
+    <h2>🧬 Défi du jour remix</h2>
+    <p>Une grille quotidienne de 5 à 8 pièces mêlant gemmes et astres. Tu ne disposes que d’une seule proposition.</p>
+    <ul>
+      <li>Une même couleur ne peut apparaître plus de deux fois.</li>
+      <li>La grille comporte au maximum un mécanisme noir : corps noir, trou noir ou paire de trous de ver.</li>
+      <li>Comme dans le Défi du jour classique, les règles spéciales varient selon la grille : une pièce peut dépasser partiellement du plateau, deux pièces peuvent exceptionnellement partager un côté, ou ces deux particularités peuvent être présentes simultanément.</li>
+      <li>Le grand côté de la grande planète blanche doit toujours rester entièrement aligné sur un bord, même si une partie de la planète dépasse du plateau.</li>
+    </ul>
+    <div class="controls" style="justify-content:flex-end;margin-top:16px;">
+      <button class="ghost" id="cancelDailyLabRules">Annuler</button>
+      <button class="primary" id="startDailyLab">Commencer</button>
     </div>
   </div>
 </div>
@@ -794,7 +820,7 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
 
 <div class="modal-backdrop" id="dailyRulesModal">
   <div class="modal">
-    <h2>📅 Défi du jour</h2>
+    <h2>📅 Défi du jour classique</h2>
     <p>Le défi est identique pour tous les joueurs pendant la journée.</p>
     <ul>
       <li><b>Tu ne disposes que d’une seule tentative</b> pour proposer ta solution.</li>
@@ -848,6 +874,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .rankings-f
   </div>
 </div>
 
-<script src="boot.js?v=20260911-0001"></script>
+<script src="boot.js?v=20260913-0001"></script>
 </body>
 </html>
