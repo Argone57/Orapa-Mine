@@ -617,21 +617,59 @@ function openUpdatesModal(history=false){
   $('#updatesModal').classList.add('open');
 }
 let globalGamesTotalCache=null;
+let publicPlayerDirectoryCache=null;
+const publicPlayerStatsCache=new Map();
 async function openAboutModal(){
   const modal=$('#aboutModal'),total=$('#aboutGamesTotal');
   modal.classList.add('open');
   if(globalGamesTotalCache!==null){
     total.textContent=`${globalGamesTotalCache.toLocaleString('fr-FR')} partie${globalGamesTotalCache===1?'':'s'} jouée${globalGamesTotalCache===1?'':'s'} au total`;
+    total.disabled=false;
     return;
   }
+  total.disabled=true;
   total.textContent='Nombre de parties jouées : chargement…';
   try{
     globalGamesTotalCache=Math.max(0,Number(await supabaseRpc('orapa_total_games_played'))||0);
     if(!modal.classList.contains('open'))return;
     total.textContent=`${globalGamesTotalCache.toLocaleString('fr-FR')} partie${globalGamesTotalCache===1?'':'s'} jouée${globalGamesTotalCache===1?'':'s'} au total`;
+    total.disabled=false;
   }catch(error){
-    if(modal.classList.contains('open'))total.textContent='Nombre total de parties temporairement indisponible.';
+    if(modal.classList.contains('open')){total.textContent='Nombre total de parties temporairement indisponible.';total.disabled=true;}
   }
+}
+function normalizePlayerSearch(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr-FR').trim();}
+function renderPublicPlayerDirectory(){
+  const list=$('#playerDirectoryList'),query=normalizePlayerSearch($('#playerDirectorySearch').value);
+  const rows=(publicPlayerDirectoryCache||[]).filter(row=>normalizePlayerSearch(row.player_name).includes(query));
+  list.innerHTML=rows.length?rows.map(row=>`<button class="player-directory-row" type="button" data-account-id="${escapeHtml(row.account_id)}"><span>${escapeHtml(row.player_name||'Anonyme')}</span><b>${Number(row.played).toLocaleString('fr-FR')} partie${Number(row.played)===1?'':'s'}</b></button>`).join(''):'<div class="history-empty">Aucun pseudo trouvé.</div>';
+  list.querySelectorAll('[data-account-id]').forEach(button=>button.onclick=()=>openPublicPlayerStats(button.dataset.accountId,button.querySelector('span')?.textContent||'Joueur'));
+}
+async function openPublicPlayerDirectory(){
+  const modal=$('#playerDirectoryModal'),list=$('#playerDirectoryList'),summary=$('#playerDirectorySummary'),search=$('#playerDirectorySearch');
+  modal.classList.add('open');search.value='';
+  if(publicPlayerDirectoryCache){summary.textContent=`${publicPlayerDirectoryCache.length.toLocaleString('fr-FR')} joueur${publicPlayerDirectoryCache.length===1?'':'s'} avec au moins une partie.`;renderPublicPlayerDirectory();search.focus();return;}
+  summary.textContent='';list.innerHTML='<div class="history-empty">Chargement des joueurs…</div>';
+  try{
+    const rows=await supabaseRpc('orapa_public_player_directory');
+    publicPlayerDirectoryCache=Array.isArray(rows)?rows:[];
+    if(!modal.classList.contains('open'))return;
+    summary.textContent=`${publicPlayerDirectoryCache.length.toLocaleString('fr-FR')} joueur${publicPlayerDirectoryCache.length===1?'':'s'} avec au moins une partie.`;
+    renderPublicPlayerDirectory();search.focus();
+  }catch(error){if(modal.classList.contains('open'))list.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
+}
+async function openPublicPlayerStats(accountId,fallbackName='Joueur'){
+  const modal=$('#publicPlayerStatsModal'),title=$('#publicPlayerStatsTitle'),total=$('#publicPlayerStatsTotal'),content=$('#publicPlayerStatsContent');
+  title.textContent=`📊 ${fallbackName}`;total.textContent='';content.innerHTML='<div class="history-empty">Chargement des statistiques…</div>';modal.classList.add('open');
+  try{
+    let stats=publicPlayerStatsCache.get(accountId);
+    if(!stats){stats=await supabaseRpc('orapa_public_player_stats',{p_account_id:accountId});publicPlayerStatsCache.set(accountId,stats);}
+    if(!modal.classList.contains('open'))return;
+    title.textContent=`📊 ${stats.player_name||fallbackName}`;
+    const totalGames=[stats.daily_classic?.participations,stats.daily_remix?.participations,stats.mine?.played,stats.lost?.played,stats.space?.played,stats.earth_sky?.played].reduce((sum,value)=>sum+(Number(value)||0),0);
+    total.textContent=`${totalGames.toLocaleString('fr-FR')} partie${totalGames===1?'':'s'} jouée${totalGames===1?'':'s'}`;
+    content.innerHTML=accountStatisticsHtml(stats.daily_classic,stats.daily_remix,stats.mine,stats.lost,stats.space,stats.earth_sky,[],stats.achievements);
+  }catch(error){if(modal.classList.contains('open'))content.innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 let remoteDailyStatusCache = null;
 let remoteDailyStatusPromise = null;
@@ -916,8 +954,11 @@ function dailyAccountStatisticsPanel(st,id){
     <div class="account-stat"><b>${st?.best_time_ms==null?'—':formatDuration(st.best_time_ms)}</b>meilleur temps</div>
   </div></div>`;
 }
-function accountStatisticsHtml(st,remixStats,gridStats,lostStats,spaceStats,earthSkyStats,achievementRows){
+function accountStatisticsHtml(st,remixStats,gridStats,lostStats,spaceStats,earthSkyStats,achievementRows,achievementSummary=null){
   const visibleUnlocked=(achievementRows||[]).filter(row=>row.unlocked&&row.visibility!=='hidden');
+  const achievementStats=achievementSummary?.hidden
+    ? '<div class="account-stat"><b>—</b>masqués</div>'
+    : `<div class="account-stat"><b>${achievementSummary?Number(achievementSummary.unlocked)||0:visibleUnlocked.length}</b>débloqués</div><div class="account-stat"><b>${achievementSummary?Number(achievementSummary.points)||0:visibleUnlocked.reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div>`;
   return `<h3 class="account-section-title">📅 Défis du jour classique</h3>
   ${dailyAccountStatisticsPanel(st,'accountDailyClassicStats')}
   <h3 class="account-section-title">🧬 Défis du jour remix</h3>
@@ -933,7 +974,7 @@ function accountStatisticsHtml(st,remixStats,gridStats,lostStats,spaceStats,eart
   ${spaceStats?`<h3 class="account-section-title">🪐 Orapa Space</h3><div class="account-stats-grid"><div class="account-stat"><b>${spaceStats.played||0}</b>jouées</div><div class="account-stat"><b>${spaceStats.played?Math.round((spaceStats.wins||0)*100/spaceStats.played):0}%</b>réussite</div><div class="account-stat"><b>${spaceStats.shared||0}</b>partagées</div><div class="account-stat"><b>${spaceStats.best_score==null?'—':spaceStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${spaceStats.best_time_ms==null?'—':formatDuration(spaceStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${spaceStats.black_hole_wins||0}</b>avec trou noir</div></div>`:''}
   ${lostStats?`<h3 class="account-section-title">💎 Gemme perdue</h3><div class="account-stats-grid"><div class="account-stat"><b>${lostStats.played||0}</b>jouées</div><div class="account-stat"><b>${lostStats.played?Math.round((lostStats.wins||0)*100/lostStats.played):0}%</b>réussite</div><div class="account-stat"><b>${lostStats.shared||0}</b>partagées</div><div class="account-stat"><b>${lostStats.best_score==null?'—':lostStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${lostStats.best_time_ms==null?'—':formatDuration(lostStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${lostStats.full_placements||0}</b>🧩 complets</div></div>`:''}
   ${earthSkyStats?`<h3 class="account-section-title">🌍☁️ Terre et Ciel</h3><div class="account-stats-grid"><div class="account-stat"><b>${earthSkyStats.played||0}</b>jouées</div><div class="account-stat"><b>${earthSkyStats.played?Math.round((earthSkyStats.wins||0)*100/earthSkyStats.played):0}%</b>réussite</div><div class="account-stat"><b>${earthSkyStats.shared||0}</b>partagées</div><div class="account-stat"><b>${earthSkyStats.best_score==null?'—':earthSkyStats.best_score+' pts'}</b>meilleur score</div><div class="account-stat"><b>${earthSkyStats.best_time_ms==null?'—':formatDuration(earthSkyStats.best_time_ms)}</b>meilleur temps</div><div class="account-stat"><b>${earthSkyStats.black_hole_wins||0}</b>avec trou noir</div></div>`:''}
-  <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid"><div class="account-stat"><b>${visibleUnlocked.length}</b>débloqués</div><div class="account-stat"><b>${visibleUnlocked.reduce((sum,row)=>sum+Number(row.points||0),0)}</b>points</div></div>`;
+  <h3 class="account-section-title">🏆 Succès</h3><div class="account-stats-grid">${achievementStats}</div>`;
 }
 async function openAccountStatistics(){
   if(!currentPlayerAccount)return;
@@ -6640,6 +6681,12 @@ $('#accountFab').addEventListener('click',openAccountModal);
 $('#aboutFab').addEventListener('click',openAboutModal);
 $('#closeAbout').addEventListener('click',()=>$('#aboutModal').classList.remove('open'));
 $('#aboutModal').addEventListener('click',event=>{if(event.target.id==='aboutModal')$('#aboutModal').classList.remove('open');});
+$('#aboutGamesTotal').addEventListener('click',openPublicPlayerDirectory);
+$('#playerDirectorySearch').addEventListener('input',renderPublicPlayerDirectory);
+$('#closePlayerDirectory').addEventListener('click',()=>$('#playerDirectoryModal').classList.remove('open'));
+$('#playerDirectoryModal').addEventListener('click',event=>{if(event.target.id==='playerDirectoryModal')$('#playerDirectoryModal').classList.remove('open');});
+$('#closePublicPlayerStats').addEventListener('click',()=>$('#publicPlayerStatsModal').classList.remove('open'));
+$('#publicPlayerStatsModal').addEventListener('click',event=>{if(event.target.id==='publicPlayerStatsModal')$('#publicPlayerStatsModal').classList.remove('open');});
 $('#closeAccount').addEventListener('click',()=>{$('#accountStatsModal').classList.remove('open');closeMyludoOptions();$('#accountModal').classList.remove('open');});
 $('#accountModal').addEventListener('click',e=>{if(e.target.id==='accountModal'){$('#accountStatsModal').classList.remove('open');closeMyludoOptions();$('#accountModal').classList.remove('open');}});
 $('#closeAccountStats').addEventListener('click',()=>$('#accountStatsModal').classList.remove('open'));

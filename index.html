@@ -266,7 +266,9 @@ button:disabled{opacity:.35;cursor:not-allowed;}
 
 .account-fab{position:fixed;right:14px;top:max(14px,calc(env(safe-area-inset-top) + 8px));z-index:120;border:1px solid var(--vein);background:rgba(28,22,15,.94);color:var(--gold-bright);border-radius:999px;padding:8px 12px;font-size:.76rem;font-weight:700;box-shadow:0 5px 18px rgba(0,0,0,.35);max-width:42vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .account-fab.connected{border-color:var(--gold);}
-.about-fab{display:none;position:fixed;left:14px;top:max(14px,calc(env(safe-area-inset-top) + 8px));z-index:120;width:34px;height:34px;align-items:center;justify-content:center;padding:0;border:1px solid var(--vein);border-radius:50%;background:rgba(28,22,15,.94);color:var(--gold-bright);font-size:1rem;font-weight:800;line-height:1;box-shadow:0 5px 18px rgba(0,0,0,.35)}body.home-view .about-fab{display:flex}.about-copy{display:grid;gap:12px}.about-copy p{margin:0}.about-publishers{display:flex;flex-wrap:wrap;gap:6px 13px;margin:0;padding:0;list-style:none}.about-publishers li{font-size:.8rem;color:var(--text-dim)}.about-credit a{color:var(--gold-bright);font-weight:800}.about-total{margin-top:4px;padding:12px;border:1px solid var(--vein);border-radius:10px;background:var(--panel);color:var(--gold-bright);font-weight:800;text-align:center}
+.about-fab{display:none;position:fixed;left:14px;top:max(14px,calc(env(safe-area-inset-top) + 8px));z-index:120;width:34px;height:34px;align-items:center;justify-content:center;padding:0;border:1px solid var(--vein);border-radius:50%;background:rgba(28,22,15,.94);color:var(--gold-bright);font-size:1rem;font-weight:800;line-height:1;box-shadow:0 5px 18px rgba(0,0,0,.35)}body.home-view .about-fab{display:flex}.about-copy{display:grid;gap:12px}.about-copy p{margin:0}.about-publishers{display:flex;flex-wrap:wrap;gap:6px 13px;margin:0;padding:0;list-style:none}.about-publishers li{font-size:.8rem;color:var(--text-dim)}.about-credit a{color:var(--gold-bright);font-weight:800}.about-total{width:100%;margin-top:4px;padding:12px;border:1px solid var(--vein);border-radius:10px;background:var(--panel);color:var(--gold-bright);font-family:inherit;font-size:.8rem;font-weight:800;text-align:center;cursor:pointer}.about-total:hover,.about-total:focus-visible{border-color:var(--gold);background:rgba(230,194,122,.08)}
+.player-directory-search{width:100%;margin:0 0 10px}.player-directory-list{display:flex;flex-direction:column;gap:5px;max-height:min(62vh,520px);overflow-y:auto;padding-right:3px}.player-directory-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;padding:10px 12px;text-align:left;border:1px solid var(--vein);border-radius:8px;background:rgba(255,255,255,.02);color:var(--text);font:inherit;cursor:pointer}.player-directory-row:hover,.player-directory-row:focus-visible{background:rgba(230,194,122,.08);border-color:var(--gold)}.player-directory-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}.player-directory-row b{color:var(--gold-bright);font-size:.75rem;white-space:nowrap}.player-directory-summary{margin:0 0 10px;color:var(--text-dim);font-size:.72rem}.public-player-stats-title{padding-right:34px}
+#playerDirectoryModal{z-index:230}#publicPlayerStatsModal{z-index:250}#publicPlayerStatsModal .account-stats-modal-card{position:relative;display:flex;flex-direction:column;width:calc(100% - 8px);height:calc(100vh - 8px);height:calc(100dvh - 8px);max-height:calc(100dvh - 8px);margin:4px;border-radius:16px;overflow:hidden}#publicPlayerStatsContent{min-height:0;flex:1;overflow-y:auto;padding-right:4px}
 .account-form{display:grid;gap:10px;margin:14px 0;}
 .account-form label{display:grid;gap:5px;color:var(--text-dim);font-size:.78rem;}
 .account-form input{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--vein);background:var(--panel);color:var(--text);font:inherit;user-select:text;-webkit-user-select:text;}
@@ -477,8 +479,25 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .about-fab,
       <p>Tous les droits reviennent aux auteurs et illustrateurs <b>Junghee Choi</b> et <b>Wanjin Gill</b>, ainsi qu’aux différents éditeurs :</p>
       <ul class="about-publishers"><li>Playte</li><li>Nice Game Publishing</li><li>Reflexshop</li><li>Miraludo</li></ul>
       <p class="about-credit">Créé entièrement avec ChatGPT par <a href="mailto:orapa2myludo@gmail.com">Christopher / Argone</a>.</p>
-      <div class="about-total" id="aboutGamesTotal">Nombre de parties jouées : chargement…</div>
+      <button class="about-total" id="aboutGamesTotal" type="button" disabled>Nombre de parties jouées : chargement…</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="playerDirectoryModal">
+  <div class="modal">
+    <button class="close-x" id="closePlayerDirectory">×</button>
+    <h2>👥 Joueurs</h2>
+    <p class="player-directory-summary" id="playerDirectorySummary"></p>
+    <input class="player-directory-search" id="playerDirectorySearch" type="search" autocomplete="off" spellcheck="false" placeholder="Rechercher un pseudo" aria-label="Rechercher un pseudo">
+    <div class="player-directory-list" id="playerDirectoryList"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="publicPlayerStatsModal">
+  <div class="modal account-stats-modal-card">
+    <div class="account-stats-header"><h2 class="public-player-stats-title" id="publicPlayerStatsTitle">📊 Statistiques</h2><span id="publicPlayerStatsTotal" class="account-stats-total"></span><button class="close-x" id="closePublicPlayerStats">×</button></div>
+    <div id="publicPlayerStatsContent"></div>
   </div>
 </div>
 
@@ -889,6 +908,6 @@ body.app-loading .app,body.app-loading .account-fab,body.app-loading .about-fab,
   </div>
 </div>
 
-<script src="boot.js?v=20260913-0005"></script>
+<script src="boot.js?v=20260913-0006"></script>
 </body>
 </html>
