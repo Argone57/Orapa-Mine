@@ -3388,7 +3388,7 @@ function openVictoryModal(){
   $('#btnVictoryGridRanking').style.display=(state.isDaily||state.gridId)?'':'none';
   const resultAlreadyRecorded=state.gridUnrankedReason==='already_played';
   $('#btnVictoryCopySummary').style.display=resultAlreadyRecorded?'none':'';
-  $('#btnVictoryCopyId').style.display=isDailyRemix()?'none':'';
+  $('#btnVictoryCopyId').style.display=state.isDaily?'none':'';
   $('#btnVictoryCopyId').textContent='📋 Copier ID';
   $('#victoryActions').dataset.orapaMyludoResult=resultAlreadyRecorded?'false':'true';
   $('#victoryModal').classList.add('open');
