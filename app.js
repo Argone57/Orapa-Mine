@@ -1731,10 +1731,15 @@ async function submitGlobalDailyScore(entry, identity){
       showToast('Ce défi du jour est déjà enregistré avec ce compte.');
       return row;
     }
+    if(!row?.accepted){
+      showErrorToast('Le résultat du défi du jour n’a pas pu être ajouté au classement.');
+      return row;
+    }
     if(row?.id!=null) rememberGlobalScoreId(entry.dailyDate,row.id);
     delete globalRankingCache[entry.dailyDate]; globalAllScoresCache=null;
+    row.rank=await authoritativeDailyRank(row,entry.dailyDate,'classic');
     showToast('🌍 Score ajouté au classement global');
-    if(row?.accepted) refreshAchievements();
+    refreshAchievements();
     return row;
   }catch(err){
     console.error('Envoi du score global impossible :',err);
@@ -1749,16 +1754,16 @@ async function submitGlobalDailyRemixScore(entry,identity){
     const row=await supabaseRpc('orapa_submit_daily_remix_score',{p_session_token:identity.sessionToken,p_daily_date:entry.dailyDate,p_success:!!entry.success,p_cost:Number(entry.cost)||0,p_ray_count:Number(entry.rayCount)||0,p_coord_count:Number(entry.coordCount)||0,p_time_ms:Math.max(0,Math.round(Number(entry.timeMs)||0)),p_context:dailyRemixContextFromState()});
     if(row?.accepted||row?.reason==='already_played')await finishActiveAttempt();
     if(row?.accepted===false&&row?.reason==='already_played'){showToast('Ce défi du jour remix est déjà enregistré avec ce compte.');return row;}
+    if(!row?.accepted){showErrorToast('Le résultat du défi du jour remix n’a pas pu être ajouté au classement.');return row;}
     delete globalRemixRankingCache[entry.dailyDate];globalAllRemixScoresCache=null;
+    row.rank=await authoritativeDailyRank(row,entry.dailyDate,'remix');
     showToast('🌍 Score ajouté au classement du défi du jour remix');
-    if(row?.accepted){
-      achievementCatalogCache=null;
-      const keys=Array.isArray(row.new_keys)?row.new_keys:[];
-      if(keys.includes('welcome'))showWelcomeAchievement();
-      const regular=keys.filter(key=>key!=='welcome');
-      if(regular.length&&!row.hide_notifications)queueAchievementNotifications(regular);
-      refreshAchievements();
-    }
+    achievementCatalogCache=null;
+    const keys=Array.isArray(row.new_keys)?row.new_keys:[];
+    if(keys.includes('welcome'))showWelcomeAchievement();
+    const regular=keys.filter(key=>key!=='welcome');
+    if(regular.length&&!row.hide_notifications)queueAchievementNotifications(regular);
+    refreshAchievements();
     return row;
   }catch(error){console.error('Envoi du score remix impossible :',error);showErrorToast(`⚠️ Envoi global impossible : ${error.message}`);return null;}
 }
@@ -1887,6 +1892,20 @@ async function fetchGlobalDailyRemixScores(dateKey,force=false){
   const response=await fetch(`${SUPABASE_URL}/rest/v1/daily_remix_scores?${query}`,{headers:supabaseHeaders()});
   if(!response.ok)throw new Error(`HTTP ${response.status}`);
   const rows=await response.json();globalRemixRankingCache[dateKey]=rows;return rows;
+}
+async function authoritativeDailyRank(result,dateKey,kind='classic'){
+  if(!result?.accepted||result.id==null)return null;
+  try{
+    const rows=kind==='remix'
+      ? await fetchGlobalDailyRemixScores(dateKey,true)
+      : await fetchGlobalDailyScores(dateKey,true);
+    const index=rows.findIndex(row=>String(row.id)===String(result.id));
+    if(index>=0)return index+1;
+  }catch(error){
+    console.warn('Vérification du rang quotidien impossible :',error);
+  }
+  const serverRank=Number(result.rank);
+  return Number.isInteger(serverRank)&&serverRank>0?serverRank:null;
 }
 let globalAllScoresCache = null;
 let globalAllRemixScoresCache=null;
@@ -3478,7 +3497,9 @@ async function proposeSolution(){
         lastScoreResult={key:`Défi du jour ${isDailyRemix()?'remix':'classique'}`,entry:candidate,rank:null,madeList:false,alreadyPlayed:true};
       }else{
         const daily=recordDailyScore(identity.name||'Invité',state.dailyDate,true,elapsedMs,state.dailyKind||'classic');
-        lastScoreResult={key:`Défi du jour ${isDailyRemix()?'remix':'classique'}`,entry:{...daily.entry,gridId:null,isDaily:true,dailyDate:state.dailyDate,dailyKind:state.dailyKind||'classic'},rank:globalResult?.rank||daily.rank,madeList:true};
+        const globalRank=Number(globalResult?.rank);
+        const hasGlobalRank=globalResult?.accepted===true&&Number.isInteger(globalRank)&&globalRank>0;
+        lastScoreResult={key:`Défi du jour ${isDailyRemix()?'remix':'classique'}`,entry:{...daily.entry,gridId:null,isDaily:true,dailyDate:state.dailyDate,dailyKind:state.dailyKind||'classic'},rank:hasGlobalRank?globalRank:null,madeList:hasGlobalRank};
       }
       saveDailyAttempt({date:state.dailyDate,result:'win',accountId:dailyAttemptAccountKey()},state.dailyKind||'classic');
     }else if(state.gridRanked){
