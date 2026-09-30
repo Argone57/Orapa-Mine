@@ -8,7 +8,7 @@
  */
 (function(){
   'use strict';
-  const FALLBACK_VERSION='20260920-0001';
+  const FALLBACK_VERSION='20260930-0010';
 
   function scriptUrl(file,version){
     return `${file}?v=${encodeURIComponent(version)}`;
@@ -45,6 +45,7 @@
     try{
       await loadScript(scriptUrl('engine-core.js',version));
       await loadScript(scriptUrl('app.js',version));
+      await loadScript(scriptUrl('street-prototype.js',version));
     }catch(error){
       console.error('Échec du démarrage d’Orapa Mine.',error);
       showBootError();
