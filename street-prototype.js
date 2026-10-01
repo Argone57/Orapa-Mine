@@ -1107,7 +1107,9 @@
     const success=state.result==='win',time=Number.isFinite(state.finalTimeMs)?state.finalTimeMs:elapsedMs(),cost=state.traces.length+state.coords.length*3;
     const modal=ensureStreetModal();
     byId('streetResultTitle').textContent=success?'🏆 Victoire !':'💥 Défaite';
-    byId('streetResultMessage').textContent=success?'Tu as retrouvé la disposition exacte des sept pièces !':'La seconde proposition est incorrecte : la grille secrète est révélée.';
+    byId('streetResultMessage').textContent=state.gridRanked===false
+      ?`${success?'Tu as retrouvé la disposition exacte des sept pièces !':'La seconde proposition est incorrecte : la grille secrète est révélée.'} Cette nouvelle partie n’est pas enregistrée car cette grille a déjà été jouée avec ce compte.`
+      :(success?'Tu as retrouvé la disposition exacte des sept pièces !':'La seconde proposition est incorrecte : la grille secrète est révélée.');
     byId('streetResultScore').textContent=`${cost} pts (${state.traces.length}🔦 + ${state.coords.length}📍) · ${formatDuration(time)}`;
     byId('streetResultRank').textContent=state.rank?`Classé #${state.rank} dans « classement global de la grille »`:'';
     byId('streetResultId').textContent=`Orapa Street · ${publicGridId(state.gridId)}`;
@@ -1137,23 +1139,24 @@
     const cost=state.traces.length+state.coords.length*3,time=elapsedMs();state.finalTimeMs=time;
     let submitted=null;
     const closingAttempt=streetAttempt;
-    try{
-      submitted=await supabaseRpc('orapa_submit_street_grid_score',{p_grid_id:state.gridId,p_session_token:currentPlayerAccount.session_token,p_success:success,p_cost:cost,p_ray_count:state.traces.length,p_coord_count:state.coords.length,p_time_ms:time,p_first_try:success&&state.attempts===0});
-      if(activeAttempt?.attempt_id===closingAttempt?.attempt_id)activeAttempt=null;
-      streetAttempt=null;state.rank=Number(submitted?.rank)||null;
-    }catch(error){showErrorToast(`Enregistrement Street impossible : ${error.message}`);}
+    if(state.gridRanked!==false)try{
+        submitted=await supabaseRpc('orapa_submit_street_grid_score',{p_grid_id:state.gridId,p_session_token:currentPlayerAccount.session_token,p_success:success,p_cost:cost,p_ray_count:state.traces.length,p_coord_count:state.coords.length,p_time_ms:time,p_first_try:success&&state.attempts===0});
+        if(activeAttempt?.attempt_id===closingAttempt?.attempt_id)activeAttempt=null;
+        streetAttempt=null;state.rank=Number(submitted?.rank)||null;
+      }catch(error){showErrorToast(`Enregistrement Street impossible : ${error.message}`);}
+    else {streetAttempt=null;state.rank=null;}
     render();
     ensureStreetModal();
-    byId('streetResultActions').dataset.orapaMyludoResult=submitted?.accepted===false?'false':'true';
+    byId('streetResultActions').dataset.orapaMyludoResult=state.gridRanked===false||submitted?.accepted===false?'false':'true';
     openStreetResultModal();
   }
   async function proposeStreetSolution(){
     if(state.mode!=='solo'||state.over||state.pieces.some(piece=>!piece.anchor)||validatePieces(state.pieces,true).size)return;
-    try{
-      const current=await supabaseRpc('orapa_get_active_attempt',{p_session_token:currentPlayerAccount.session_token});
-      if(!current||current.game_kind!=='street'||current.reference!==state.gridId){showErrorToast('Cette tentative Street n’est plus active. Elle a peut-être été terminée sur un autre appareil.');return;}
-      streetAttempt=current;
-    }catch(error){showErrorToast('Impossible de vérifier la tentative avant la proposition.');return;}
+    if(state.gridRanked!==false)try{
+        const current=await supabaseRpc('orapa_get_active_attempt',{p_session_token:currentPlayerAccount.session_token});
+        if(!current||current.game_kind!=='street'||current.reference!==state.gridId){showErrorToast('Cette tentative Street n’est plus active. Elle a peut-être été terminée sur un autre appareil.');return;}
+        streetAttempt=current;
+      }catch(error){showErrorToast('Impossible de vérifier la tentative avant la proposition.');return;}
     if(guessIsCorrect()){await recordStreetAction('proposal');await finishStreetAttempt(true);return;}
     state.attempts++;
     await recordStreetAction('proposal');
@@ -1423,21 +1426,24 @@
     let decoded=gridId?decodeStreetGrid(gridId):null;
     if(gridId&&!decoded){showErrorToast('Identifiant Street invalide.');return false;}
     if(!decoded){const pieces=freshPieces();state.pieces=pieces;if(!randomizePieces()){showErrorToast('Impossible de générer une grille Street.');return false;}decoded={variant:'street',pieces:state.pieces.map(piece=>({...piece,anchor:{...piece.anchor}}))};decoded.id=encodeStreetGrid(decoded.pieces);}
+    let alreadyPlayed=false;
     if(gridId&&!resumeAttempt){
       const status=await supabaseRpc('orapa_get_street_grid_status',{p_grid_id:decoded.id,p_session_token:currentPlayerAccount.session_token}).catch(()=>null);
       if(status?.is_creator){showErrorToast('Cette grille Street est la tienne et ne peut pas être résolue avec ce compte.');return false;}
-      if(status?.already_played){showErrorToast('Cette grille Street a déjà été jouée avec ce compte.');return false;}
+      alreadyPlayed=!!status?.already_played;
     }
     const gridAlias=await ensureGridAlias(decoded.id,'street');
     const target={kind:'street',reference:decoded.id,context:{},progress:{}};
-    const start=resumeAttempt?{ok:true,attempt:resumeAttempt,resumed:true}:await prepareNewActiveAttempt(target,true);
+    const start=resumeAttempt?{ok:true,attempt:resumeAttempt,resumed:true}:await prepareNewActiveAttempt(target,!alreadyPlayed);
     if(!start?.ok){if(start?.reason==='already_played')showErrorToast('Cette grille Street a déjà été jouée avec ce compte.');else if(start?.resume&&start.attempt)await resumeServerAttempt(start.attempt);return false;}
     streetAttempt=start.attempt;
-    state={mode:'solo',pieces:freshPieces(),secretPieces:decoded.pieces.map(piece=>({...piece,anchor:{...piece.anchor}})),selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:true,traces:[],coords:[],draftCells:{},gridId:decoded.id,gridAlias,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
+    state={mode:'solo',pieces:freshPieces(),secretPieces:decoded.pieces.map(piece=>({...piece,anchor:{...piece.anchor}})),selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:true,traces:[],coords:[],draftCells:{},gridId:decoded.id,gridAlias,gridRanked:!alreadyPlayed,gridUnrankedReason:alreadyPlayed?'already_played':null,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
     if(start.resumed)restoreStreetProgress(start.attempt?.progress);
     byId('soloChoiceModal')?.classList.remove('open');document.body.classList.remove('solo-menu-open');
     byId('streetPrototype').querySelector('.subtitle').textContent='Grille classique';
-    byId('streetPrototype').hidden=false;document.body.classList.add('street-open');document.body.classList.remove('home-view');toggleHistory(false);render();return true;
+    byId('streetPrototype').hidden=false;document.body.classList.add('street-open');document.body.classList.remove('home-view');toggleHistory(false);render();
+    if(alreadyPlayed)setTimeout(()=>{if(typeof openAlreadyPlayedGridModal==='function')openAlreadyPlayedGridModal();else showToast('Cette grille a déjà été jouée avec ce compte : le nouveau score ne sera pas enregistré.');},60);
+    return true;
   }
   function close(force=false){
     if(streetTutorial.active){requestStreetTutorialExit();return;}
