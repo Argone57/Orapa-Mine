@@ -589,11 +589,23 @@
     const walls=geometry.walls.map(wall=>wall.map(point).sort().join('>')).sort().join('|');
     return `${polygon}#${walls}`;
   }
+  function streetWaveSignature(pieces){
+    // Une solution est aussi définie par l'ensemble des réponses aux ondes.
+    // Cette empreinte évite qu'une représentation interne équivalente (pivot,
+    // rotation ou miroir) soit rejetée alors que le comportement de la grille
+    // est strictement le même pour tous les points d'entrée.
+    return BOARD.boundary.flatMap((_edge,edgeIndex)=>BOARD.boundary[edgeIndex].directions.map((_direction,directionIndex)=>{
+      const trace=traceRay(edgeIndex,directionIndex,pieces),exit=trace.exit;
+      return `${exit?.index??'x'}:${trace.exitDirectionIndex??'x'}:${trace.color?.name??'Transparent'}:${trace.loop?1:0}`;
+    })).join('|');
+  }
   function guessIsCorrect(){
-    return PIECES.every(definition=>{
+    const exact=PIECES.every(definition=>{
       const guess=state.pieces.find(piece=>piece.id===definition.id),secret=state.secretPieces.find(piece=>piece.id===definition.id);
       return guess?.anchor&&secret?.anchor&&geometrySignature(guess)===geometrySignature(secret);
     });
+    if(exact)return true;
+    return streetWaveSignature(state.pieces)===streetWaveSignature(state.secretPieces);
   }
   function streetProgress(){return {pieces:state.pieces,traces:state.traces.map(trace=>({entryIndex:trace.entry.index,entryDirectionIndex:trace.entryDirectionIndex,exitIndex:trace.exit?.index??null,exitDirectionIndex:trace.exitDirectionIndex,points:trace.points,colors:trace.colors,color:trace.color,bounced:trace.bounced,loop:trace.loop,time:trace.time})),coords:state.coords,draftCells:state.draftCells,attempts:state.attempts,startedAt:state.startedAt};}
   function restoreStreetProgress(progress){
