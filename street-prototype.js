@@ -876,7 +876,7 @@
         const rearB=add(add(pos,mul(direction,-5)),mul(perpendicular,-4.5));
         const arrow=[add(pos,mul(direction,7)),rearA,rearB];
         const usedTrace=displayTraceAt(edgeIndex,directionIndex);
-        const button=svgEl('polygon',{points:pointsAttr(arrow),class:`street-ray-button${usedTrace?' used':''}${state.started?'':' disabled'}`,'data-edge':edgeIndex,'data-direction':directionIndex,style:usedTrace?`--street-result:${usedTrace.color.hex}`:''});
+        const button=svgEl('polygon',{points:pointsAttr(arrow),class:`street-ray-button${usedTrace?' used':''}${usedTrace?.color?.name==='Transparent'?' transparent':''}${state.started?'':' disabled'}`,'data-edge':edgeIndex,'data-direction':directionIndex,style:usedTrace?`--street-result:${usedTrace.color.hex}`:''});
         button.addEventListener('click',event=>{event.stopPropagation();if(!streetTutorialAllowWave(edge,directionIndex))return;activateStreetWaveControl(edgeIndex,directionIndex,usedTrace);});labelGroup.appendChild(button);
         const exitInfo=usedTrace&&traceExitInfo(usedTrace,edgeIndex,directionIndex);
         if(exitInfo){
