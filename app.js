@@ -1521,8 +1521,16 @@ function readOnlyGridSvg(decoded){
 async function openSharedGridPreview(gridId){
   const decoded=decodeGridId(gridId);
   if(!decoded){showErrorToast('Identifiant de grille invalide.');return;}
-  if(decoded.variant==='street'){await window.OrapaStreetPrototype?.previewResult(decoded.id);return;}
   await ensureGridAlias(decoded.id,decoded.variant||'classic');
+  if(decoded.variant==='street'){
+    const displayedId=publicGridId(decoded.id),svg=window.OrapaStreetPrototype?.sharedPreviewSvg?.(decoded.id);
+    if(!svg){showErrorToast('Aperçu Street indisponible.');return;}
+    $('#sharedGridPreviewContent').innerHTML=`<div class="readonly-grid-meta"><b>${escapeHtml(displayedId)}</b><span>🏠 Orapa Street</span></div><div class="readonly-grid-board street-readonly-grid-board">${svg}</div><p class="readonly-grid-note">Aucune action n’est possible dans cet aperçu.</p><div class="controls readonly-grid-actions"><button class="ghost" id="sharedPreviewCopyId">📋 Copier l’ID</button><button class="primary" id="sharedPreviewRanking">🏆 Classement</button></div>`;
+    $('#sharedPreviewCopyId').onclick=()=>navigator.clipboard?.writeText(displayedId).then(()=>showToast('Identifiant copié : '+displayedId));
+    $('#sharedPreviewRanking').onclick=()=>{const fromList=$('#gridDataModal').classList.contains('open');if(!fromList)closeSharedGridPreview();openGridRanking(decoded.id,fromList);};
+    $('#sharedGridPreviewModal').classList.add('open');
+    return;
+  }
   const gems=decoded.variant==='lost'?'💎 Gemme perdue':(decoded.variant==='space'?`🪐 Orapa Space · ${spaceFlagsEmojiLine(decoded)}`:(decoded.variant==='earthSky'?`🌍☁️ Terre et Ciel · ${earthSkyFlagsEmojiLine(decoded)}`:gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire)));
   const displayedId=publicGridId(decoded.id);
   $('#sharedGridPreviewContent').innerHTML=`<div class="readonly-grid-meta"><b>${escapeHtml(displayedId)}</b><span>${gems}</span></div><div class="readonly-grid-board">${readOnlyGridSvg(decoded)}</div><p class="readonly-grid-note">Aucune action n’est possible dans cet aperçu.</p><div class="controls readonly-grid-actions"><button class="ghost" id="sharedPreviewCopyId">📋 Copier l’ID</button><button class="primary" id="sharedPreviewRanking">🏆 Classement</button></div>`;

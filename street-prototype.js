@@ -182,6 +182,23 @@
       return [startTop,add(shoulder,mul(normal,half)),wall[1],add(shoulder,mul(normal,-half)),startBottom];
     });
   }
+  function sharedPreviewSvg(reference){
+    const decoded=decodeStreetGrid(reference);
+    if(!decoded)return '';
+    const margin=4;
+    const svg=svgEl('svg',{viewBox:`${-margin} ${-margin} ${BOARD.width+margin*2} ${BOARD.height+margin*2}`,class:'street-shared-preview-svg',role:'img','aria-label':'Disposition complète de la grille Orapa Street'});
+    const board=svgEl('g',{});
+    BOARD.triangles.forEach(triangle=>board.appendChild(svgEl('polygon',{points:pointsAttr(triangle.points),fill:'#747d8c',stroke:'#4d5663','stroke-width':'1'})));
+    svg.appendChild(board);
+    decoded.pieces.forEach(piece=>{
+      const geometry=pieceGeometry(piece),color=COLORS[geometry.definition.color];
+      const group=svgEl('g',{});
+      group.appendChild(svgEl('polygon',{points:pointsAttr(geometry.poly),fill:color,stroke:'rgba(0,0,0,.4)','stroke-width':'1.15','vector-effect':'non-scaling-stroke'}));
+      visualWallPolygonsFor(geometry).forEach(wall=>group.appendChild(svgEl('polygon',{points:pointsAttr(wall),fill:color,stroke:'rgba(0,0,0,.4)','stroke-width':'1.15','vector-effect':'non-scaling-stroke'})));
+      svg.appendChild(group);
+    });
+    return svg.outerHTML;
+  }
   function pointOnSegment(p,a,b,tolerance=.05){
     const ab=sub(b,a),ap=sub(p,a);
     return Math.abs(cross(ab,ap))<=tolerance&&dot(ap,ab)>=-tolerance&&dot(sub(p,b),ab)<=tolerance;
@@ -1471,6 +1488,6 @@
     const payload={schemaVersion:1,source:'orapa-mine',gameId:101482,gameVariant:'street',isDaily:false,dedupeReference:state.gridId,solo:true,online:true,win:state.result==='win',playerName:preferences.player_mode==='custom'?preferences.custom_player_name:'',resultPlayerName:currentPlayerAccount?.display_name||'',score:preferences.fill_score?(state.traces.length+state.coords.length*3):null,date:new Date().toISOString().slice(0,10),durationMinutes:Math.max(1,Math.round(elapsedMs()/60000)),location:preferences.location_mode==='custom'?preferences.custom_location:'Orapa-Mine',excludeFromStatistics:!!preferences.exclude_from_statistics,autoSubmit:!!preferences.auto_submit,duplicateDetection:preferences.duplicate_detection!==false,comment:streetSummary(),options:{}};
     document.dispatchEvent(new CustomEvent('orapa:myludo-result',{detail:JSON.stringify(payload)}));
   });
-  window.OrapaStreetPrototype={open:openCreation,openCreation,openSolo,resume:attempt=>openSolo(attempt.reference,attempt),close,startTutorial:startStreetTutorial,decode:decodeStreetGrid,encode:encodeStreetGrid,setWavePreference:value=>applyWavePreference(value),openRanking:openStreetRanking,openResult:openStreetResultModal,openGlobalHistory:openStreetGlobalHistory,openCatalog:openStreetCatalog,openMyHistory:openMyStreetHistory,openMyShared:openMySharedStreet,previewResult,debug:{BOARD,LANES,PIECES,axialTransform,applyPieceMirror,pieceGeometry,visualWallsFor,visualWallPolygonsFor,snapPieceAnchor,coordinateForTriangle,traceRay,validatePieces}};
+  window.OrapaStreetPrototype={open:openCreation,openCreation,openSolo,resume:attempt=>openSolo(attempt.reference,attempt),close,startTutorial:startStreetTutorial,decode:decodeStreetGrid,encode:encodeStreetGrid,setWavePreference:value=>applyWavePreference(value),openRanking:openStreetRanking,openResult:openStreetResultModal,openGlobalHistory:openStreetGlobalHistory,openCatalog:openStreetCatalog,openMyHistory:openMyStreetHistory,openMyShared:openMySharedStreet,previewResult,sharedPreviewSvg,debug:{BOARD,LANES,PIECES,axialTransform,applyPieceMirror,pieceGeometry,visualWallsFor,visualWallPolygonsFor,snapPieceAnchor,coordinateForTriangle,traceRay,validatePieces}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
