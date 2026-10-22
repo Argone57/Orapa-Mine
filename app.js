@@ -1235,7 +1235,7 @@ function openGridDataShell(title,intro='',returnToAccount=false,returnToVictory=
   $('#gridDataIntro').innerHTML=intro;
   const modeTabs=$('#gridDataIntro .achievement-subtabs');
   if(modeTabs&&title.includes('Historique des grilles')&&!$('#accountHistoryStreet')){const button=document.createElement('button');button.id='accountHistoryStreet';button.className='ghost';button.textContent='Street';button.onclick=openMyStreetGridHistory;modeTabs.insertBefore(button,$('#accountHistoryLost')||null);}
-  if(modeTabs&&title.includes('Mes grilles partagées')){const button=document.createElement('button');button.className='ghost';button.textContent='Street';button.onclick=()=>window.OrapaStreetPrototype?.openMyShared();modeTabs.appendChild(button);}
+  if(modeTabs&&title.includes('Mes grilles partagées')&&!$('#accountSharedStreet')){const button=document.createElement('button');button.id='accountSharedStreet';button.className='ghost';button.textContent='Street';button.onclick=openMySharedStreetGrids;modeTabs.insertBefore(button,$('#accountSharedLost')||null);}
   $('#gridDataContent').innerHTML='<div class="history-empty">Chargement…</div>';
   $('#gridDataBack').textContent='← Retour au compte';
   $('#gridDataBack').style.display='none';
@@ -1521,6 +1521,7 @@ function readOnlyGridSvg(decoded){
 async function openSharedGridPreview(gridId){
   const decoded=decodeGridId(gridId);
   if(!decoded){showErrorToast('Identifiant de grille invalide.');return;}
+  if(decoded.variant==='street'){await window.OrapaStreetPrototype?.previewResult(decoded.id);return;}
   await ensureGridAlias(decoded.id,decoded.variant||'classic');
   const gems=decoded.variant==='lost'?'💎 Gemme perdue':(decoded.variant==='space'?`🪐 Orapa Space · ${spaceFlagsEmojiLine(decoded)}`:(decoded.variant==='earthSky'?`🌍☁️ Terre et Ciel · ${earthSkyFlagsEmojiLine(decoded)}`:gemFlagsEmojiLine(decoded.includeGray,decoded.includeOnyx,decoded.includeSapphire)));
   const displayedId=publicGridId(decoded.id);
@@ -1549,11 +1550,19 @@ document.querySelector('#closeIncorrectSolution').addEventListener('click',close
 document.querySelector('#dismissIncorrectSolution').addEventListener('click',closeIncorrectSolutionModal);
 document.querySelector('#incorrectSolutionModal').addEventListener('click',event=>{if(event.target.id==='incorrectSolutionModal')closeIncorrectSolutionModal();});
 
+function bindSharedGridModeTabs(){
+  $('#accountSharedClassic').onclick=openMySharedGrids;
+  $('#accountSharedSpace').onclick=openMySharedSpaceGrids;
+  if($('#accountSharedStreet'))$('#accountSharedStreet').onclick=openMySharedStreetGrids;
+  $('#accountSharedLost').onclick=openMySharedLostGrids;
+  $('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;
+}
+
 async function openMySharedGrids(){
   if(!currentPlayerAccount) return;
   const configOptions='<option value="ALL">Toutes les configurations</option>'+RANKING_COMBOS.map(([g,o,s])=>{const key=configKey(g,o,s);return `<option value="${key}">${key}</option>`;}).join('');
-  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost active">Mine</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedConfigSelect" class="ranking-select">${configOptions}</select><select id="accountSharedSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
-  $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;$('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;
+  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost active">Mine</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedConfigSelect" class="ranking-select">${configOptions}</select><select id="accountSharedSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
+  bindSharedGridModeTabs();
   const sharedState={rows:[],hasMore:true,reverse:false};
   const loadPage=async()=>{
     const page=await supabaseRpc('orapa_my_shared_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:sharedState.rows.length});
@@ -1599,15 +1608,55 @@ async function openMySharedGrids(){
     $('#accountSharedConfigSelect').addEventListener('change',renderShared);
     $('#accountSharedSortSelect').addEventListener('change',renderShared);
     $('#accountSharedSortReverse').addEventListener('click',()=>{sharedState.reverse=!sharedState.reverse;$('#accountSharedSortReverse').textContent=sharedState.reverse?'↑':'↓';renderShared();});
-    $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;$('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;
+    bindSharedGridModeTabs();
     renderShared();
   }catch(e){ $('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(e.message)}</div>`; }
+}
+async function openMySharedStreetGrids(){
+  if(!currentPlayerAccount)return;
+  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedStreetSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedStreetSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
+  $('#accountSharedStreet')?.classList.add('active');
+  bindSharedGridModeTabs();
+  const sharedState={rows:[],hasMore:true,reverse:false};
+  const loadPage=async()=>{
+    const page=await supabaseRpc('orapa_my_shared_street_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:sharedState.rows.length});
+    const pageRows=Array.isArray(page)?page:[];
+    sharedState.rows.push(...pageRows.slice(0,10));
+    sharedState.hasMore=pageRows.length>10;
+  };
+  try{
+    await loadPage();
+    const render=()=>{
+      const sort=$('#accountSharedStreetSortSelect')?.value||'date';
+      const rows=sharedState.rows.slice().sort((a,b)=>{
+        let value=sort==='players'?Number(b.participation_count||0)-Number(a.participation_count||0):sort==='points'?(a.best_score==null?Number.MAX_SAFE_INTEGER:Number(a.best_score))-(b.best_score==null?Number.MAX_SAFE_INTEGER:Number(b.best_score)):new Date(b.shared_at||0)-new Date(a.shared_at||0);
+        if(value===0)value=String(a.grid_id).localeCompare(String(b.grid_id));
+        return sharedState.reverse?-value:value;
+      });
+      const cards=rows.map((row,index)=>{
+        const key=`shared-street:${row.grid_id}`,expanded=expandedScores.has(key);
+        const date=row.shared_at?new Date(row.shared_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
+        const total=Number(row.participation_count||0),rate=total?Math.round(100*Number(row.success_count||0)/total)+' %':'—';
+        return `<div class="ranking-row account-shared-row${expanded?' expanded':''}" data-index="${index}"><div class="ranking-row-top"><span class="account-shared-date">${date}</span><span class="ranking-gems">🏠 Street</span><span class="ranking-points">${row.best_score==null?'—':row.best_score+' pts'}</span><span class="ranking-count">${total} 👥</span><span class="ranking-rate">${rate}</span></div>${expanded?`<div class="account-grid-meta-line"><span class="account-grid-id">ID : ${escapeHtml(publicGridId(row.grid_id))}</span><span>Consultation uniquement</span></div>${row.best_time_ms==null?'':`<div class="ranking-row-detail">Meilleur temps : ${formatDuration(row.best_time_ms)}</div>`}<div class="controls ranking-compact-actions three"><button class="street-shared-copy ghost" data-index="${index}">📋 ID</button><button class="street-shared-ranking ghost" data-index="${index}">🏆 Classement</button><button class="street-shared-preview primary" data-index="${index}">👁️ Voir</button></div>`:''}</div>`;
+      }).join('');
+      $('#gridDataContent').innerHTML=(cards||'<div class="history-empty">Aucune grille Orapa Street partagée avec ce compte.</div>')+(sharedState.hasMore?'<button id="sharedStreetLoadMore" class="ghost solo-load-more">Afficher les résultats suivants</button>':'');
+      $('#gridDataContent').querySelectorAll('.account-shared-row').forEach(node=>node.onclick=event=>{if(event.target.closest('button'))return;const row=rows[Number(node.dataset.index)],key=`shared-street:${row.grid_id}`;expandedScores.has(key)?expandedScores.delete(key):expandedScores.add(key);render();});
+      $('#gridDataContent').querySelectorAll('.street-shared-copy').forEach(button=>button.onclick=()=>navigator.clipboard?.writeText(gridChallengeText(rows[Number(button.dataset.index)].grid_id)).then(()=>showToast('Défi copié !')));
+      $('#gridDataContent').querySelectorAll('.street-shared-ranking').forEach(button=>button.onclick=()=>openGridRanking(rows[Number(button.dataset.index)].grid_id,true));
+      $('#gridDataContent').querySelectorAll('.street-shared-preview').forEach(button=>button.onclick=()=>openSharedGridPreview(rows[Number(button.dataset.index)].grid_id));
+      const more=$('#sharedStreetLoadMore');
+      if(more)more.onclick=async()=>{more.disabled=true;more.textContent='Chargement…';try{await loadPage();render();}catch(error){showErrorToast(`Chargement impossible : ${error.message}`);more.disabled=false;more.textContent='Afficher les résultats suivants';}};
+    };
+    $('#accountSharedStreetSortSelect').addEventListener('change',render);
+    $('#accountSharedStreetSortReverse').addEventListener('click',()=>{sharedState.reverse=!sharedState.reverse;$('#accountSharedStreetSortReverse').textContent=sharedState.reverse?'↑':'↓';render();});
+    render();
+  }catch(error){$('#gridDataContent').innerHTML=`<div class="account-error" style="display:block">${escapeHtml(error.message)}</div>`;}
 }
 async function openMySharedLostGrids(){
   if(!currentPlayerAccount)return;
   const missingOptions='<option value="ALL">Toutes les gemmes perdues</option>'+TYPE_ORDER.map(type=>`<option value="${type}">${escapeHtml(CONFIG.PIECES[type]?.label||type)}</option>`).join('');
-  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedLost" class="ghost active">Gemme perdue</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedLostGemSelect" class="ranking-select">${missingOptions}</select><select id="accountSharedLostSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedLostSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
-  $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;$('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;
+  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedLost" class="ghost active">Gemme perdue</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedLostGemSelect" class="ranking-select">${missingOptions}</select><select id="accountSharedLostSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedLostSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
+  bindSharedGridModeTabs();
   const sharedState={rows:[],hasMore:true,reverse:false};
   const loadPage=async()=>{
     const page=await supabaseRpc('orapa_my_shared_lost_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:sharedState.rows.length});
@@ -1653,8 +1702,8 @@ async function openMySharedLostGrids(){
 }
 async function openMySharedSpaceGrids(){
   if(!currentPlayerAccount)return;
-  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedSpace" class="ghost active">Space</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedSpaceConfigSelect" class="ranking-select"><option value="ALL">Toutes les configurations</option><option value="WITHOUT">Sans trou noir</option><option value="WITH">Avec trou noir</option></select><select id="accountSharedSpaceSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedSpaceSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>',true);
-  $('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;$('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;
+  openGridDataShell('📤 Mes grilles partagées','<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedSpace" class="ghost active">Space</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedEarthSky" class="ghost">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedSpaceConfigSelect" class="ranking-select"><option value="ALL">Toutes les configurations</option><option value="WITHOUT">Sans trou noir</option><option value="WITH">Avec trou noir</option></select><select id="accountSharedSpaceSortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedSpaceSortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>',true);
+  bindSharedGridModeTabs();
   const sharedState={rows:[],hasMore:true,reverse:false};
   const loadPage=async()=>{const page=await supabaseRpc('orapa_my_shared_space_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:sharedState.rows.length});const pageRows=Array.isArray(page)?page:[];sharedState.rows.push(...pageRows.slice(0,10));sharedState.hasMore=pageRows.length>10;};
   try{
@@ -1679,8 +1728,8 @@ async function openMySharedSpaceGrids(){
 async function openMySharedEarthSkyGrids(){
   if(!currentPlayerAccount)return;
   const configOptions='<option value="ALL">Toutes les configurations</option>'+[false,true].flatMap(g=>[false,true].flatMap(o=>[false,true].flatMap(s=>[false,true].map(h=>{const key=`${g?1:0}${o?1:0}${s?1:0}${h?1:0}`;return `<option value="${key}">${gemFlagsEmojiLine(g,o,s)} / 🕳️ ${h?'✅':'❌'}</option>`;})))).join('');
-  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedEarthSky" class="ghost active">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedEarthSkyConfigSelect" class="ranking-select">${configOptions}</select><select id="accountSharedEarthSkySortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedEarthSkySortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
-  const bindTabs=()=>{$('#accountSharedClassic').onclick=openMySharedGrids;$('#accountSharedLost').onclick=openMySharedLostGrids;$('#accountSharedSpace').onclick=openMySharedSpaceGrids;$('#accountSharedEarthSky').onclick=openMySharedEarthSkyGrids;};bindTabs();
+  openGridDataShell('📤 Mes grilles partagées',`<p>Les grilles dont ce compte est le créateur, chargées par 10. Elles sont consultables mais ne peuvent plus être résolues avec ce compte.</p><div class="achievement-subtabs"><button id="accountSharedClassic" class="ghost">Mine</button><button id="accountSharedSpace" class="ghost">Space</button><button id="accountSharedLost" class="ghost">Gemme perdue</button><button id="accountSharedEarthSky" class="ghost active">Terre et Ciel</button></div><div class="shared-grid-toolbar"><select id="accountSharedEarthSkyConfigSelect" class="ranking-select">${configOptions}</select><select id="accountSharedEarthSkySortSelect" class="ranking-select"><option value="date">Date</option><option value="players">Nombre de joueurs</option><option value="points">Nombre de points</option></select><button id="accountSharedEarthSkySortReverse" class="ghost shared-sort-reverse" aria-label="Inverser le tri">↓</button></div>`,true);
+  bindSharedGridModeTabs();
   const state={rows:[],hasMore:true,reverse:false};const load=async()=>{const page=await supabaseRpc('orapa_my_shared_earth_sky_grids',{p_session_token:currentPlayerAccount.session_token,p_limit:11,p_offset:state.rows.length});state.rows.push(...(page||[]).slice(0,10));state.hasMore=(page||[]).length>10;};
   try{await load();const render=()=>{
     const config=$('#accountSharedEarthSkyConfigSelect')?.value||'ALL',sort=$('#accountSharedEarthSkySortSelect')?.value||'date';
