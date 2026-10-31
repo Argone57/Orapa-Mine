@@ -4329,7 +4329,7 @@ function svgOutlinePiece(piece){
     }
     const circle=document.createElementNS(SVGNS,'circle');
     circle.setAttribute('cx',piece.center.x);circle.setAttribute('cy',piece.center.y);circle.setAttribute('r','.48');
-    circle.setAttribute('fill','#050407');circle.setAttribute('stroke',def.isWormhole?'#8d6ec4':'#655b72');circle.setAttribute('stroke-width',def.isWormhole?'.1':'.06');
+    circle.setAttribute('fill',def.isWormhole?'rgba(8,6,12,.45)':'rgba(5,4,7,.4)');circle.setAttribute('stroke',def.isWormhole?'#8d6ec4':'#cfd8dc');circle.setAttribute('stroke-width',def.isWormhole?'.1':'.1');
     circle.dataset.id=piece.id;
     return circle;
   }
