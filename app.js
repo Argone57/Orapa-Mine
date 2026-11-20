@@ -580,6 +580,7 @@ const DAILY_REMIX_FINAL_SNAPSHOTS_KEY = `${LOCAL_STORAGE_PREFIX}DailyRemixFinalS
 // indépendant du compte : chaque navigateur garde sa propre dernière visite.
 const UPDATES_READ_KEY = `${LOCAL_STORAGE_PREFIX}UpdatesReadV2`;
 const GAME_UPDATES = [
+  {id:'pc-shortcuts-20261120',date:'20/11/2026',title:'2 nouveautés sur PC\n Clic droit sur une case de la grille permet de la masquer/réafficher.\n Le mode peut également être activé/désactivé avec la touche Tab.\n Pour Orapa Street, clic droit sur une flèche/case permet d\'afficher directement l\'onde de test (y compris sur les moitiés des cases autour de la grille)'},
   {id:'street-20261001',date:'01/10/2026',title:'Nouveau mode de jeu : Orapa Street. A noter que tout est basé sur la seule image existante à ce jour donc il est possible que toutes les règles ne soient pas respectées.'},
   {id:'aides-20260914',date:'14/09/2026',title:'Légère correction du mode indice et ajout d\'un mode pour marquer les cases vides'},
   {id:'daily-remix-20260913',date:'13/09/2026',title:'Nouveau mode de jeu : Défi du jour remix'},  
@@ -608,7 +609,7 @@ function updatesListHtml(updates,emptyText){
   if(!updates.length)return `<div class="updates-empty">${emptyText}</div>`;
   const groups=[];
   updates.forEach(update=>{let group=groups.find(item=>item.date===update.date);if(!group){group={date:update.date,items:[]};groups.push(group);}group.items.push(update);});
-  return `<div class="updates-list">${groups.map(group=>`<section class="updates-date-group"><time datetime="${group.date.split('/').reverse().join('-')}">${group.date}</time><ul>${group.items.map(update=>`<li>${escapeHtml(update.title)}</li>`).join('')}</ul></section>`).join('')}</div>`;
+  return `<div class="	">${groups.map(group=>`<section class="updates-date-group"><time datetime="${group.date.split('/').reverse().join('-')}">${group.date}</time><ul>${group.items.map(update=>`<li>${escapeHtml(update.title)}</li>`).join('')}</ul></section>`).join('')}</div>`;
 }
 function openUpdatesModal(history=false){
   const unread=unreadGameUpdates();
@@ -4275,6 +4276,11 @@ function renderBgGrid(){
       const key=r+','+c;
       cell.classList.toggle('draft-empty',state.mode==='solo'&&!state.soloOver&&!!state.draftEmptyCells?.[key]);
       if(raysEnabled()) cell.addEventListener('click', ()=> onCellClick(r,c,cell));
+      cell.addEventListener('contextmenu',event=>{
+        if(state.mode!=='solo'||state.soloOver||tutorialActive)return;
+        event.preventDefault();
+        toggleDraftCell(r,c,cell);
+      });
       frag.appendChild(cell);
     }
   }
@@ -5156,6 +5162,13 @@ function setDraftMode(active){
   if(draftModeActive)hintModeActive=false;
   updateCellToolsUI();
 }
+function toggleDraftCell(r,c,cellEl){
+  const key=r+','+c;
+  state.draftEmptyCells=state.draftEmptyCells&&typeof state.draftEmptyCells==='object'?state.draftEmptyCells:{};
+  if(state.draftEmptyCells[key])delete state.draftEmptyCells[key];else state.draftEmptyCells[key]=true;
+  cellEl?.classList.toggle('draft-empty',!!state.draftEmptyCells[key]);
+  saveState();
+}
 function resetCellTools(){
   hintModeActive=false;
   draftModeActive=false;
@@ -5177,10 +5190,7 @@ function updateCellToolsUI(){
 async function onCellClick(r,c,cellEl){
   const key = r+','+c;
   if(draftModeActive&&state.mode==='solo'&&!state.soloOver){
-    state.draftEmptyCells=state.draftEmptyCells&&typeof state.draftEmptyCells==='object'?state.draftEmptyCells:{};
-    if(state.draftEmptyCells[key])delete state.draftEmptyCells[key];else state.draftEmptyCells[key]=true;
-    cellEl.classList.toggle('draft-empty',!!state.draftEmptyCells[key]);
-    saveState();
+    toggleDraftCell(r,c,cellEl);
     return;
   }
   if(tutorialActive&&(![5,15,17].includes(tutorialStage)||!tutorialTargetCell||r!==tutorialTargetCell.r||c!==tutorialTargetCell.c)){showErrorToast('Touche la case mise en \u00e9vidence.');return;}
@@ -5818,6 +5828,13 @@ $('#btnShareGrid').addEventListener('click',async()=>{
 });
 $('#btnHint').addEventListener('click', ()=> setHintMode(!hintModeActive));
 $('#btnDraft').addEventListener('click',()=>setDraftMode(!draftModeActive));
+document.addEventListener('keydown',event=>{
+  if(event.key!=='Tab'||event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey)return;
+  if(document.body.classList.contains('street-open')||state.mode!=='solo'||state.soloOver||tutorialActive)return;
+  if(event.target?.matches?.('input,textarea,select,[contenteditable="true"]'))return;
+  event.preventDefault();
+  setDraftMode(!draftModeActive);
+});
 $('#btnPropose').addEventListener('click', ()=> proposeSolution());
 $('#btnToggleGuess').addEventListener('click', ()=>{ state.soloShowGuess = !state.soloShowGuess; saveState(); renderControls(); renderPieces(); });
 $('#btnToggleSecret').addEventListener('click', ()=>{ state.soloShowSecret = !state.soloShowSecret; saveState(); renderControls(); renderPieces(); });
