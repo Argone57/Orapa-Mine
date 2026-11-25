@@ -30,7 +30,32 @@
     {id:'yellowBent',name:'Jaune — 2 demi-hexagones décalés',color:'yellow',pivot:[1.5,0],poly:[[0,0],[1,0],[2,-1],[3,-1],[3,0],[2,0],[1,1],[0,1]],walls:[]},
     {id:'redWall',name:'Rouge — 2 triangles + mur',color:'red',pivot:[1,1],poly:[[0,0],[1,0],[1,1],[0,1]],walls:[[[1,1],[2,1]]]},
   ];
+  // Les pièces officielles d'Orapa Street v2.
+  const STREET_PIECES=[
+    {id:'red1',name:'Rouge 1 — Rache',color:'red',pivot:[0,0],poly:[[-.5,.5],[.5,.5],[1.5,-.5],[.5,-.5],[-.5,-.5],[-1.5,.5]],walls:[]},
+    {id:'red2',name:'Rouge 2 — Violon',color:'red',pivot:[0,0],poly:[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]],walls:[[[1,0],[2,0]]]},
+    {id:'red3',name:'Rouge 3 — Pipe',color:'red',pivot:[0,0],poly:[[.8,.4],[.8,-.6],[-.2,-.6],[-1.2,.4],[-.2,.4]],walls:[[[-1.2,.4],[-2.2,.4]]],wallStyle:'red'},
+    {id:'white1',name:'Blanc 1 — Révolver',color:'white',pivot:[1,1],poly:[[0,0],[1,0],[1,1],[0,1]],walls:[[[1,1],[2,1]]],wallStyle:'red'},
+    {id:'white2',name:'Blanc 2 — Napoléon',color:'white',pivot:[0,0],poly:[[-1,1],[0,1],[1,0],[1,-1],[0,-1],[-1,0]],walls:[]},
+    {id:'white3',name:'Blanc 3 — Hommes dansants',color:'white',pivot:[0,0],poly:[[-.286,.571],[.714,.571],[1.714,-.429],[.714,-.429],[-.286,-.429],[-1.286,-.429],[-1.286,.571]],walls:[]},
+    {id:'white4',name:'Blanc 4 — Empreinte',color:'white',pivot:[0,0],poly:[[-.5,1],[.5,1],[1.5,0],[.5,0],[.5,-1],[-.5,-1],[-1.5,0],[-.5,0]],walls:[]},
+    {id:'blue1',name:'Bleu 1 — Chien',color:'blue',pivot:[0,0],poly:[[-.125,1.5],[-.125,.5],[-1.125,.5],[-1.125,-.5],[-.125,-.5],[.875,-1.5],[.875,-.5],[.875,.5]],walls:[]},
+    {id:'blue2',name:'Bleu 2 — Serpent',color:'blue',pivot:[0,0],poly:[[-.5,.5],[.5,.5],[1.5,-.5],[.5,-.5],[-.5,-.5],[-1.5,.5]],walls:[[[-1.5,.5],[-.5,-.5]],[[-.5,.5],[-.5,-.5]],[[-.5,.5],[.5,-.5]],[[.5,-.5],[.5,.5]],[[.5,.5],[1.5,-.5]]],renderBody:false,rayWallsOnly:true},
+    {id:'blue3',name:'Bleu 3 — Escarboucle',color:'blue',pivot:[0,0],poly:[[.667,.667],[.667,-.333],[.667,-1.333],[-.333,-.333],[-1.333,.667],[-.333,.667]],walls:[]},
+    {id:'yellow1',name:'Jaune 1 — Machine à écrire',color:'yellow',pivot:[0,0],poly:[[.8,.4],[.8,-.6],[-.2,-.6],[-1.2,.4],[-.2,.4]],walls:[]},
+    {id:'yellow2',name:'Jaune 2 — Loupe',color:'yellow',pivot:[1,0],poly:[[0,0],[1,0],[1,1],[0,1]],walls:[[[1,0],[2,-1]]]},
+    {id:'yellow3',name:'Jaune 3 — Chapeau',color:'yellow',pivot:[0,0],poly:[[-.8,.6],[.2,.6],[1.2,-.4],[.2,-.4],[-.8,-.4]],walls:[[[-.8,-.4],[-1.8,-.4]]],wallStyle:'red'},
+  ];
   const MIRROR_DISABLED=new Set(['blueSmall','whiteSmall','whiteLarge']);
+  const STREET_V2_MIRROR_IDS=new Set(['red1','red3','white1','white4','blue1','blue2','yellow3']);
+  const STREET_V2_PROFILES={
+    normal:{label:'Normal',count:6,allColors:true,centralZone:true,allowPrototype:false},
+    sherlock7:{label:'Sherlock 7',count:7,allColors:true,centralZone:true,allowPrototype:false},
+    sherlockExtreme:{label:'Sherlock Extrême',count:5,allColors:true,centralZone:true,allowPrototype:false},
+    absurd:{label:'Absurde',count:5,allColors:false,centralZone:true,allowPrototype:false},
+    free:{label:'Libre',count:5,allColors:false,centralZone:null,allowPrototype:true}
+  };
+  const STREET_V2_PROFILE_KEYS=Object.keys(STREET_V2_PROFILES);
 
   const byId=id=>document.getElementById(id);
   const svgEl=(name,attrs={})=>{
@@ -128,6 +153,13 @@
   }
 
   const BOARD=makeBoard();
+  // Zone centrale interdite par les règles du Street actuel. Elle reste traversée
+  // par les ondes et ne concerne pas le Street Prototype.
+  const STREET_FORBIDDEN_TRIANGLE_IDS=new Set([40,41,43,59,60,61,62,78,80,81]);
+  const STREET_FORBIDDEN_WALLS=[
+    [[11,5],[10,4]],[[8,4],[10,4]],[[9,5],[10,4]],[[9,3],[10,4]],[[9,3],[11,3]],
+    [[11,3],[12,4]],[[11,3],[13,3]],[[11,3],[12,2]],[[11,3],[10,2]],[[10,4],[12,4]],[[10,4],[11,3]]
+  ].map(wall=>wall.map(([q,r])=>screenPoint({q,r})));
 
   function axialTransform(point,rotation,flipped){
     let [a,b]=point;
@@ -136,16 +168,22 @@
     return [a,b];
   }
   function axialVectorToScreen([a,b]){return {x:(a+b/2)*EDGE,y:b*TRI_H};}
+  const pieceDefinition=piece=>PIECES.find(item=>item.id===piece.id)||STREET_PIECES.find(item=>item.id===piece.id);
   function applyPieceMirror(piece){
-    if(MIRROR_DISABLED.has(piece.id))return false;
+    const official=STREET_PIECES.some(item=>item.id===piece.id);
+    if((official&&!STREET_V2_MIRROR_IDS.has(piece.id))||(!official&&MIRROR_DISABLED.has(piece.id)))return false;
+    const previousAnchor=piece.anchor?.q===undefined&&piece.anchor?{...piece.anchor}:null;
     const turningOn=!piece.flipped;
     const rotationCompensation=piece.id==='redWall'?1:(piece.id==='blueLarge'||piece.id==='yellowLarge'?2:0);
     piece.rotation=(piece.rotation+(turningOn?rotationCompensation:6-rotationCompensation))%6;
     piece.flipped=turningOn;
+    // Les pièces v2 sont ancrées en coordonnées écran : après le miroir,
+    // on recale leur sommet de référence sur la grille.
+    if(official&&previousAnchor)piece.anchor=snapPieceAnchor(piece,previousAnchor);
     return true;
   }
   function pieceGeometry(piece){
-    const definition=PIECES.find(item=>item.id===piece.id);
+    const definition=pieceDefinition(piece);
     const legacyAnchor=piece.anchor?.q!==undefined;
     const center=legacyAnchor?screenPoint(piece.anchor):piece.anchor;
     const transform=point=>{
@@ -157,6 +195,7 @@
   }
   function visualWallsFor(geometry){
     return geometry.walls.map(wall=>{
+      if(geometry.definition.rayWallsOnly)return wall;
       const direction=norm(sub(wall[1],wall[0]));
       return [add(wall[0],mul(direction,-EDGE*.24)),wall[1]];
     });
@@ -171,7 +210,7 @@
       const startTop=add(wall[0],mul(normal,half));
       const startBottom=add(wall[0],mul(normal,-half));
       const shoulder=add(wall[1],mul(direction,-bevel));
-      if(geometry.definition.id==='redWall'){
+      if(geometry.definition.id==='redWall'||geometry.definition.wallStyle==='red'){
         const physical=geometry.walls[index];
         const probeBase=add(physical[0],mul(direction,-4));
         if(!pointInPolygon(add(probeBase,mul(normal,STREET_WALL_WIDTH)),geometry.poly,true))normal=mul(normal,-1);
@@ -188,12 +227,12 @@
     const margin=4;
     const svg=svgEl('svg',{viewBox:`${-margin} ${-margin} ${BOARD.width+margin*2} ${BOARD.height+margin*2}`,class:'street-shared-preview-svg',role:'img','aria-label':'Disposition complète de la grille Orapa Street'});
     const board=svgEl('g',{});
-    BOARD.triangles.forEach(triangle=>board.appendChild(svgEl('polygon',{points:pointsAttr(triangle.points),fill:'#747d8c',stroke:'#4d5663','stroke-width':'1'})));
+    BOARD.triangles.forEach(triangle=>board.appendChild(svgEl('polygon',{points:pointsAttr(triangle.points),fill:decoded.version===2&&decoded.centralZone&&STREET_FORBIDDEN_TRIANGLE_IDS.has(triangle.id)?'#3a2e20':'#747d8c',stroke:'#4d5663','stroke-width':'1'})));
     svg.appendChild(board);
     decoded.pieces.forEach(piece=>{
       const geometry=pieceGeometry(piece),color=COLORS[geometry.definition.color];
       const group=svgEl('g',{});
-      group.appendChild(svgEl('polygon',{points:pointsAttr(geometry.poly),fill:color,stroke:'rgba(0,0,0,.4)','stroke-width':'1.15','vector-effect':'non-scaling-stroke'}));
+      if(geometry.definition.renderBody!==false)group.appendChild(svgEl('polygon',{points:pointsAttr(geometry.poly),fill:color,stroke:'rgba(0,0,0,.4)','stroke-width':'1.15','vector-effect':'non-scaling-stroke'}));
       visualWallPolygonsFor(geometry).forEach(wall=>group.appendChild(svgEl('polygon',{points:pointsAttr(wall),fill:color,stroke:'rgba(0,0,0,.4)','stroke-width':'1.15','vector-effect':'non-scaling-stroke'})));
       svg.appendChild(group);
     });
@@ -229,6 +268,7 @@
     return Math.min(1,Math.max(t1,t2))-Math.max(0,Math.min(t1,t2))>.02;
   }
   function polygonsConflict(a,b){
+    if(!a.length||!b.length)return null;
     for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
       const a1=a[i],a2=a[(i+1)%a.length],b1=b[j],b2=b[(j+1)%b.length];
       if(collinearOverlap(a1,a2,b1,b2))return 'side';
@@ -243,11 +283,37 @@
     if(sharedTriangle)return 'overlap';
     return null;
   }
+  function geometrySegments(geometry){
+    const segments=[];
+    geometry.poly.forEach((point,index)=>segments.push([point,geometry.poly[(index+1)%geometry.poly.length]]));
+    geometry.walls.forEach(wall=>segments.push(wall));
+    return segments;
+  }
+  function geometriesTouch(a,b){
+    const first=geometrySegments(a),second=geometrySegments(b);
+    return first.some(([a1,a2])=>second.some(([b1,b2])=>collinearOverlap(a1,a2,b1,b2)||!!segmentIntersection(a1,a2,b1,b2,true)));
+  }
+  function geometryUsesForbiddenStreetZone(geometry){
+    const usesTriangle=BOARD.triangles.some(triangle=>{
+      if(!STREET_FORBIDDEN_TRIANGLE_IDS.has(triangle.id))return false;
+      const center=triangleCenter(triangle);
+      const conflict=polygonsConflict(geometry.poly,triangle.points);
+      if(conflict==='overlap'||pointInPolygon(center,geometry.poly,false)||geometry.poly.some(point=>pointInPolygon(point,triangle.points,false)))return true;
+      return geometry.walls.some(wall=>{
+        if(pointInPolygon(midpoint(wall[0],wall[1]),triangle.points,false))return true;
+        return triangle.points.some((point,index)=>!!segmentIntersection(wall[0],wall[1],point,triangle.points[(index+1)%triangle.points.length],false));
+      });
+    });
+    if(usesTriangle)return true;
+    return geometry.walls.some(wall=>STREET_FORBIDDEN_WALLS.some(blocked=>
+      collinearOverlap(wall[0],wall[1],blocked[0],blocked[1])||!!segmentIntersection(wall[0],wall[1],blocked[0],blocked[1],false)
+    ));
+  }
   function directlyReachablePieceIds(placed,geometries){
     const segments=[];
     placed.forEach(piece=>{
       const geometry=geometries.get(piece.id);
-      geometry.poly.forEach((point,index)=>segments.push({a:point,b:geometry.poly[(index+1)%geometry.poly.length],piece}));
+      if(!geometry.definition.rayWallsOnly)geometry.poly.forEach((point,index)=>segments.push({a:point,b:geometry.poly[(index+1)%geometry.poly.length],piece}));
       geometry.walls.forEach(wall=>segments.push({a:wall[0],b:wall[1],piece}));
     });
     const reachable=new Set();
@@ -264,18 +330,26 @@
     }));
     return reachable;
   }
-  function validatePieces(pieces,checkReachability=true){
+  function streetRules(profile=state.profile,centralZone=state.centralZone){
+    const config=STREET_V2_PROFILES[profile];
+    if(!config)return {v2:false,centralZone:false};
+    return {v2:true,centralZone:config.centralZone===null?centralZone!==false:config.centralZone};
+  }
+  function validatePieces(pieces,checkReachability=true,rules=streetRules()){
     const issues=new Map();
+    const strictStreet=!!rules.v2;
     const placed=pieces.filter(piece=>piece.anchor);
     const geometries=new Map(placed.map(piece=>[piece.id,pieceGeometry(piece)]));
     placed.forEach(piece=>{
       const geo=geometries.get(piece.id);
       if(geo.poly.some(p=>!pointInPolygon(p,BOARD.polygon,true))||geo.walls.some(w=>w.some(p=>!pointInPolygon(p,BOARD.polygon,true))))issues.set(piece.id,'La pièce doit rester entièrement dans la grille.');
+      else if(rules.centralZone&&geometryUsesForbiddenStreetZone(geo))issues.set(piece.id,'Cette zone centrale est interdite aux pièces.');
     });
     for(let i=0;i<placed.length;i++)for(let j=i+1;j<placed.length;j++){
       const pa=placed[i],pb=placed[j],a=geometries.get(pa.id),b=geometries.get(pb.id);
       const conflict=polygonsConflict(a.poly,b.poly);
-      if(conflict){const message=conflict==='side'?'Deux pièces ne peuvent pas partager un côté.':'Deux pièces ne peuvent pas se chevaucher.';issues.set(pa.id,message);issues.set(pb.id,message);}
+      const touching=strictStreet&&geometriesTouch(a,b);
+      if(conflict||touching){const message=strictStreet?'Les pièces ne peuvent pas se toucher, même par une pointe.':(conflict==='side'?'Deux pièces ne peuvent pas partager un côté.':'Deux pièces ne peuvent pas se chevaucher.');issues.set(pa.id,message);issues.set(pb.id,message);}
       for(const wall of a.walls){
         if(b.poly.some((p,k)=>collinearOverlap(wall[0],wall[1],p,b.poly[(k+1)%b.poly.length])||segmentIntersection(wall[0],wall[1],p,b.poly[(k+1)%b.poly.length],false))||pointInPolygon(midpoint(wall[0],wall[1]),b.poly,false)){issues.set(pa.id,'Un mur traverse ou longe une autre pièce.');issues.set(pb.id,'Un mur traverse ou longe une autre pièce.');}
       }
@@ -311,7 +385,7 @@
     const entry=BOARD.boundary[edgeIndex],segments=[];
     pieces.filter(p=>p.anchor).forEach(piece=>{
       const geo=pieceGeometry(piece);
-      geo.poly.forEach((p,i)=>segments.push({a:p,b:geo.poly[(i+1)%geo.poly.length],piece,color:geo.definition.color}));
+      if(!geo.definition.rayWallsOnly)geo.poly.forEach((p,i)=>segments.push({a:p,b:geo.poly[(i+1)%geo.poly.length],piece,color:geo.definition.color}));
       geo.walls.forEach(w=>segments.push({a:w[0],b:w[1],piece,color:geo.definition.color,wall:true}));
     });
     let direction=entry.directions[directionIndex],colorSet=new Set(),points=[entry.mid],exit=null,exitDirectionIndex=null,loop=false;
@@ -398,32 +472,90 @@
     const colors=new Set();
     queryPieces().filter(piece=>piece.anchor).forEach(piece=>{
       const geometry=pieceGeometry(piece);
-      if(pointInPolygon(center,geometry.poly,true))colors.add(geometry.definition.color);
+      if(!geometry.definition.rayWallsOnly&&pointInPolygon(center,geometry.poly,true))colors.add(geometry.definition.color);
     });
     if(!colors.size)return {empty:true,name:'Vide',hex:null,colors:[]};
     const result=resolveStreetColor(colors);
     return {empty:false,name:result.name,hex:result.hex,colors:[...colors]};
   }
 
-  const freshPieces=()=>PIECES.map(def=>({id:def.id,anchor:null,rotation:0,flipped:false}));
-  let state={mode:'gm',pieces:freshPieces(),secretPieces:[],selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:false,traces:[],coords:[],draftCells:{},gridId:null,gridAlias:null,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
+  const freshPieces=(definitions=PIECES)=>definitions.map(def=>({id:def.id,anchor:null,rotation:0,flipped:false}));
+  const streetProfileConfig=profile=>STREET_V2_PROFILES[profile]||null;
+  const streetAllowedDefinitions=profile=>streetProfileConfig(profile)?.allowPrototype?[...STREET_PIECES,...PIECES.filter(piece=>piece.id!=='blueLarge')]:STREET_PIECES;
+  const streetPlacedPieces=pieces=>pieces.filter(piece=>piece.anchor);
+  function streetProfileIssues(pieces,profile=state.profile){
+    const config=streetProfileConfig(profile);if(!config)return [];
+    const placed=streetPlacedPieces(pieces),issues=[];
+    if(!config.allowPrototype&&placed.some(piece=>PIECES.some(definition=>definition.id===piece.id)))issues.push('Cette option utilise uniquement les pièces Street v2.');
+    if(new Set(placed.map(piece=>piece.id)).size!==placed.length)issues.push('Une même pièce ne peut être utilisée qu’une seule fois.');
+    if(profile==='free'){if(placed.length<config.count)issues.push(`Place au moins ${config.count} pièces avant de démarrer.`);return issues;}
+    if(placed.length!==config.count)issues.push(`Cette option demande exactement ${config.count} pièces.`);
+    if(config.allColors){
+      const colors=new Set(placed.map(piece=>pieceDefinition(piece)?.color));
+      const missing=['blue','white','yellow','red'].filter(color=>!colors.has(color));
+      if(missing.length)issues.push('Il faut au moins une pièce de chacune des quatre couleurs.');
+    }
+    return issues;
+  }
+  function streetV2Ready(pieces=state.pieces){
+    return !validatePieces(pieces,true,streetRules()).size&&!streetProfileIssues(pieces).length;
+  }
+  let state={mode:'gm',pieceSet:'prototype',profile:null,centralZone:false,pieces:freshPieces(),secretPieces:[],selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:false,traces:[],coords:[],draftCells:{},gridId:null,gridAlias:null,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
+  let savedPrototypeCreationPieces=null;
   let wavePreference='auto';
   let streetAttempt=null;
   let streetSync=Promise.resolve();
   let selectedWaveEdge=null;
   let directionChoicesHideTimer=null;
-  const STREET_TUTORIAL_REFERENCE='EMG5264J-W-R';
-  const STREET_TUTORIAL_PROGRESS_KEY='orapa_street_tutorial_progress_v1';
-  // Pièce jaune horizontale, directement sur le rayon B → L (de BD à BF).
-  // Son état-cible est en miroir : la vignette commence donc volontairement dans
-  // l'autre sens afin de faire pratiquer le retournement miroir.
-  const STREET_TUTORIAL_YELLOW_TARGET={id:'yellowLarge',anchor:screenPoint({q:5,r:5}),rotation:2,flipped:true};
+  let streetPieceSurvey={active:false,triangles:new Set(),wallStart:null,walls:[]};
+  let streetSurveyUnlocked=false,streetSurveyClicks=0;
+  const officialStreetCreationActive=()=>state.mode==='gm'&&!state.started&&!!streetProfileConfig(state.profile);
+  function resetV2Creation(profile=state.profile||'normal',centralZone=profile==='free'?state.centralZone!==false:true){
+    const config=streetProfileConfig(profile)||STREET_V2_PROFILES.normal;
+    state.profile=profile;state.centralZone=config.centralZone===null?centralZone:true;state.pieceSet='official';
+    state.pieces=freshPieces(streetAllowedDefinitions(profile));state.selected=state.pieces[0]?.id||'red1';
+    state.traces=[];state.coords=[];state.draftCells={};state.gridId=null;state.gridAlias=null;state.previewWave=null;state.tool='pieces';
+    resetStreetPieceSurvey();clearDirectionChoicesTimer();selectedWaveEdge=null;
+  }
+  function resetStreetPieceSurvey(){streetPieceSurvey={active:false,triangles:new Set(),wallStart:null,walls:[]};}
+  function surveyVertexKey(vertex){return `${vertex.q},${vertex.r}`;}
+  function surveyVertexFromKey(key){const [q,r]=key.split(',').map(Number);return {q,r};}
+  function toggleSurveyTriangle(id){
+    if(streetPieceSurvey.triangles.has(id))streetPieceSurvey.triangles.delete(id);else streetPieceSurvey.triangles.add(id);
+  }
+  function selectSurveyVertex(vertex){
+    const key=surveyVertexKey(vertex);
+    if(!streetPieceSurvey.wallStart){streetPieceSurvey.wallStart=key;return;}
+    if(streetPieceSurvey.wallStart===key){streetPieceSurvey.wallStart=null;return;}
+    const existing=streetPieceSurvey.walls.findIndex(([start,end])=>(start===streetPieceSurvey.wallStart&&end===key)||(start===key&&end===streetPieceSurvey.wallStart));
+    if(existing>=0)streetPieceSurvey.walls.splice(existing,1);else streetPieceSurvey.walls.push([streetPieceSurvey.wallStart,key]);
+    streetPieceSurvey.wallStart=null;
+  }
+  function surveyPayload(){
+    const name=byId('streetSurveyName')?.value.trim()||'Pièce Street';
+    return {
+      name,
+      triangles:[...streetPieceSurvey.triangles].sort((a,b)=>a-b),
+      walls:streetPieceSurvey.walls.map(([start,end])=>[surveyVertexFromKey(start),surveyVertexFromKey(end)])
+    };
+  }
+  function surveyPlacementsPayload(){
+    return {
+      profile:state.profile||'prototype',centralZone:!!state.centralZone,
+      pieces:state.pieces.filter(piece=>piece.anchor).map(piece=>({
+        id:piece.id,anchor:{x:Number(piece.anchor.x.toFixed(3)),y:Number(piece.anchor.y.toFixed(3))},rotation:Number(piece.rotation)||0,flipped:!!piece.flipped
+      }))
+    };
+  }
+  const STREET_TUTORIAL_REFERENCE='';
+  const STREET_TUTORIAL_PROGRESS_KEY='orapa_street_tutorial_progress_v2';
+  const STREET_TUTORIAL_DEMO=[{id:'red1',anchor:{x:370.5,y:115.181},rotation:2,flipped:false},{id:'red2',anchor:{x:266,y:197.454},rotation:3,flipped:false},{id:'red3',anchor:{x:125.4,y:59.236},rotation:1,flipped:false},{id:'white1',anchor:{x:228,y:131.636},rotation:2,flipped:false},{id:'blue1',anchor:{x:59.375,y:127.522},rotation:5,flipped:false},{id:'blue3',anchor:{x:228,y:21.917},rotation:1,flipped:false},{id:'yellow2',anchor:{x:114,y:197.454},rotation:5,flipped:false}];
+  const STREET_TUTORIAL_TARGETS=[{id:'red1',anchor:{x:85.5,y:180.999},rotation:1,flipped:true},{id:'yellow2',anchor:{x:133,y:98.727},rotation:2,flipped:false},{id:'blue1',anchor:{x:296.875,y:152.204},rotation:1,flipped:false},{id:'white1',anchor:{x:209,y:32.909},rotation:2,flipped:false}];
   let streetTutorial={active:false,stage:0,puzzle:false,secretPieces:[],draftIndex:0,preference:null,waveIndex:0,phase:0};
   const streetPlayerMode=()=>state.mode==='solo'||state.mode==='tutorial';
-  const streetTutorialPlacementOrder=['yellowLarge','blueLarge','redWall','blueSmall'];
+  const streetTutorialPlacementOrder=['red1','yellow2','blue1','white1'];
   function streetTutorialTargetPiece(id){
-    if(id==='yellowLarge')return {...STREET_TUTORIAL_YELLOW_TARGET,anchor:{...STREET_TUTORIAL_YELLOW_TARGET.anchor}};
-    const piece=streetTutorial.secretPieces.find(item=>item.id===id);
+    const piece=STREET_TUTORIAL_TARGETS.find(item=>item.id===id);
     return piece?{...piece,anchor:piece.anchor?{...piece.anchor}:null}:null;
   }
   const EXIT_SIDE_KEYS=['top','upperRight','lowerRight','bottom','lowerLeft','upperLeft'];
@@ -489,7 +621,7 @@
   function streetTutorialExpectedWave(){
     if(!streetTutorial.active)return null;
     if(streetTutorial.stage===3)return {entry:'J',exit:'14'};
-    if(streetTutorial.stage===5)return streetTutorial.waveIndex===0?{entry:'11',exit:'G'}:{entry:'8',exit:'D'};
+    if(streetTutorial.stage===5)return streetTutorial.waveIndex===0?{entry:'11',exit:'G'}:{entry:'C',exit:'7'};
     if(streetTutorial.stage===6&&streetTutorial.phase===1)return {entry:'8',exit:'D'};
     if(streetTutorial.stage===6&&streetTutorial.phase===3)return streetTutorial.waveIndex===0?{entry:'13',exit:'3'}:{entry:'H',exit:'5'};
     return null;
@@ -560,35 +692,46 @@
     for(let i=result.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[result[i],result[j]]=[result[j],result[i]];}
     return result;
   }
+  function randomStreetDefinitions(profile){
+    const config=streetProfileConfig(profile);
+    if(!config)return PIECES;
+    const allowed=streetAllowedDefinitions(profile);
+    if(profile==='free'){
+      const count=config.count+Math.floor(Math.random()*(allowed.length-config.count+1));
+      return shuffled(allowed).slice(0,count);
+    }
+    const mandatory=['blue','white','yellow','red'].map(color=>shuffled(allowed.filter(definition=>definition.color===color))[0]);
+    return [...mandatory,...shuffled(allowed.filter(definition=>!mandatory.includes(definition))).slice(0,config.count-mandatory.length)];
+  }
   function randomizePieces(){
     const vertices=[...BOARD.vertices.values()].map(screenPoint);
     for(let boardAttempt=0;boardAttempt<180;boardAttempt++){
       const placed=[];
-      const definitions=shuffled(PIECES);
+      const definitions=shuffled(randomStreetDefinitions(state.profile));
       let failed=false;
       for(const definition of definitions){
         let accepted=null;
         for(let pieceAttempt=0;pieceAttempt<420;pieceAttempt++){
           const target=vertices[Math.floor(Math.random()*vertices.length)];
-          const candidate={id:definition.id,anchor:{...target},rotation:Math.floor(Math.random()*6),flipped:Math.random()<.5};
+          const candidate={id:definition.id,anchor:{...target},rotation:Math.floor(Math.random()*6),flipped:(STREET_PIECES.some(item=>item.id===definition.id)?STREET_V2_MIRROR_IDS.has(definition.id):!MIRROR_DISABLED.has(definition.id))&&Math.random()<.5};
           candidate.anchor=snapPieceAnchor(candidate,target);
-          if(validatePieces([...placed,candidate],false).size===0){accepted=candidate;break;}
+          if(validatePieces([...placed,candidate],false,streetRules()).size===0){accepted=candidate;break;}
         }
         if(!accepted){failed=true;break;}
         placed.push(accepted);
       }
-      if(!failed&&validatePieces(placed,true).size===0){
+      if(!failed&&validatePieces(placed,true,streetRules()).size===0&&!streetProfileIssues(placed,state.profile).length){
         const byPiece=new Map(placed.map(piece=>[piece.id,piece]));
-        state.pieces=PIECES.map(definition=>byPiece.get(definition.id));
-        state.selected=state.pieces[0].id;state.traces=[];state.coords=[];state.tool='pieces';
+        state.pieces=state.profile?streetAllowedDefinitions(state.profile).map(definition=>byPiece.get(definition.id)||{id:definition.id,anchor:null,rotation:0,flipped:false}):PIECES.map(definition=>byPiece.get(definition.id));
+        state.selected=state.pieces.find(piece=>piece.anchor)?.id||state.pieces[0].id;state.traces=[];state.coords=[];state.tool='pieces';
         return true;
       }
     }
     return false;
   }
   const STREET_VERTICES=[...BOARD.vertices.values()].map(screenPoint);
-  function encodeStreetGrid(pieces){
-    if(pieces.length!==PIECES.length||validatePieces(pieces,true).size)return null;
+  function encodeStreetV1Grid(pieces){
+    if(pieces.length!==PIECES.length||validatePieces(pieces,true,{v2:false,centralZone:false}).size)return null;
     const bytes=[];
     for(const definition of PIECES){
       const piece=pieces.find(item=>item.id===definition.id);if(!piece?.anchor)return null;
@@ -602,8 +745,54 @@
     const hex=bytes.map(byte=>byte.toString(16).padStart(2,'0')).join('').toUpperCase();
     return `ST1-${hex.match(/.{1,4}/g).join('-')}`;
   }
+  function pieceFromStoredVertex(definition,vertex,rotation,flipped){
+    const piece={id:definition.id,anchor:{...vertex},rotation,flipped};
+    const first=definition.poly[0],relative=[first[0]-definition.pivot[0],first[1]-definition.pivot[1]];
+    piece.anchor=sub(vertex,axialVectorToScreen(axialTransform(relative,rotation,flipped)));
+    return piece;
+  }
+  function encodeStreetV2Grid(pieces,profile=state.profile,centralZone=state.centralZone){
+    const profileIndex=STREET_V2_PROFILE_KEYS.indexOf(profile);
+    const config=STREET_V2_PROFILES[profile],effectiveCentral=config?.centralZone===null?centralZone!==false:true;
+    if(profileIndex<0||validatePieces(pieces,true,streetRules(profile,effectiveCentral)).size||streetProfileIssues(pieces,profile).length)return null;
+    const placed=streetPlacedPieces(pieces),definitions=[...STREET_PIECES,...PIECES],bytes=[profileIndex|(effectiveCentral?8:0),placed.length];
+    for(const piece of placed){
+      const definition=pieceDefinition(piece),definitionIndex=definitions.findIndex(item=>item.id===definition?.id);
+      if(definitionIndex<0)return null;
+      const first=pieceGeometry(piece).poly[0];let index=0,distance=Infinity;
+      STREET_VERTICES.forEach((point,i)=>{const value=Math.hypot(point.x-first.x,point.y-first.y);if(value<distance){distance=value;index=i;}});
+      if(distance>.1||index>255)return null;
+      bytes.push(definitionIndex,index,(piece.rotation%6)|((piece.flipped?1:0)<<3));
+    }
+    bytes.push(bytes.reduce((value,byte)=>value^byte,0)^0xa7);
+    const hex=bytes.map(byte=>byte.toString(16).padStart(2,'0')).join('').toUpperCase();
+    return `ST2-${hex.match(/.{1,6}/g).join('-')}`;
+  }
+  function encodeStreetGrid(pieces,options={}){
+    const profile=options.profile??state.profile;
+    return profile?encodeStreetV2Grid(pieces,profile,options.centralZone??state.centralZone):encodeStreetV1Grid(pieces);
+  }
   function decodeStreetGrid(input){
     const clean=String(input||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(clean.startsWith('ST2')){
+      const hex=clean.slice(3);if(hex.length<36||hex.length%6!==0||!/^[0-9A-F]+$/.test(hex))return null;
+      const bytes=hex.match(/../g).map(value=>parseInt(value,16)),checksum=bytes.pop();
+      if(((bytes.reduce((value,byte)=>value^byte,0)^0xa7)&255)!==checksum)return null;
+      const header=bytes[0],profile=STREET_V2_PROFILE_KEYS[header&7],centralZone=!!(header&8),count=bytes[1];
+      if(!profile||count<1||bytes.length!==2+count*3)return null;
+      if(STREET_V2_PROFILES[profile].centralZone===true&&!centralZone)return null;
+      const definitions=[...STREET_PIECES,...PIECES],pieces=[];
+      for(let i=0;i<count;i++){
+        const definition=definitions[bytes[2+i*3]],vertex=STREET_VERTICES[bytes[3+i*3]],meta=bytes[4+i*3];
+        if(!definition||!vertex||meta>13||(meta&7)>5)return null;
+        const official=STREET_PIECES.some(item=>item.id===definition.id);
+        if((official&&!STREET_V2_MIRROR_IDS.has(definition.id)&&(meta&8))||(!official&&MIRROR_DISABLED.has(definition.id)&&(meta&8)))return null;
+        pieces.push(pieceFromStoredVertex(definition,vertex,meta&7,!!(meta&8)));
+      }
+      const rules=streetRules(profile,centralZone);
+      if(validatePieces(pieces,true,rules).size||streetProfileIssues(pieces,profile).length)return null;
+      return {variant:'street',version:2,profile,centralZone,pieces,id:encodeStreetV2Grid(pieces,profile,centralZone)};
+    }
     if(!clean.startsWith('ST1'))return null;
     const hex=clean.slice(3);if(hex.length!==PIECES.length*4+2||!/^[0-9A-F]+$/.test(hex))return null;
     const bytes=hex.match(/../g).map(value=>parseInt(value,16));
@@ -611,12 +800,10 @@
     const pieces=[];
     for(let i=0;i<PIECES.length;i++){
       const vertex=STREET_VERTICES[bytes[i*2]],meta=bytes[i*2+1];if(!vertex||meta>13||(meta&7)>5)return null;
-      const piece={id:PIECES[i].id,anchor:{...vertex},rotation:meta&7,flipped:!!(meta&8)};
-      const definition=PIECES[i],first=definition.poly[0],relative=[first[0]-definition.pivot[0],first[1]-definition.pivot[1]];
-      piece.anchor=sub(vertex,axialVectorToScreen(axialTransform(relative,piece.rotation,piece.flipped)));pieces.push(piece);
+      const definition=PIECES[i];pieces.push(pieceFromStoredVertex(definition,vertex,meta&7,!!(meta&8)));
     }
-    if(validatePieces(pieces,true).size)return null;
-    return {variant:'street',pieces,id:encodeStreetGrid(pieces)};
+    if(validatePieces(pieces,true,{v2:false,centralZone:false}).size)return null;
+    return {variant:'street',version:1,pieces,id:encodeStreetV1Grid(pieces)};
   }
   function geometrySignature(piece){
     const geometry=pieceGeometry(piece),point=p=>`${p.x.toFixed(2)},${p.y.toFixed(2)}`;
@@ -635,7 +822,8 @@
     })).join('|');
   }
   function guessIsCorrect(){
-    const exact=PIECES.every(definition=>{
+    const definitions=state.secretPieces.map(piece=>pieceDefinition(piece)).filter(Boolean);
+    const exact=definitions.length===state.pieces.length&&definitions.every(definition=>{
       const guess=state.pieces.find(piece=>piece.id===definition.id),secret=state.secretPieces.find(piece=>piece.id===definition.id);
       return guess?.anchor&&secret?.anchor&&geometrySignature(guess)===geometrySignature(secret);
     });
@@ -645,7 +833,7 @@
   function streetProgress(){return {pieces:state.pieces,traces:state.traces.map(trace=>({entryIndex:trace.entry.index,entryDirectionIndex:trace.entryDirectionIndex,exitIndex:trace.exit?.index??null,exitDirectionIndex:trace.exitDirectionIndex,points:trace.points,colors:trace.colors,color:trace.color,bounced:trace.bounced,loop:trace.loop,time:trace.time})),coords:state.coords,draftCells:state.draftCells,attempts:state.attempts,startedAt:state.startedAt};}
   function restoreStreetProgress(progress){
     if(!progress||typeof progress!=='object')return;
-    if(Array.isArray(progress.pieces)&&progress.pieces.length===PIECES.length)state.pieces=progress.pieces;
+    if(Array.isArray(progress.pieces)&&progress.pieces.length===state.pieces.length)state.pieces=progress.pieces;
     state.coords=Array.isArray(progress.coords)?progress.coords:[];state.draftCells=progress.draftCells&&typeof progress.draftCells==='object'?progress.draftCells:{};state.attempts=Math.max(0,Number(progress.attempts)||0);state.startedAt=Number(progress.startedAt)||Date.now();
     state.traces=(Array.isArray(progress.traces)?progress.traces:[]).map(item=>({...item,entry:BOARD.boundary[item.entryIndex],exit:item.exitIndex==null?null:BOARD.boundary[item.exitIndex]})).filter(item=>item.entry);
   }
@@ -698,7 +886,8 @@
     return point.matrixTransform(svg.getScreenCTM().inverse());
   }
   function snapPieceAnchor(piece,target){
-    const definition=PIECES.find(item=>item.id===piece.id),first=definition.poly[0];
+    const definition=pieceDefinition(piece),first=definition.poly[0]||definition.walls[0]?.[0];
+    if(!first)return {...target};
     const relative=[first[0]-definition.pivot[0],first[1]-definition.pivot[1]];
     const firstOffset=axialVectorToScreen(axialTransform(relative,piece.rotation,piece.flipped));
     let best=null,bestDistance=Infinity;
@@ -712,11 +901,12 @@
     const geo=pieceGeometry({...piece,anchor:{x:0,y:0}}),wallPolygons=visualWallPolygonsFor(geo),all=[...geo.poly,...wallPolygons.flat()];
     const xs=all.map(p=>p.x),ys=all.map(p=>p.y),pad=9;
     const minX=Math.min(...xs)-pad,minY=Math.min(...ys)-pad,width=Math.max(...xs)-Math.min(...xs)+pad*2,height=Math.max(...ys)-Math.min(...ys)+pad*2;
-    return `<svg viewBox="${minX} ${minY} ${width} ${height}" aria-hidden="true"><polygon points="${pointsAttr(geo.poly)}" fill="${COLORS[geo.definition.color]}"/>${wallPolygons.map(poly=>`<polygon points="${pointsAttr(poly)}" fill="${COLORS[geo.definition.color]}"/>`).join('')}</svg>`;
+    const body=geo.definition.renderBody===false?'':`<polygon points="${pointsAttr(geo.poly)}" fill="${COLORS[geo.definition.color]}"/>`;
+    return `<svg viewBox="${minX} ${minY} ${width} ${height}" aria-hidden="true">${body}${wallPolygons.map(poly=>`<polygon points="${pointsAttr(poly)}" fill="${COLORS[geo.definition.color]}"/>`).join('')}</svg>`;
   }
   function createPieceGhost(piece){
     const geo=pieceGeometry({...piece,anchor:{x:0,y:0}}),wallPolygons=visualWallPolygonsFor(geo),ghost=svgEl('svg',{width:1,height:1,class:'street-drag-ghost','aria-hidden':'true'});
-    ghost.appendChild(svgEl('polygon',{points:pointsAttr(geo.poly),fill:COLORS[geo.definition.color]}));
+    if(geo.definition.renderBody!==false)ghost.appendChild(svgEl('polygon',{points:pointsAttr(geo.poly),fill:COLORS[geo.definition.color]}));
     wallPolygons.forEach(poly=>ghost.appendChild(svgEl('polygon',{points:pointsAttr(poly),fill:COLORS[geo.definition.color],class:'street-wall'})));
     document.body.appendChild(ghost);return ghost;
   }
@@ -736,7 +926,11 @@
       event.preventDefault();event.stopPropagation();state.selected=piece.id;
       const startX=event.clientX,startY=event.clientY,pointerId=event.pointerId;
       try{element.setPointerCapture?.(pointerId);}catch(_error){}
-      let moved=false,longPressed=false,ghost=null,ghostFrame=0,ghostX=startX,ghostY=startY,ghostScale=1;
+      const board=byId('streetBoard');
+      const startPoint=board?svgClientPoint(startX,startY,board):null;
+      const originalAnchor=piece.anchor?.q!==undefined?screenPoint(piece.anchor):piece.anchor;
+      const dragOffset=startPoint&&originalAnchor?sub(startPoint,originalAnchor):{x:0,y:0};
+      let moved=false,longPressed=false,ghost=null,ghostFrame=0,ghostX=startX,ghostY=startY,ghostScale=1,ghostOffset={x:0,y:0};
       element.classList.add('gesture-active');
       const timer=setTimeout(()=>{
         if(moved)return;
@@ -745,10 +939,11 @@
         if(navigator.vibrate)navigator.vibrate(15);
         render();
       },480);
-      const positionGhost=(x,y)=>{ghostX=x;ghostY=y;if(ghostFrame)return;ghostFrame=requestAnimationFrame(()=>{ghostFrame=0;if(ghost?.isConnected)ghost.style.transform=`translate3d(${ghostX}px,${ghostY}px,0) scale(${ghostScale})`;});};
+      const positionGhost=(x,y)=>{ghostX=x;ghostY=y;if(ghostFrame)return;ghostFrame=requestAnimationFrame(()=>{ghostFrame=0;if(ghost?.isConnected)ghost.style.transform=`translate3d(${ghostX-ghostOffset.x}px,${ghostY-ghostOffset.y}px,0) scale(${ghostScale})`;});};
       const startDrag=()=>{
-        const matrix=byId('streetBoard')?.getScreenCTM();
+        const matrix=board?.getScreenCTM();
         ghostScale=matrix?Math.hypot(matrix.a,matrix.b):1;
+        ghostOffset=matrix?{x:matrix.a*dragOffset.x+matrix.c*dragOffset.y,y:matrix.b*dragOffset.x+matrix.d*dragOffset.y}:{...dragOffset};
         ghost=createPieceGhost(piece);element.classList.add('dragging');positionGhost(startX,startY);
       };
       const cleanup=()=>{clearTimeout(timer);if(ghostFrame)cancelAnimationFrame(ghostFrame);element.classList.remove('gesture-active','dragging');try{if(element.hasPointerCapture?.(pointerId))element.releasePointerCapture(pointerId);}catch(_error){}window.removeEventListener('pointermove',onMove);window.removeEventListener('pointerup',onUp);window.removeEventListener('pointercancel',onCancel);};
@@ -762,12 +957,12 @@
         if(upEvent.pointerId!==pointerId)return;
         const wasMoved=moved;cleanup();
         if(wasMoved){
-          const svg=byId('streetBoard'),local=svgClientPoint(upEvent.clientX,upEvent.clientY,svg);
+          const svg=byId('streetBoard'),local=svgClientPoint(upEvent.clientX,upEvent.clientY,svg),anchorPoint=sub(local,dragOffset);
           const tutorialTarget=streetTutorial.active&&streetTutorial.puzzle&&streetTutorial.stage===6&&streetTutorial.phase===2&&streetTutorialPlacementOrder[streetTutorial.draftIndex]===piece.id
             ?streetTutorialTargetPiece(piece.id)
             :null;
           if(tutorialTarget?.anchor&&pointInPolygon(local,pieceGeometry(tutorialTarget).poly,true))piece.anchor={...tutorialTarget.anchor};
-          else if(pointInPolygon(local,BOARD.polygon,true))piece.anchor=snapPieceAnchor(piece,local);
+          else if(pointInPolygon(local,BOARD.polygon,true))piece.anchor=snapPieceAnchor(piece,anchorPoint);
           else piece.anchor=null;
           ghost?.remove();
           streetTutorialCheckPlacement(piece);
@@ -780,9 +975,10 @@
   }
   function renderPalette(){
     const host=byId('streetPalette');host.innerHTML='';
-    const pieces=state.pieces.filter(piece=>!piece.anchor);
+    const allowed=state.mode==='gm'&&state.profile?new Set(streetAllowedDefinitions(state.profile).map(definition=>definition.id)):null;
+    const pieces=state.pieces.filter(piece=>!piece.anchor&&(!allowed||allowed.has(piece.id)));
     pieces.forEach(piece=>{
-      const def=PIECES.find(d=>d.id===piece.id),tile=document.createElement('div');
+      const def=pieceDefinition(piece),tile=document.createElement('div');
       const tutorialTarget=streetTutorial.active&&streetTutorial.puzzle&&streetTutorial.stage===6&&streetTutorial.phase===2&&streetTutorialPlacementOrder[streetTutorial.draftIndex]===piece.id;
       tile.className=`street-piece-card${state.selected===piece.id?' selected':''}${tutorialTarget?' street-tutorial-target':''}`;
       tile.dataset.piece=piece.id;tile.setAttribute('role','button');tile.setAttribute('tabindex','0');tile.setAttribute('aria-label',def.name);tile.title=def.name;
@@ -811,8 +1007,13 @@
     BOARD.triangles.forEach(triangle=>{
       const key=String(triangle.id),draftEmpty=!!state.draftCells?.[key];
       const draftTarget=streetTutorialDraftTargetId()===triangle.id;
-      const poly=svgEl('polygon',{points:pointsAttr(triangle.points),class:`street-cell${draftEmpty?' draft-empty':''}${draftTarget?' street-tutorial-target':''}`,'data-cell':triangle.id});
+      const forbidden=streetRules().centralZone&&STREET_FORBIDDEN_TRIANGLE_IDS.has(triangle.id);
+      const surveyed=streetPieceSurvey.active&&streetPieceSurvey.triangles.has(triangle.id);
+      const poly=svgEl('polygon',{points:pointsAttr(triangle.points),class:`street-cell${forbidden?' street-forbidden-cell':''}${surveyed?' street-survey-selected':''}${draftEmpty?' draft-empty':''}${draftTarget?' street-tutorial-target':''}`,'data-cell':triangle.id});
       poly.addEventListener('click',async event=>{
+        if(streetPieceSurvey.active&&officialStreetCreationActive()){
+          event.stopPropagation();toggleSurveyTriangle(triangle.id);render();return;
+        }
         if(!state.started)return;
         if(useDirectionChoices&&selectedWaveEdge!==null)return;
         event.stopPropagation();
@@ -981,13 +1182,14 @@
       const attrs={points:pointsAttr(geo.poly),fill:display==='guess'?'none':color};
       if(display==='guess')Object.assign(attrs,{stroke:color,'stroke-width':2.2,'vector-effect':'non-scaling-stroke'});
       const body=svgEl('polygon',attrs);
-      if(display!=='guess')group.appendChild(body);
+      if(display!=='guess'&&geo.definition.renderBody!==false)group.appendChild(body);
+      else if(display==='normal'&&geo.definition.renderBody===false)group.appendChild(svgEl('polygon',{points:pointsAttr(geo.poly),fill:'transparent','pointer-events':'all',class:'street-piece-hit-area'}));
       visualWallPolygonsFor(geo,display!=='guess').forEach(wall=>{
         const wallAttrs={points:pointsAttr(wall),fill:display==='guess'?'none':color,class:'street-wall'};
         if(display==='guess')Object.assign(wallAttrs,{stroke:color,'stroke-width':2.2,'vector-effect':'non-scaling-stroke'});
         group.appendChild(svgEl('polygon',wallAttrs));
       });
-      if(display==='guess')group.appendChild(body);
+      if(display==='guess'&&geo.definition.renderBody!==false)group.appendChild(body);
       if(display==='normal')attachPieceGesture(group,piece);
       svg.appendChild(group);
     };
@@ -1005,6 +1207,24 @@
         svg.appendChild(group);
       }else svg.appendChild(svgEl('circle',{cx:center.x,cy:center.y,r:5.5,fill:item.hex,class:'street-coordinate-color'}));
     });
+    if(streetPieceSurvey.active&&officialStreetCreationActive()){
+      const surveyGroup=svgEl('g',{class:'street-survey-overlay'});
+      BOARD.triangles.forEach(triangle=>{
+        const center=triangleCenter(triangle),label=svgEl('text',{x:center.x,y:center.y,'text-anchor':'middle','dominant-baseline':'central',class:'street-survey-triangle-id'});
+        label.textContent=triangle.id;surveyGroup.appendChild(label);
+      });
+      streetPieceSurvey.walls.forEach(([start,end])=>{
+        const a=screenPoint(surveyVertexFromKey(start)),b=screenPoint(surveyVertexFromKey(end));
+        surveyGroup.appendChild(svgEl('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,class:'street-survey-wall'}));
+      });
+      [...BOARD.vertices.values()].forEach(vertex=>{
+        const point=screenPoint(vertex),selected=streetPieceSurvey.wallStart===surveyVertexKey(vertex);
+        const hit=svgEl('circle',{cx:point.x,cy:point.y,r:3.4,class:`street-survey-vertex${selected?' selected':''}`});
+        hit.addEventListener('click',event=>{event.stopPropagation();selectSurveyVertex(vertex);render();});surveyGroup.appendChild(hit);
+        const label=svgEl('text',{x:point.x+3.7,y:point.y-3.7,class:'street-survey-vertex-label'});label.textContent=`${vertex.q},${vertex.r}`;surveyGroup.appendChild(label);
+      });
+      svg.appendChild(surveyGroup);
+    }
     svg.appendChild(labelGroup);
   }
   function findTraceAt(edgeIndex,directionIndex){
@@ -1134,9 +1354,15 @@
   }
   function setMessage(text,error=false){const el=byId('streetStartBlockMsg');el.textContent=text;el.style.color=error?'#f5b8ae':'var(--text-faint)';}
   function elapsedMs(){return Math.max(0,Date.now()-(state.startedAt||Date.now()));}
+  function streetSummaryLabel(decoded={version:state.profile?2:1,profile:state.profile,centralZone:state.centralZone,pieces:state.secretPieces.length?state.secretPieces:state.pieces}){
+    if(decoded.version!==2)return 'Orapa Street';
+    const profile=STREET_V2_PROFILES[decoded.profile]?.label||'Libre';
+    const options=decoded.profile==='free'?` · ${streetPlacedPieces(decoded.pieces||[]).length} 🧩 · ⬢${decoded.centralZone?'✅':'❌'}`:` · ${profile}`;
+    return `Orapa Street v2${options}`;
+  }
   function streetSummary(success=state.result==='win'){
     const name=currentPlayerAccount?.display_name||'Anonyme',cost=state.traces.length+state.coords.length*3,date=new Date().toLocaleDateString('fr-FR');
-    return `Orapa Street · ${date}\n${name} - ${success?'🏅':'😞'} - ${cost} pts (${state.traces.length}🔦/${state.coords.length}📍) - ID: ${publicGridId(state.gridId)}\nhttps://argone57.github.io/Orapa-Mine/`;
+    return `${streetSummaryLabel()} · ${date}\n${name} - ${success?'🏅':'😞'} - ${cost} pts (${state.traces.length}🔦/${state.coords.length}📍) - ID: ${publicGridId(state.gridId)}\nhttps://argone57.github.io/Orapa-Mine/`;
   }
   function ensureStreetModal(){
     let backdrop=byId('streetResultModal');if(backdrop)return backdrop;
@@ -1155,9 +1381,10 @@
     const success=state.result==='win',time=Number.isFinite(state.finalTimeMs)?state.finalTimeMs:elapsedMs(),cost=state.traces.length+state.coords.length*3;
     const modal=ensureStreetModal();
     byId('streetResultTitle').textContent=success?'🏆 Victoire !':'💥 Défaite';
+    const count=state.secretPieces.length;
     byId('streetResultMessage').textContent=state.gridRanked===false
-      ?`${success?'Tu as retrouvé la disposition exacte des sept pièces !':'La seconde proposition est incorrecte : la grille secrète est révélée.'} Cette nouvelle partie n’est pas enregistrée car cette grille a déjà été jouée avec ce compte.`
-      :(success?'Tu as retrouvé la disposition exacte des sept pièces !':'La seconde proposition est incorrecte : la grille secrète est révélée.');
+      ?`${success?`Tu as retrouvé la disposition exacte des ${count} pièces !`:'La seconde proposition est incorrecte : la grille secrète est révélée.'} Cette nouvelle partie n’est pas enregistrée car cette grille a déjà été jouée avec ce compte.`
+      :(success?`Tu as retrouvé la disposition exacte des ${count} pièces !`:'La seconde proposition est incorrecte : la grille secrète est révélée.');
     byId('streetResultScore').textContent=`${cost} pts (${state.traces.length}🔦 + ${state.coords.length}📍) · ${formatDuration(time)}`;
     byId('streetResultRank').textContent=state.rank?`Classé #${state.rank} dans « classement global de la grille »`:'';
     byId('streetResultId').textContent=`Orapa Street · ${publicGridId(state.gridId)}`;
@@ -1196,6 +1423,7 @@
     render();
     ensureStreetModal();
     byId('streetResultActions').dataset.orapaMyludoResult=state.gridRanked===false||submitted?.accepted===false?'false':'true';
+    document.dispatchEvent(new Event('orapa:myludo-buttons-refresh'));
     openStreetResultModal();
   }
   async function proposeStreetSolution(){
@@ -1222,12 +1450,15 @@
   }
   function render(){
     renderPalette();renderBoard();renderHistory();
-    const issues=validatePieces(state.pieces),placed=state.pieces.filter(p=>p.anchor).length;
-    const complete=placed===PIECES.length&&!issues.size;
+    const v2=!!streetProfileConfig(state.profile),v2Creation=state.mode==='gm'&&!state.started&&v2;
+    const issues=validatePieces(state.pieces,true,streetRules()),placed=state.pieces.filter(p=>p.anchor).length;
+    const profileIssues=v2?streetProfileIssues(state.pieces,state.profile):[];
+    const complete=v2?(!issues.size&&!profileIssues.length):placed===PIECES.length&&!issues.size;
+    const canStart=complete;
     const preStart=!state.started;
     const showPalette=preStart||(streetPlayerMode()&&!state.over&&(!streetTutorial.active||streetTutorial.puzzle));
-    byId('streetRandom').hidden=!preStart;
-    byId('streetShare').hidden=!preStart;
+    byId('streetRandom').hidden=!preStart||state.mode!=='gm';
+    byId('streetShare').hidden=!preStart||state.mode!=='gm';
     byId('streetStart').hidden=!preStart;
     const streetEnd=byId('streetEnd');
     const showAttemptCounter=state.mode==='solo'&&state.started&&!state.over;
@@ -1240,12 +1471,26 @@
       streetEnd.innerHTML=`<span>✅ Proposer une solution</span><span class="attempt-counter${remaining===1?' last':''}" aria-label="${remaining} proposition${remaining>1?'s':''} restante${remaining>1?'s':''}" title="Propositions restantes">${remaining} essai${remaining>1?'s':''}</span>`;
     }else streetEnd.textContent=state.mode==='gm'?'🏁 Fin de partie':'Proposer une solution';
     streetEnd.disabled=state.mode==='solo'&&!complete;
-    byId('streetStart').disabled=!complete;
+    byId('streetStart').disabled=!canStart;
     byId('streetShare').disabled=!complete;
     byId('streetPaletteTitle').style.display=showPalette?'flex':'none';
     byId('streetPalette').style.display=showPalette?'flex':'none';
     byId('streetSetupHint').style.display=showPalette?'block':'none';
+    byId('streetSetupHint').textContent='Glisse une pièce sur la grille · tape dessus pour la faire pivoter de 60° · reste appuyé pour la retourner en miroir';
     byId('streetStartBlockMsg').style.display=preStart?'block':'none';
+    const pieceSetToggle=byId('streetPieceSetToggle');
+    pieceSetToggle.hidden=true;
+    const surveyToggle=byId('streetSurveyToggle'),surveyTools=byId('streetSurveyTools');
+    surveyToggle.hidden=!(v2Creation&&streetSurveyUnlocked);
+    surveyToggle.setAttribute('aria-pressed',String(streetPieceSurvey.active&&v2Creation));
+    surveyToggle.textContent=streetPieceSurvey.active?'Fin du relevé':'Relever';
+    surveyTools.hidden=!(v2Creation&&streetSurveyUnlocked&&streetPieceSurvey.active);
+    if(v2Creation&&streetPieceSurvey.active){
+      const count=streetPieceSurvey.triangles.size,walls=streetPieceSurvey.walls.length;
+      byId('streetSurveyStatus').textContent=streetPieceSurvey.wallStart?`Sommet de départ choisi : sélectionne le sommet d’arrivée. (${count} triangles, ${walls} mur${walls>1?'s':''})`:`${count} triangle${count>1?'s':''} · ${walls} mur${walls>1?'s':''}. Clique deux sommets pour ajouter un mur.`;
+    }
+    const profileControls=byId('streetProfileControls'),profileSelect=byId('streetProfileSelect'),centralControl=byId('streetCentralZoneControl'),centralInput=byId('streetCentralZone');
+    profileControls.hidden=!v2Creation;profileSelect.value=state.profile||'normal';centralControl.hidden=state.profile!=='free';centralInput.checked=state.centralZone!==false;
     byId('streetWaveSetting').hidden=true;
     byId('streetWavePreference').value=wavePreference;
     const showCellTools=streetPlayerMode()&&state.started&&!state.over&&(!streetTutorial.active||streetTutorial.puzzle);
@@ -1267,8 +1512,8 @@
     pill.querySelector('span:last-child').textContent=streetTutorial.active?'Tutoriel interactif':(state.over?(state.result==='win'?'Victoire':'Défaite'):(state.started?(state.mode==='solo'?'Partie en cours':'Test de la grille'):'Placement des pièces'));
     if(preStart){clearDirectionChoicesTimer();selectedWaveEdge=null;}
     if(state.started)setMessage('',false);
+    else if(profileIssues.length)setMessage(profileIssues[0],true);
     else if(issues.size)setMessage([...new Set(issues.values())][0],true);
-    else if(placed<PIECES.length)setMessage('Place toutes les pièces avant de démarrer.',true);
     else setMessage('');
   }
   function ensureStreetTutorialCoach(){
@@ -1284,21 +1529,21 @@
   }
   function streetTutorialContent(stage){
     const content={
-      1:{title:'Bienvenue dans Orapa Street',text:'<p>Veuillez noter que ce mode a été développé à partir de la seule image connue du jeu à ce jour.<br>Il est donc possible qu’il y ait des différences avec le jeu réel à venir.</p><p>Le principe est toujours le même, reconstituer la grille avec les différentes pièces.</p><p>Les règles de placement sont également identiques.</p><p>Les 2 actions habituelles constituent toujours le cœur du jeu ; toutefois, compte tenu de la forme de la grille, la gestion des ondes est un peu différente.</p>',action:'Suivant'},
+      1:{title:'Bienvenue dans Orapa Street v2',text:'<p>Le principe est toujours le même, reconstituer la grille avec les différentes pièces.</p><p>Les 2 actions habituelles constituent toujours le cœur du jeu ; toutefois, compte tenu de la forme de la grille, la gestion des ondes est un peu différente.</p><br><p><strong>Il y a toutefois 2 nouvelles contraintes de placement :<br>– aucune pièce ne peut être placée dans la zone centrale, mais les ondes passent bien à travers<br>– il n’y a plus aucun contact possible entre 2 pièces, y compris par les angles.</strong></p><p><strong>– Contrairement à la règle officielle et pour simplifier, les nouvelles pièces v2 peuvent être retournées en miroir.</strong></p>',action:'Suivant'},
       2:{title:'Voilà à quoi ressemble une grille',text:'',action:'Suivant'},
       3:{title:'Deux directions possibles',text:'<p>La particularité de cette grille est qu’il peut y avoir 2 ondes qui partent depuis un même point de départ.<br>Pour gérer les 2 directions, il y a 2 options d’affichage : <strong>Cases</strong> et <strong>Flèches</strong>.</p><p>Vous pouvez changer à tout moment depuis les options de votre compte.<br>En auto, le mode d’affichage s’adaptera à la taille de l’écran (cases pour les petits écrans).</p><p>Ici, c’est la présentation en mode case, essayez :<br>Cliquer en <strong>J</strong> et choisir la direction vers <strong>14</strong>.</p>'},
       4:{title:'Les informations de sortie',text:'<p>Plusieurs informations s’affichent.<br>Les informations de sortie sont affichées directement dans les cases et celles-ci se colorent à moitié.<br>Si vous recliquez sur une case où vous avez déjà lancé une onde, vous verrez que la direction a également été remplacée par sa sortie.</p><p>Recliquez sur <strong>J</strong>.</p>'},
-      5:{title:'Les rebonds',text:'<p>Comme vous pouvez le constater, il y a beaucoup plus de rebonds que dans les autres modes.</p><p>Cliquez sur <strong>11</strong> vers <strong>G</strong>.<br>Puis cliquez en <strong>8</strong> vers <strong>D</strong>.</p>',action:streetTutorial.waveIndex>=2?'Suivant':''},
+      5:{title:'Les rebonds',text:'<p>Comme vous pouvez le constater, il y a beaucoup plus de rebonds que dans les autres modes.</p><p>Cliquez sur <strong>11</strong> vers <strong>G</strong>.<br>Puis cliquez en <strong>C</strong> vers <strong>7</strong>.</p>',action:streetTutorial.waveIndex>=2?'Suivant':''},
       6:{title:'Afficher une onde',text:streetTutorial.phase===0
         ?'<p>Afin de vous aider, le mode <strong>Afficher une onde</strong> a été ajouté dans ce mode.</p><p>Activez le mode.</p>'
         :streetTutorial.phase===1
           ?'<p>Cliquez en <strong>8</strong> vers <strong>D</strong>.</p>'
           :streetTutorial.phase===2
             ?`<p>Cette onde n’est pas prise en compte pour la résolution de la grille mais vous aide à placer les pièces.<br>Elle réagit en temps réel aux pièces que vous placez sur son chemin.</p><p>${[
-              'Placez la petite pièce jaune à l’emplacement indiqué. Retournez-la en miroir pour l’orienter correctement.',
-              'Placez la grande bleue à l’emplacement indiqué.',
-              'Placez la rouge à l’emplacement indiqué.',
-              'Placez la petite bleue à l’emplacement indiqué.'
+              'Placez la pièce en surbrillance à l’emplacement indiqué. Retournez-la en miroir pour l’orienter correctement.',
+              'Placez cette pièce jaune à l’emplacement indiqué.',
+              'Placez cette pièce bleue à l’emplacement indiqué.',
+              'Placez cette pièce blanche à l’emplacement indiqué.'
             ][streetTutorial.draftIndex]||'Placez la pièce à l’emplacement indiqué.'}</p>`
             :streetTutorial.phase===3
               ?streetTutorial.waveIndex===0
@@ -1307,7 +1552,8 @@
               :streetTutorial.phase===4
                 ?'<p>Vous pouvez également combiner le mode pour masquer les cases tout en laissant le mode onde activé.</p><p>Activez le mode <strong>Masquer les cases</strong>.</p>'
                 :'<p>Cliquez sur les 3 premières cases surlignées de la ligne <strong>4</strong> vers <strong>G</strong>.</p>',action:''},
-      7:{title:'Aperçu terminé',text:'<p>Voilà, vous avez un aperçu d’Orapa Street, enfin en espérant que ça sera bien comme ça quand on en saura plus sur le jeu 🙂</p><p>N’hésitez pas à utiliser le mode création de grille en faisant « Démarrer la partie » après avoir placé toutes les pièces, cela vous permettra de mieux voir les interactions.</p><p>Et bon courage !</p>',action:'Terminer'}
+      7:{title:'Bonus sur PC',text:'<p>Vous pouvez lancer l’onde de test sans activer le mode en faisant un clic droit sur les cases ou les flèches.</p><p>Vous pouvez activer le mode <strong>Masquer les cases</strong> en appuyant sur la touche <strong>Tab</strong>.</p><p>Vous pouvez directement masquer ou réafficher les cases en faisant un clic droit sur les cases de la grille.</p>',action:'Suivant'},
+      8:{title:'Aperçu terminé',text:'<p>Voilà, vous avez un aperçu d’Orapa Street, enfin en espérant que ça sera bien comme ça quand on en saura plus sur le jeu 🙂</p><p>N’hésitez pas à utiliser le mode création de grille en faisant « Démarrer la partie » après avoir placé toutes les pièces, cela vous permettra de mieux voir les interactions.</p><p>Et bon courage !</p>',action:'Terminer'}
     };
     return content[stage]||content[1];
   }
@@ -1324,14 +1570,16 @@
   }
   function streetTutorialDemoState(){
     state={mode:'tutorial',pieces:streetTutorial.secretPieces.map(piece=>({...piece,anchor:piece.anchor?{...piece.anchor}:null})),secretPieces:streetTutorial.secretPieces.map(piece=>({...piece,anchor:piece.anchor?{...piece.anchor}:null})),selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:true,traces:[],coords:[],draftCells:{},gridId:STREET_TUTORIAL_REFERENCE,gridAlias:STREET_TUTORIAL_REFERENCE,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
+    Object.assign(state,{profile:'sherlock7',centralZone:true,pieceSet:'official'});
     streetTutorial.puzzle=false;clearDirectionChoicesTimer();selectedWaveEdge=null;toggleHistory(false);
   }
   function streetTutorialIntroState(){
     state={mode:'tutorial',pieces:freshPieces(),secretPieces:streetTutorial.secretPieces.map(piece=>({...piece,anchor:piece.anchor?{...piece.anchor}:null})),selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:true,traces:[],coords:[],draftCells:{},gridId:STREET_TUTORIAL_REFERENCE,gridAlias:STREET_TUTORIAL_REFERENCE,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
+    Object.assign(state,{profile:'sherlock7',centralZone:true,pieceSet:'official',pieces:freshPieces(STREET_PIECES)});
     streetTutorial.puzzle=false;clearDirectionChoicesTimer();selectedWaveEdge=null;toggleHistory(false);
   }
   function streetTutorialPuzzleState(){
-    state={mode:'tutorial',pieces:PIECES.map(definition=>{const target=streetTutorialTargetPiece(definition.id);return {...target,anchor:null,flipped:definition.id==='yellowLarge'?!target.flipped:target.flipped};}),secretPieces:streetTutorial.secretPieces.map(piece=>({...piece,anchor:piece.anchor?{...piece.anchor}:null})),selected:'yellowLarge',tool:'pieces',waveModeActive:false,previewWave:null,started:true,traces:[],coords:[],draftCells:{},gridId:STREET_TUTORIAL_REFERENCE,gridAlias:STREET_TUTORIAL_REFERENCE,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
+    state={mode:'tutorial',profile:'normal',centralZone:true,pieceSet:'official',pieces:STREET_PIECES.map(definition=>{const target=streetTutorialTargetPiece(definition.id);return target?{...target,anchor:null,flipped:definition.id==='red1'?false:target.flipped}:{id:definition.id,anchor:null,rotation:0,flipped:false};}),secretPieces:streetTutorial.secretPieces.map(piece=>({...piece,anchor:piece.anchor?{...piece.anchor}:null})),selected:'red1',tool:'pieces',waveModeActive:false,previewWave:null,started:true,traces:[],coords:[],draftCells:{},gridId:null,gridAlias:null,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
     streetTutorial.puzzle=true;streetTutorial.draftIndex=0;streetTutorial.phase=0;clearDirectionChoicesTimer();selectedWaveEdge=null;toggleHistory(false);
   }
   function advanceStreetTutorial(){
@@ -1339,7 +1587,8 @@
     if(streetTutorial.stage===1){streetTutorialDemoState();streetTutorial.stage=2;}
     else if(streetTutorial.stage===2)streetTutorial.stage=3;
     else if(streetTutorial.stage===5&&streetTutorial.waveIndex>=2){streetTutorialPuzzleState();streetTutorial.stage=6;}
-    else if(streetTutorial.stage===7){void completeStreetTutorial();return;}
+    else if(streetTutorial.stage===7)streetTutorial.stage=8;
+    else if(streetTutorial.stage===8){void completeStreetTutorial();return;}
     streetTutorialShow();render();
   }
   function streetTutorialLoadProgress(){
@@ -1356,14 +1605,12 @@
     streetTutorialSaveProgress();byId('streetTutorialExitModal')?.classList.add('open');
   }
   async function beginStreetTutorial(){
-    let decoded=decodeStreetGrid(STREET_TUTORIAL_REFERENCE);
-    try{if(!decoded&&typeof resolveGridReference==='function')decoded=await resolveGridReference(STREET_TUTORIAL_REFERENCE);}catch(_error){}
-    if(decoded?.variant!=='street'||!Array.isArray(decoded.pieces)){showErrorToast('La grille du tutoriel Street est indisponible pour le moment.');return false;}
     const previousPreference=wavePreference;
     applyWavePreference('choices',false);
-    streetTutorial={active:true,stage:1,puzzle:false,secretPieces:decoded.pieces.map(piece=>({...piece,anchor:piece.anchor?{...piece.anchor}:null})),draftIndex:0,preference:previousPreference,waveIndex:0,phase:0};
+    streetTutorial={active:true,stage:1,puzzle:false,secretPieces:STREET_TUTORIAL_DEMO.map(piece=>({...piece,anchor:{...piece.anchor}})),draftIndex:0,preference:previousPreference,waveIndex:0,phase:0};
     streetTutorialIntroState();
     byId('streetPrototype').querySelector('.subtitle').textContent='Parcours interactif';
+    byId('streetPrototype').querySelector('h1').textContent='🏠 Orapa Street v2';
     byId('streetPrototype').hidden=false;document.body.classList.add('street-open');document.body.classList.remove('home-view');
     streetTutorialShow();render();return true;
   }
@@ -1391,19 +1638,76 @@
     byId('streetPrototype').hidden=true;document.body.classList.remove('street-open');document.body.classList.add('home-view');
   }
   async function completeStreetTutorial(){
-    endStreetTutorial(true);
-    if(!currentPlayerAccount?.session_token)return;
+    if(!currentPlayerAccount?.session_token){showErrorToast('Connecte-toi pour enregistrer la fin du tutoriel.');return;}
     try{
-      const result=await supabaseRpc('orapa_award_street_event',{p_session_token:currentPlayerAccount.session_token,p_event:'tutorial'});
+      const result=await supabaseRpc('orapa_complete_street_v2_tutorial',{p_session_token:currentPlayerAccount.session_token});
+      if(!result?.completed)throw new Error('Enregistrement non confirmé');
+      endStreetTutorial(true);
       if(result?.newly_unlocked){achievementCatalogCache=null;queueAchievementNotifications?.(['street_irregular']);}
-    }catch(error){console.warn('Attribution du succès Street impossible',error);}
+    }catch(error){console.warn('Enregistrement du tutoriel Street impossible',error);showErrorToast('Enregistrement impossible : vérifie ta connexion puis réessaie.');}
   }
   function bind(){
     const create=byId('createStreetMode');
     if(!create)return;
+    byId('streetPrototype').querySelector('.mode-pill').addEventListener('click',()=>{
+      if(!officialStreetCreationActive())return;
+      streetSurveyClicks++;
+      if(streetSurveyClicks<5)return;
+      streetSurveyClicks=0;streetSurveyUnlocked=!streetSurveyUnlocked;streetPieceSurvey.active=streetSurveyUnlocked;streetPieceSurvey.wallStart=null;
+      showToast(streetSurveyUnlocked?'Outil de relevé temporaire activé.':'Outil de relevé masqué.');render();
+    });
     create.addEventListener('click',()=>openCreation());
     byId('streetClose').addEventListener('click',()=>streetTutorial.active?requestStreetTutorialExit():close());
+    byId('streetPieceSetToggle').addEventListener('click',()=>{
+      if(state.profile)return;
+      if(state.mode!=='gm'||state.started)return;
+      resetStreetPieceSurvey();
+      if(state.pieceSet==='official'){
+        state.pieceSet='prototype';
+        state.pieces=savedPrototypeCreationPieces||freshPieces();
+        state.selected=state.pieces[0]?.id||'blueSmall';
+      }else{
+        savedPrototypeCreationPieces=state.pieces.map(piece=>({...piece,anchor:piece.anchor?{...piece.anchor}:null}));
+        state.pieceSet='official';
+        state.pieces=freshPieces(STREET_PIECES);
+        state.selected=state.pieces[0]?.id||'red1';
+      }
+      state.traces=[];state.coords=[];state.draftCells={};state.gridId=null;state.gridAlias=null;
+      clearDirectionChoicesTimer();selectedWaveEdge=null;render();
+    });
+    byId('streetSurveyToggle').addEventListener('click',()=>{
+      if(!officialStreetCreationActive())return;
+      streetPieceSurvey.active=!streetPieceSurvey.active;
+      if(!streetPieceSurvey.active)streetPieceSurvey.wallStart=null;
+      render();
+    });
+    byId('streetSurveyClear').addEventListener('click',()=>{
+      if(!officialStreetCreationActive())return;
+      streetPieceSurvey.triangles.clear();streetPieceSurvey.walls=[];streetPieceSurvey.wallStart=null;render();
+    });
+    byId('streetSurveyCopy').addEventListener('click',async()=>{
+      if(!officialStreetCreationActive())return;
+      const payload=JSON.stringify(surveyPayload(),null,2);
+      try{await navigator.clipboard?.writeText(payload);showToast('Relevé copié.');}
+      catch(_error){showErrorToast('Copie impossible.');}
+    });
+    byId('streetSurveyCopyPlacements').addEventListener('click',async()=>{
+      if(!officialStreetCreationActive())return;
+      try{await navigator.clipboard?.writeText(JSON.stringify(surveyPlacementsPayload(),null,2));showToast('Placements copiés.');}
+      catch(_error){showErrorToast('Copie impossible.');}
+    });
     byId('streetRandom').addEventListener('click',()=>{if(state.started)return;if(!randomizePieces())setMessage('Impossible de trouver un placement valide. Réessaie.',true);render();});
+    byId('streetProfileSelect').addEventListener('change',event=>{
+      if(state.mode!=='gm'||state.started)return;
+      const profile=event.target.value,existing=new Map(state.pieces.map(piece=>[piece.id,piece]));
+      const definitions=streetAllowedDefinitions(profile);
+      const available=new Set(definitions.map(definition=>definition.id));
+      state.pieces=[...definitions.map(definition=>existing.get(definition.id)||freshPieces([definition])[0]),...state.pieces.filter(piece=>piece.anchor&&!available.has(piece.id))];
+      state.profile=profile;state.centralZone=profile==='free'?byId('streetCentralZone').checked:true;
+      if(!state.pieces.some(piece=>piece.id===state.selected))state.selected=state.pieces[0]?.id||'red1';
+      state.gridId=null;state.gridAlias=null;render();
+    });
+    byId('streetCentralZone').addEventListener('change',event=>{if(state.mode!=='gm'||state.started||state.profile!=='free')return;state.centralZone=event.target.checked;render();});
     byId('streetStart').addEventListener('click',()=>{if(state.started||byId('streetStart').disabled)return;state.started=true;state.startedAt=Date.now();state.tool='pieces';state.traces=[];state.coords=[];clearDirectionChoicesTimer();selectedWaveEdge=null;toggleHistory(false);render();});
     byId('streetEnd').addEventListener('click',async()=>{
       if(state.mode==='gm'){
@@ -1418,7 +1722,16 @@
       if(!confirm(state.mode==='solo'?'Abandonner cette partie et recommencer ?':'Effacer tous les placements et l’historique Street ?'))return;
       if(state.mode==='solo'&&streetAttempt?.attempt_id)try{const abandonedAttempt=streetAttempt;await supabaseRpc('orapa_abandon_street_attempt',{p_session_token:currentPlayerAccount.session_token,p_attempt_id:abandonedAttempt.attempt_id});if(activeAttempt?.attempt_id===abandonedAttempt.attempt_id)activeAttempt=null;streetAttempt=null;}catch(error){showErrorToast('Abandon impossible : '+error.message);return;}
       if(state.mode==='solo'){await openSolo();return;}
-      state={mode:'gm',pieces:freshPieces(),secretPieces:[],selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:false,traces:[],coords:[],draftCells:{},gridId:null,gridAlias:null,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};clearDirectionChoicesTimer();selectedWaveEdge=null;render();
+      Object.assign(state,{started:false,startedAt:null,finalTimeMs:null,over:false,result:null,attempts:0,secretPieces:[],waveModeActive:false,previewWave:null,showGuess:true,showSecret:true});
+      toggleHistory(false);
+      if(state.profile){
+        resetV2Creation(state.profile,state.centralZone);render();return;
+      }
+      if(state.pieceSet==='official'){
+        resetStreetPieceSurvey();
+        state.pieces=freshPieces(STREET_PIECES);state.selected='red1';state.traces=[];state.coords=[];state.draftCells={};state.gridId=null;state.gridAlias=null;clearDirectionChoicesTimer();selectedWaveEdge=null;render();return;
+      }
+      resetStreetPieceSurvey();savedPrototypeCreationPieces=null;state={mode:'gm',pieceSet:'prototype',pieces:freshPieces(),secretPieces:[],selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:false,traces:[],coords:[],draftCells:{},gridId:null,gridAlias:null,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};clearDirectionChoicesTimer();selectedWaveEdge=null;render();
     });
     byId('streetHistoryToggle').addEventListener('click',()=>toggleHistory());
     byId('streetHint').addEventListener('click',()=>{if(streetTutorial.active){showErrorToast('Cette action n’est pas utilisée dans le tutoriel.');return;}state.tool=state.tool==='hint'?'pieces':'hint';clearDirectionChoicesTimer();selectedWaveEdge=null;render();});
@@ -1470,18 +1783,37 @@
     await loadStreetPreference();
     try{localStorage.removeItem('orapa_street_creation_v3');}catch(_error){}
     streetTutorial={active:false,stage:0,puzzle:false,secretPieces:[],draftIndex:0};byId('streetTutorialCoach')?.remove();
-    state={mode:'gm',pieces:freshPieces(),secretPieces:[],selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:false,traces:[],coords:[],draftCells:{},gridId:null,gridAlias:null,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
-    byId('streetPrototype').querySelector('.subtitle').textContent='Console du maître du jeu';
+    resetStreetPieceSurvey();streetSurveyUnlocked=false;streetSurveyClicks=0;savedPrototypeCreationPieces=null;state={mode:'gm',pieceSet:'official',profile:'normal',centralZone:true,pieces:freshPieces(STREET_PIECES),secretPieces:[],selected:'red1',tool:'pieces',waveModeActive:false,previewWave:null,started:false,traces:[],coords:[],draftCells:{},gridId:null,gridAlias:null,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
+    byId('streetPrototype').querySelector('.subtitle').textContent='Console du maître du jeu · v2';
+    byId('streetPrototype').querySelector('h1').textContent='🏠 Orapa Street v2';
     byId('streetPrototype').hidden=false;document.body.classList.add('street-open');document.body.classList.remove('home-view');toggleHistory(false);render();
   }
-  async function openSolo(gridId=null,resumeAttempt=null){
+  function openStreetProfilePicker(){
+    let modal=byId('streetProfileModal');
+    if(!modal){modal=document.createElement('div');modal.id='streetProfileModal';modal.className='modal-backdrop';document.body.appendChild(modal);}
+    modal.innerHTML=`<div class="modal"><button class="close-x" id="streetProfileClose">×</button><h2>🏠 Orapa Street v2</h2><p>Choisis l’option de la grille aléatoire.</p><div class="street-profile-picker"><label>Options <select id="streetSoloProfileSelect">${STREET_V2_PROFILE_KEYS.map(key=>`<option value="${key}">${STREET_V2_PROFILES[key].label}</option>`).join('')}</select></label><p id="streetSoloProfileDescription"></p><label id="streetSoloCentralZoneLabel" class="street-v2-profile-controls" style="justify-content:flex-start"><input id="streetSoloCentralZone" type="checkbox" checked> Zone centrale</label></div><div class="controls" style="justify-content:flex-end;margin-top:14px"><button class="ghost" id="streetProfileCancel">Annuler</button><button class="primary" id="streetProfileStart">Lancer</button></div></div>`;
+    const close=()=>{modal.classList.remove('open');byId('soloChoiceModal')?.classList.add('open');document.body.classList.add('solo-menu-open');};
+    byId('streetProfileClose').onclick=close;byId('streetProfileCancel').onclick=close;
+    modal.onclick=event=>{if(event.target===modal)close();};
+    const select=byId('streetSoloProfileSelect'),description=byId('streetSoloProfileDescription'),centralLabel=byId('streetSoloCentralZoneLabel');
+    const sync=()=>{const config=STREET_V2_PROFILES[select.value];description.textContent=`${config.count}${select.value==='free'?' pièces minimum':' pièces'} · ${config.allColors?'au moins une pièce de chacune des quatre couleurs':config.allowPrototype?'pièces v2 et prototypes disponibles':'sans contrainte de couleur'}`;centralLabel.hidden=select.value!=='free';};
+    select.addEventListener('change',sync);sync();
+    byId('streetProfileStart').onclick=()=>{const profile=select.value,centralZone=profile==='free'?byId('streetSoloCentralZone').checked:true;modal.classList.remove('open');byId('soloChoiceModal')?.classList.remove('open');document.body.classList.remove('solo-menu-open');void openSolo(null,null,profile,centralZone);};
+    modal.classList.add('open');
+  }
+  async function openSolo(gridId=null,resumeAttempt=null,profile=null,centralZone=true){
     if(!currentPlayerAccount?.session_token){closeSoloChoiceModal?.();openAccountModal();return false;}
-    if(!gridId&&!resumeAttempt&&typeof verifyStreetTutorialPrerequisite==='function'&&!await verifyStreetTutorialPrerequisite(true))return false;
+    if(!gridId&&!resumeAttempt&&!profile){if(typeof verifyStreetTutorialPrerequisite==='function'&&!await verifyStreetTutorialPrerequisite(true))return false;openStreetProfilePicker();return false;}
     streetTutorial={active:false,stage:0,puzzle:false,secretPieces:[],draftIndex:0};byId('streetTutorialCoach')?.remove();
     await loadStreetPreference();
     let decoded=gridId?decodeStreetGrid(gridId):null;
     if(gridId&&!decoded){showErrorToast('Identifiant Street invalide.');return false;}
-    if(!decoded){const pieces=freshPieces();state.pieces=pieces;if(!randomizePieces()){showErrorToast('Impossible de générer une grille Street.');return false;}decoded={variant:'street',pieces:state.pieces.map(piece=>({...piece,anchor:{...piece.anchor}}))};decoded.id=encodeStreetGrid(decoded.pieces);}
+    if(!decoded){
+      const selectedProfile=STREET_V2_PROFILES[profile]?profile:'normal';
+      state={...state,profile:selectedProfile,centralZone:selectedProfile==='free'?centralZone!==false:true,pieceSet:'official',pieces:freshPieces(streetAllowedDefinitions(selectedProfile))};
+      if(!randomizePieces()){showErrorToast('Impossible de générer une grille Street v2.');return false;}
+      decoded={variant:'street',version:2,profile:selectedProfile,centralZone:state.centralZone,pieces:streetPlacedPieces(state.pieces).map(piece=>({...piece,anchor:{...piece.anchor}}))};decoded.id=encodeStreetGrid(decoded.pieces,{profile:decoded.profile,centralZone:decoded.centralZone});
+    }
     let alreadyPlayed=false;
     if(gridId&&!resumeAttempt){
       const status=await supabaseRpc('orapa_get_street_grid_status',{p_grid_id:decoded.id,p_session_token:currentPlayerAccount.session_token}).catch(()=>null);
@@ -1493,10 +1825,12 @@
     const start=resumeAttempt?{ok:true,attempt:resumeAttempt,resumed:true}:await prepareNewActiveAttempt(target,!alreadyPlayed);
     if(!start?.ok){if(start?.reason==='already_played')showErrorToast('Cette grille Street a déjà été jouée avec ce compte.');else if(start?.resume&&start.attempt)await resumeServerAttempt(start.attempt);return false;}
     streetAttempt=start.attempt;
-    state={mode:'solo',pieces:freshPieces(),secretPieces:decoded.pieces.map(piece=>({...piece,anchor:{...piece.anchor}})),selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:true,traces:[],coords:[],draftCells:{},gridId:decoded.id,gridAlias,gridRanked:!alreadyPlayed,gridUnrankedReason:alreadyPlayed?'already_played':null,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
+    const playerDefinitions=decoded.pieces.map(piece=>pieceDefinition(piece)).filter(Boolean);
+    state={mode:'solo',pieceSet:decoded.version===2?'official':'prototype',profile:decoded.profile||null,centralZone:decoded.version===2?decoded.centralZone!==false:false,pieces:freshPieces(playerDefinitions),secretPieces:decoded.pieces.map(piece=>({...piece,anchor:{...piece.anchor}})),selected:playerDefinitions[0]?.id||'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:true,traces:[],coords:[],draftCells:{},gridId:decoded.id,gridAlias,gridRanked:!alreadyPlayed,gridUnrankedReason:alreadyPlayed?'already_played':null,attempts:0,over:false,result:null,showGuess:true,showSecret:true,startedAt:null,finalTimeMs:null,rank:null};
     if(start.resumed)restoreStreetProgress(start.attempt?.progress);
     byId('soloChoiceModal')?.classList.remove('open');document.body.classList.remove('solo-menu-open');
-    byId('streetPrototype').querySelector('.subtitle').textContent='Grille classique';
+    byId('streetPrototype').querySelector('.subtitle').textContent=decoded.version===2?`Orapa Street v2 · ${STREET_V2_PROFILES[decoded.profile]?.label||'Libre'}`:'Grille classique';
+    byId('streetPrototype').querySelector('h1').textContent=decoded.version===2?'🏠 Orapa Street v2':'🏠 Orapa Street';
     byId('streetPrototype').hidden=false;document.body.classList.add('street-open');document.body.classList.remove('home-view');toggleHistory(false);render();
     if(alreadyPlayed)setTimeout(()=>{if(typeof openAlreadyPlayedGridModal==='function')openAlreadyPlayedGridModal();else showToast('Cette grille a déjà été jouée avec ce compte : le nouveau score ne sera pas enregistré.');},60);
     return true;
@@ -1512,10 +1846,11 @@
     if(!decoded&&typeof resolveGridReference==='function')decoded=await resolveGridReference(reference);
     if(decoded?.variant!=='street')throw new Error('Identifiant Street invalide.');
     const clonePieces=()=>decoded.pieces.map(piece=>({...piece,anchor:piece.anchor?{...piece.anchor}:null}));
-    state={mode:'solo',pieces:clonePieces(),secretPieces:clonePieces(),selected:'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:true,traces:[],coords:[],draftCells:{},gridId:decoded.id,gridAlias:String(reference||''),attempts:0,over:true,result:'win',showGuess:true,showSecret:false,startedAt:Date.now(),finalTimeMs:0,rank:null};
+    state={mode:'solo',pieceSet:decoded.version===2?'official':'prototype',profile:decoded.profile||null,centralZone:decoded.version===2?decoded.centralZone!==false:false,pieces:clonePieces(),secretPieces:clonePieces(),selected:decoded.pieces[0]?.id||'blueSmall',tool:'pieces',waveModeActive:false,previewWave:null,started:true,traces:[],coords:[],draftCells:{},gridId:decoded.id,gridAlias:String(reference||''),attempts:0,over:true,result:'win',showGuess:true,showSecret:false,startedAt:Date.now(),finalTimeMs:0,rank:null};
     streetAttempt=null;clearDirectionChoicesTimer();selectedWaveEdge=null;
     byId('soloChoiceModal')?.classList.remove('open');document.body.classList.remove('solo-menu-open');
     byId('streetPrototype').querySelector('.subtitle').textContent='Aperçu local du résultat';
+    byId('streetPrototype').querySelector('h1').textContent=decoded.version===2?'🏠 Orapa Street v2':'🏠 Orapa Street';
     byId('streetPrototype').hidden=false;document.body.classList.add('street-open');document.body.classList.remove('home-view');toggleHistory(false);render();
     ensureStreetModal();byId('streetResultActions').dataset.orapaMyludoResult='false';byId('streetResultModal').classList.remove('open');
   }
